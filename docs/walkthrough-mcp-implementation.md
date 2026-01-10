@@ -8,15 +8,15 @@ I have implemented the **Model Context Protocol (MCP)** using the `github.com/ma
 
 We created lightweight wrappers around `mcp-go` to integrate it into the Kairos ecosystem:
 
-- **Client**: `pkg/mcp/client.go` provides a simplified `Client` struct and helpers to connect to local MCP servers via Stdio, including protocol selection when needed.
-- **Server**: `pkg/mcp/server.go` allows creating local MCP servers and registering Go functions as tools.
+- **Client**: `pkg/mcp/client.go` provides a simplified `Client` struct and helpers to connect to MCP servers via Stdio or Streamable HTTP, including protocol selection when needed.
+- **Server**: `pkg/mcp/server.go` allows creating local MCP servers and registering Go functions as tools, with Stdio or Streamable HTTP serving options.
 
 ### 2. Agent Integration (`pkg/agent`)
 
 The `Agent` struct now supports an optional list of MCP clients.
 
 - **Tools Discovery**: On every run, the agent queries connected MCP clients for available tools and filters them by `skills` (if configured).
-- **Reasoning Loop**: The `Run` method has been upgraded to a loop (max 5 turns) that:
+- **Reasoning Loop**: The `Run` method has been upgraded to a loop (default max 10 turns) that:
     1. Sends user input + available tools to the LLM.
     2. If the LLM requests a tool call, the agent executes it via the appropriate MCP client.
     3. The tool result is fed back to the LLM to generate the final response.
@@ -85,14 +85,28 @@ func main() {
 See `examples/mcp-agent/main.go` for a working end-to-end sample. It reads
 `mcp.servers` from a `kairos.json`-style config file.
 
-Example config:
+Example config (stdio):
 
 ```json
 {
   "mcpServers": {
     "fetch": {
+      "transport": "stdio",
       "command": "docker",
       "args": ["run", "-i", "--rm", "mcp/fetch"]
+    }
+  }
+}
+```
+
+Example config (streamable HTTP):
+
+```json
+{
+  "mcpServers": {
+    "fetch-http": {
+      "transport": "http",
+      "url": "http://localhost:8080/mcp"
     }
   }
 }
