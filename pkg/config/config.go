@@ -165,7 +165,7 @@ func normalizeMCPServers() {
 }
 
 func normalizeTelemetryConfig() {
-	if !k.Exists("telemetry.otlp_endpoint") {
+	if (!k.Exists("telemetry.otlp_endpoint") || k.String("telemetry.otlp_endpoint") == "") {
 		if raw := k.Get("telemetry.otlp.endpoint"); raw != nil {
 			_ = k.Set("telemetry.otlp_endpoint", raw)
 		}
