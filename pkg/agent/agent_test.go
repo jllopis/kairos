@@ -20,6 +20,55 @@ func (m *MockTool) Call(ctx context.Context, input any) (any, error) {
 	return fmt.Sprintf("Result from %s with %v", m.NameVal, input), nil
 }
 
+type toolWithDefinition struct {
+	NameVal  string
+	LastArgs any
+}
+
+func (t *toolWithDefinition) Name() string { return t.NameVal }
+func (t *toolWithDefinition) Call(ctx context.Context, input any) (any, error) {
+	t.LastArgs = input
+	return fmt.Sprintf("ok:%s", t.NameVal), nil
+}
+func (t *toolWithDefinition) ToolDefinition() llm.Tool {
+	return llm.Tool{
+		Type: llm.ToolTypeFunction,
+		Function: llm.FunctionDef{
+			Name: t.NameVal,
+			Parameters: map[string]interface{}{
+				"type":       "object",
+				"properties": map[string]interface{}{"query": map[string]interface{}{"type": "string"}},
+			},
+		},
+	}
+}
+
+type toolCallProvider struct {
+	CallCount int
+	LastReq   llm.ChatRequest
+}
+
+func (p *toolCallProvider) Chat(_ context.Context, req llm.ChatRequest) (*llm.ChatResponse, error) {
+	p.CallCount++
+	p.LastReq = req
+	if p.CallCount == 1 {
+		return &llm.ChatResponse{
+			Content: "",
+			ToolCalls: []llm.ToolCall{
+				{
+					ID:   "call-1",
+					Type: llm.ToolTypeFunction,
+					Function: llm.FunctionCall{
+						Name:      "search",
+						Arguments: `{"query":"hello"}`,
+					},
+				},
+			},
+		}, nil
+	}
+	return &llm.ChatResponse{Content: "Final Answer: done"}, nil
+}
+
 func TestAgent_ReActLoop(t *testing.T) {
 	ctx := context.Background()
 
@@ -77,6 +126,39 @@ func TestAgent_SingleTurn(t *testing.T) {
 
 	if result != "Just a chat response." {
 		t.Errorf("Unexpected result: %v", result)
+	}
+}
+
+func TestAgent_ToolCallsStructured(t *testing.T) {
+	ctx := context.Background()
+
+	tool := &toolWithDefinition{NameVal: "search"}
+	provider := &toolCallProvider{}
+
+	a, err := agent.New("tool-call-agent", provider, agent.WithTools([]core.Tool{tool}))
+	if err != nil {
+		t.Fatalf("Failed to create agent: %v", err)
+	}
+
+	result, err := a.Run(ctx, "Use the tool")
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if result != "done" {
+		t.Fatalf("Expected result 'done', got '%v'", result)
+	}
+	if provider.CallCount != 2 {
+		t.Fatalf("Expected 2 LLM calls, got %d", provider.CallCount)
+	}
+	if len(provider.LastReq.Tools) == 0 {
+		t.Fatalf("Expected tool definitions to be passed to LLM")
+	}
+	args, ok := tool.LastArgs.(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected tool args to be map, got %T", tool.LastArgs)
+	}
+	if args["query"] != "hello" {
+		t.Fatalf("Expected query arg 'hello', got %v", args["query"])
 	}
 }
 

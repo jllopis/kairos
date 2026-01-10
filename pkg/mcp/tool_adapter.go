@@ -42,6 +42,11 @@ func (t *ToolAdapter) Name() string {
 	return t.tool.Name
 }
 
+// ToolDefinition returns an LLM function definition for this tool.
+func (t *ToolAdapter) ToolDefinition() llm.Tool {
+	return ToolDefinition(t.tool)
+}
+
 // Call invokes the MCP tool with normalized arguments.
 func (t *ToolAdapter) Call(ctx context.Context, input any) (any, error) {
 	args, err := normalizeToolArgs(input)

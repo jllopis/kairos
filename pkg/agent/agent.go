@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -20,6 +21,10 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
+
+type toolDefiner interface {
+	ToolDefinition() llm.Tool
+}
 
 // Agent is an LLM-driven agent implementation.
 type Agent struct {
@@ -194,6 +199,7 @@ func (a *Agent) Run(ctx context.Context, input any) (any, error) {
 	messages := []llm.Message{}
 
 	toolset := a.resolveTools(ctx, log, runID)
+	toolDefs := toolDefinitions(toolset)
 	log.Info("agent.tools.resolved",
 		slog.String("agent_id", a.id),
 		slog.String("run_id", runID),
@@ -253,6 +259,9 @@ Final Answer: the final answer to the original input question
 			Model:    a.model,
 			Messages: messages,
 		}
+		if len(toolDefs) > 0 {
+			req.Tools = toolDefs
+		}
 
 		resp, err := a.llm.Chat(llmCtx, req)
 		llmSpan.End()
@@ -271,6 +280,11 @@ Final Answer: the final answer to the original input question
 
 		content := resp.Content
 		messages = append(messages, llm.Message{Role: llm.RoleAssistant, Content: content})
+
+		if len(resp.ToolCalls) > 0 {
+			a.handleToolCalls(ctx, log, runID, traceID, spanID, toolset, resp.ToolCalls, &messages)
+			continue
+		}
 
 		// Check for Final Answer
 		if strings.Contains(content, "Final Answer:") {
@@ -613,6 +627,114 @@ func toolNames(tools []core.Tool) []string {
 	}
 	slices.Sort(names)
 	return names
+}
+
+func toolDefinitions(tools []core.Tool) []llm.Tool {
+	defs := make([]llm.Tool, 0, len(tools))
+	for _, tool := range tools {
+		definer, ok := tool.(toolDefiner)
+		if !ok {
+			continue
+		}
+		defs = append(defs, definer.ToolDefinition())
+	}
+	return defs
+}
+
+func (a *Agent) handleToolCalls(ctx context.Context, log *slog.Logger, runID, traceID, spanID string, toolset []core.Tool, calls []llm.ToolCall, messages *[]llm.Message) {
+	for _, call := range calls {
+		toolName := call.Function.Name
+		args := strings.TrimSpace(call.Function.Arguments)
+		log.Info("agent.tool.requested",
+			slog.String("agent_id", a.id),
+			slog.String("run_id", runID),
+			slog.String("tool", toolName),
+			slog.String("tool_call_id", call.ID),
+			slog.String("action_input", args),
+		)
+
+		var foundTool core.Tool
+		for _, t := range toolset {
+			if t.Name() == toolName {
+				foundTool = t
+				break
+			}
+		}
+
+		observation := ""
+		if foundTool == nil {
+			observation = fmt.Sprintf("Tool %s not found", toolName)
+			log.Warn("agent.tool.missing",
+				slog.String("agent_id", a.id),
+				slog.String("run_id", runID),
+				slog.String("trace_id", traceID),
+				slog.String("span_id", spanID),
+				slog.String("tool", toolName),
+				slog.String("tool_call_id", call.ID),
+			)
+		} else {
+			log.Info("agent.tool.found",
+				slog.String("agent_id", a.id),
+				slog.String("run_id", runID),
+				slog.String("tool", toolName),
+				slog.String("tool_call_id", call.ID),
+			)
+			toolStart := time.Now()
+			toolCtx, toolSpan := a.tracer.Start(ctx, "Agent.Tool.Call", trace.WithAttributes(
+				attribute.String("tool.name", toolName),
+			))
+
+			var input any = args
+			if parsed := parseToolArguments(args); parsed != nil {
+				input = parsed
+			}
+			res, err := foundTool.Call(toolCtx, input)
+			toolSpan.End()
+			toolLatencyMs.Record(ctx, time.Since(toolStart).Seconds()*1000, metric.WithAttributes(
+				attribute.String("tool.name", toolName),
+			))
+			if err != nil {
+				observation = fmt.Sprintf("Error executing tool: %v", err)
+				agentErrorCounter.Add(ctx, 1)
+				log.Error("agent.tool.error",
+					slog.String("agent_id", a.id),
+					slog.String("run_id", runID),
+					slog.String("trace_id", traceID),
+					slog.String("span_id", spanID),
+					slog.String("tool", toolName),
+					slog.String("tool_call_id", call.ID),
+					slog.String("error", err.Error()),
+				)
+			} else {
+				observation = fmt.Sprintf("%v", res)
+				log.Info("agent.tool.complete",
+					slog.String("agent_id", a.id),
+					slog.String("run_id", runID),
+					slog.String("trace_id", traceID),
+					slog.String("span_id", spanID),
+					slog.String("tool", toolName),
+					slog.String("tool_call_id", call.ID),
+				)
+			}
+		}
+
+		*messages = append(*messages, llm.Message{
+			Role:       llm.RoleTool,
+			Content:    observation,
+			ToolCallID: call.ID,
+		})
+	}
+}
+
+func parseToolArguments(raw string) map[string]interface{} {
+	if raw == "" {
+		return nil
+	}
+	var decoded map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+		return nil
+	}
+	return decoded
 }
 
 // ToolNames returns the resolved tool names for the agent.
