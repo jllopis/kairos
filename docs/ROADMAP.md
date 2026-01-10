@@ -6,25 +6,26 @@
 - [x] Done
 
 ## Milestones
-- M0: Go SDK skeleton + hello agent (Phase 0)
-- M1: Agent can call external MCP tool (Phase 1)
-- M2: OTel traces visible in backend (Phase 2)
-- M3: YAML/JSON graph executes end-to-end (Phase 3)
-- M4: Emergent flow runs with decision logs (Phase 4)
-- M5: Two agents delegate with distributed traces (Phase 5)
-- M6: Per-agent memory with short/long backends (Phase 6)
-- M7: AGENTS.md and policies enforced with audit trail (Phase 7)
-- M8: Operator UI with agents, flows, and traces (Phase 8)
+- M0: Go SDK skeleton + hello agent (Phase 0) [x]
+- M1: Agent can call external MCP tool (Phase 1) [~]
+- M2: OTel traces visible in backend (Phase 2) [~]
+- M3: YAML/JSON graph executes end-to-end (Phase 3) [ ]
+- M4: Emergent flow runs with decision logs (Phase 4) [~]
+- M5: Two agents delegate with distributed traces (Phase 5) [ ]
+- M6: Per-agent memory with short/long backends (Phase 6) [x]
+- M7: AGENTS.md and policies enforced with audit trail (Phase 7) [ ]
+- M8: Operator UI with agents, flows, and traces (Phase 8) [ ]
 
 ## Phase 0: Core foundations (Estimate: M)
 Goals: core interfaces and minimal runtime.
 Dependencies: none.
 Milestone: Go SDK skeleton + hello agent.
 Tasks:
-- [ ] Define core interfaces (Agent, Tool, Skill, Plan, Memory).
-- [ ] Create runtime lifecycle (start, run, stop).
-- [ ] Add minimal context propagation support.
-- [ ] Provide hello agent example.
+- [x] Define core interfaces (Agent, Tool, Skill, Plan, Memory).
+- [x] Create runtime lifecycle (start, run, stop).
+- [x] Add minimal context propagation support.
+- [x] Provide hello agent example.
+- [x] Align public agent options with examples (model selection).
 Acceptance: US-01 (partial), US-06 (interface).
 
 ## Phase 1: MCP interoperability (Estimate: M)
@@ -32,9 +33,10 @@ Goals: MCP client/server and tool binding.
 Dependencies: Phase 0.
 Milestone: Agent can call external MCP tool.
 Tasks:
-- [ ] MCP client with tool invocation.
-- [ ] MCP server for exposing tools.
-- [ ] Skill -> MCP tool binding.
+- [x] MCP client with tool invocation.
+- [x] MCP server for exposing tools.
+- [~] Skill -> MCP tool binding (Agent tool adapter).
+- [x] Tool schema/arguments mapping and validation.
 - [ ] Error handling and retries.
 Acceptance: US-01 complete.
 
@@ -43,9 +45,9 @@ Goals: OTel traces/metrics/logs from runtime.
 Dependencies: Phase 0.
 Milestone: traces visible in OTel backend.
 Tasks:
-- [ ] OTel tracer and span propagation in runtime.
-- [ ] Metrics for latency and error counts.
-- [ ] Structured logs with trace/span ids.
+- [x] OTel tracer and span propagation in runtime (Agent/Runtime + tool/memory/LLM spans).
+- [x] Metrics for latency and error counts.
+- [x] Structured logs with trace/span ids.
 Acceptance: US-05 (partial).
 
 ## Phase 3: Explicit planner (Estimate: L)
@@ -63,8 +65,9 @@ Goals: dynamic next-step decisions.
 Dependencies: Phase 0, Phase 1.
 Milestone: emergent flow runs with decision logs.
 Tasks:
-- [ ] Decision engine with tool/agent selection.
+- [~] Decision engine with tool selection (ReAct loop).
 - [ ] Logging of decisions and outcomes.
+- [ ] Structured tool-call parsing (avoid brittle string parsing).
 Acceptance: US-04 complete.
 
 ## Phase 5: A2A distributed runtime (Estimate: L)
@@ -82,9 +85,10 @@ Goals: short and long-term memory backends.
 Dependencies: Phase 0.
 Milestone: per-agent memory configuration.
 Tasks:
-- [ ] In-memory backend.
-- [ ] Persistent backend (db or vector store stub).
-- [ ] Configuration per agent.
+- [x] In-memory backend.
+- [x] Persistent backend (file store, vector store).
+- [x] Configuration per agent.
+- [x] Agent loop reads/writes memory in runtime.
 Acceptance: US-06 complete.
 
 ## Phase 7: Governance and AGENTS.md (Estimate: M)

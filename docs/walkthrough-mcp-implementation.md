@@ -8,18 +8,24 @@ I have implemented the **Model Context Protocol (MCP)** using the `github.com/ma
 
 We created lightweight wrappers around `mcp-go` to integrate it into the Kairos ecosystem:
 
-- **Client**: `pkg/mcp/client.go` provides a simplified `Client` struct and a helper `NewClientWithStdio` to connect to local MCP servers via Stdio.
+- **Client**: `pkg/mcp/client.go` provides a simplified `Client` struct and helpers to connect to local MCP servers via Stdio, including protocol selection when needed.
 - **Server**: `pkg/mcp/server.go` allows creating local MCP servers and registering Go functions as tools.
 
 ### 2. Agent Integration (`pkg/agent`)
 
 The `Agent` struct now supports an optional list of MCP clients.
 
-- **Tools Discovery**: On every run, the agent queries connected MCP clients for available tools.
+- **Tools Discovery**: On every run, the agent queries connected MCP clients for available tools and filters them by `skills` (if configured).
 - **Reasoning Loop**: The `Run` method has been upgraded to a loop (max 5 turns) that:
     1. Sends user input + available tools to the LLM.
     2. If the LLM requests a tool call, the agent executes it via the appropriate MCP client.
     3. The tool result is fed back to the LLM to generate the final response.
+
+### 2.1 Tool Argument Normalization
+
+When a tool requires a `url` field and the LLM returns the action input as a plain URL
+(instead of JSON), the MCP adapter maps that string to `{"url": "<value>"}` to satisfy
+the schema.
 
 ### 3. LLM Provider Support (`pkg/llm`)
 
@@ -38,14 +44,21 @@ package main
 import (
     "context"
     "fmt"
+    "log"
+    "os"
     "github.com/jllopis/kairos/pkg/agent"
+    "github.com/jllopis/kairos/pkg/core"
     "github.com/jllopis/kairos/pkg/llm"
     "github.com/jllopis/kairos/pkg/mcp"
 )
 
 func main() {
-    // 1. Create a Stdio MCP Client (e.g., connecting to a local python server)
-    client, err := mcp.NewClientWithStdio("python", []string{"server.py"})
+    // 1. Create a Stdio MCP Client (e.g., using the mcp-server-starter dist/index.js)
+    serverPath := os.Getenv("MCP_SERVER_PATH")
+    if serverPath == "" {
+        log.Fatal("MCP_SERVER_PATH is required")
+    }
+    client, err := mcp.NewClientWithStdioProtocol("node", []string{serverPath}, "2024-11-05")
     if err != nil {
         panic(err)
     }
@@ -53,7 +66,10 @@ func main() {
 
     // 2. Initialize Agent with the Client
     llmProvider := llm.NewOllama("http://localhost:11434")
-    a, err := agent.New("my-agent", llmProvider, agent.WithMCPClient(client))
+    a, err := agent.New("my-agent", llmProvider,
+        agent.WithSkills([]core.Skill{{Name: "echo"}}),
+        agent.WithMCPClients(client),
+    )
     if err != nil {
         panic(err)
     }
@@ -64,11 +80,34 @@ func main() {
 }
 ```
 
+### runnable example (config-driven)
+
+See `examples/mcp-agent/main.go` for a working end-to-end sample. It reads
+`mcp.servers` from a `kairos.json`-style config file.
+
+Example config:
+
+```json
+{
+  "mcpServers": {
+    "fetch": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "mcp/fetch"]
+    }
+  }
+}
+```
+
+Place it in one of:
+- `./.kairos/settings.json`
+- `$HOME/.kairos/settings.json`
+- `$XDG_CONFIG_HOME/kairos/settings.json`
+
 ## Verification
 
-A new test `pkg/agent/agent_tool_test.go` was created to verify the entire flow using a Mock MCP Client and Mock LLM.
+A new test `pkg/mcp/tool_adapter_test.go` verifies MCP tool mapping behavior.
 Run it with:
 
 ```bash
-go test -v ./pkg/agent/ -run TestAgent_Run_ToolLoop
+go test -v ./pkg/mcp -run TestToolAdapter
 ```

@@ -4,11 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"slices"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/jllopis/kairos/pkg/config"
 	"github.com/jllopis/kairos/pkg/core"
 	"github.com/jllopis/kairos/pkg/llm"
+	kmcp "github.com/jllopis/kairos/pkg/mcp"
+	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -21,7 +30,9 @@ type Agent struct {
 	memory        core.Memory
 	llm           llm.Provider
 	tracer        trace.Tracer
+	model         string
 	maxIterations int
+	mcpClients    []*kmcp.Client
 }
 
 // Option configures an Agent instance.
@@ -40,6 +51,7 @@ func New(id string, llmProvider llm.Provider, opts ...Option) (*Agent, error) {
 		id:            id,
 		llm:           llmProvider,
 		tracer:        otel.Tracer("kairos/agent"),
+		model:         "default",
 		maxIterations: 10, // default
 	}
 
@@ -75,10 +87,51 @@ func WithTools(tools []core.Tool) Option {
 	}
 }
 
+// WithMCPClients registers MCP clients for tool discovery and execution.
+func WithMCPClients(clients ...*kmcp.Client) Option {
+	return func(a *Agent) error {
+		for _, client := range clients {
+			if client == nil {
+				return errors.New("mcp client cannot be nil")
+			}
+		}
+		a.mcpClients = append(a.mcpClients, clients...)
+		return nil
+	}
+}
+
+// WithMCPServerConfigs connects MCP clients from config definitions.
+func WithMCPServerConfigs(servers map[string]config.MCPServerConfig) Option {
+	return func(a *Agent) error {
+		for name, server := range servers {
+			if strings.TrimSpace(server.Command) == "" {
+				return fmt.Errorf("mcp server %q missing command", name)
+			}
+			client, err := kmcp.NewClientWithStdioProtocol(server.Command, server.Args, server.ProtocolVersion)
+			if err != nil {
+				return fmt.Errorf("mcp server %q: %w", name, err)
+			}
+			a.mcpClients = append(a.mcpClients, client)
+		}
+		return nil
+	}
+}
+
 // WithMemory attaches a memory backend to the agent.
 func WithMemory(memory core.Memory) Option {
 	return func(a *Agent) error {
 		a.memory = memory
+		return nil
+	}
+}
+
+// WithModel sets the model name used for LLM chat requests.
+func WithModel(model string) Option {
+	return func(a *Agent) error {
+		if strings.TrimSpace(model) == "" {
+			return errors.New("model name cannot be empty")
+		}
+		a.model = model
 		return nil
 	}
 }
@@ -116,30 +169,51 @@ func (a *Agent) Memory() core.Memory { return a.memory }
 // Run executes the agent loop.
 // Implements a ReAct Loop: Thought -> Action -> Observation -> Thought -> Final Answer.
 func (a *Agent) Run(ctx context.Context, input any) (any, error) {
+	ctx, runID := core.EnsureRunID(ctx)
 	ctx, span := a.tracer.Start(ctx, "Agent.Run")
 	defer span.End()
+	traceID, spanID := traceIDs(span)
 
 	inputStr, ok := input.(string)
 	if !ok {
 		return nil, fmt.Errorf("agent currently only supports string input")
 	}
 
+	initAgentMetrics()
+	agentRunCounter.Add(ctx, 1)
+	start := time.Now()
+	log := slog.Default()
+	log.Info("agent.run.start",
+		slog.String("agent_id", a.id),
+		slog.String("run_id", runID),
+		slog.String("trace_id", traceID),
+		slog.String("span_id", spanID),
+	)
+
 	// 1. Construct Initial System Prompt and User Message
 	messages := []llm.Message{}
 
+	toolset := a.resolveTools(ctx, log, runID)
+	log.Info("agent.tools.resolved",
+		slog.String("agent_id", a.id),
+		slog.String("run_id", runID),
+		slog.Int("tool_count", len(toolset)),
+		slog.String("tools", strings.Join(toolNames(toolset), ", ")),
+	)
+
 	// Construct system prompt with tool instructions if tools are present
 	systemPrompt := a.role
-	if len(a.tools) > 0 {
+	if len(toolset) > 0 {
 		systemPrompt += "\n\nYou have access to the following tools:\n"
-		for _, t := range a.tools {
+		for _, t := range toolset {
 			systemPrompt += fmt.Sprintf("- %s: (Capability)\n", t.Name()) // TODO: add description to Tool interface if needed
 		}
 		systemPrompt += `
 To use a tool, please use the following format:
 Thought: Do I need to use a tool? Yes
 Action: the action to take, should be one of [`
-		toolNames := make([]string, len(a.tools))
-		for i, t := range a.tools {
+		toolNames := make([]string, len(toolset))
+		for i, t := range toolset {
 			toolNames[i] = t.Name()
 		}
 		systemPrompt += strings.Join(toolNames, ", ")
@@ -156,19 +230,42 @@ Final Answer: the final answer to the original input question
 	}
 
 	// TODO: Retrieve Context from Memory here
+	mem := a.resolveMemory(ctx)
+	if mem != nil {
+		if memoryContext := a.loadMemoryContext(ctx, mem, inputStr); memoryContext != "" {
+			messages = append(messages, llm.Message{Role: llm.RoleSystem, Content: memoryContext})
+		}
+	}
 
 	messages = append(messages, llm.Message{Role: llm.RoleUser, Content: inputStr})
 
 	// 2. ReAct Loop
 	for i := 0; i < a.maxIterations; i++ {
+		llmStart := time.Now()
+		llmCtx, llmSpan := a.tracer.Start(ctx, "Agent.LLM.Chat", trace.WithAttributes(
+			attribute.String("llm.model", a.model),
+			attribute.Int("agent.iteration", i+1),
+		))
+		llmSpan.SetAttributes(attribute.Int("llm.messages", len(messages)))
+
 		// Call LLM
 		req := llm.ChatRequest{
-			Model:    "default",
+			Model:    a.model,
 			Messages: messages,
 		}
 
-		resp, err := a.llm.Chat(ctx, req)
+		resp, err := a.llm.Chat(llmCtx, req)
+		llmSpan.End()
+		llmLatencyMs.Record(ctx, time.Since(llmStart).Seconds()*1000)
 		if err != nil {
+			agentErrorCounter.Add(ctx, 1)
+			log.Error("agent.llm.error",
+				slog.String("agent_id", a.id),
+				slog.String("run_id", runID),
+				slog.String("trace_id", traceID),
+				slog.String("span_id", spanID),
+				slog.String("error", err.Error()),
+			)
 			return nil, fmt.Errorf("llm chat failed: %w", err)
 		}
 
@@ -179,8 +276,27 @@ Final Answer: the final answer to the original input question
 		if strings.Contains(content, "Final Answer:") {
 			parts := strings.Split(content, "Final Answer:")
 			if len(parts) > 1 {
-				return strings.TrimSpace(parts[1]), nil
+				finalAnswer := strings.TrimSpace(parts[1])
+				a.storeMemory(ctx, mem, inputStr, finalAnswer)
+				agentRunLatencyMs.Record(ctx, time.Since(start).Seconds()*1000)
+				log.Info("agent.run.complete",
+					slog.String("agent_id", a.id),
+					slog.String("run_id", runID),
+					slog.String("trace_id", traceID),
+					slog.String("span_id", spanID),
+					slog.Int("iterations", i+1),
+				)
+				return finalAnswer, nil
 			}
+			a.storeMemory(ctx, mem, inputStr, content)
+			agentRunLatencyMs.Record(ctx, time.Since(start).Seconds()*1000)
+			log.Info("agent.run.complete",
+				slog.String("agent_id", a.id),
+				slog.String("run_id", runID),
+				slog.String("trace_id", traceID),
+				slog.String("span_id", spanID),
+				slog.Int("iterations", i+1),
+			)
 			return content, nil
 		}
 
@@ -191,19 +307,28 @@ Final Answer: the final answer to the original input question
 			lines := strings.Split(content, "\n")
 			var action, actionInput string
 
-			for _, line := range lines {
+			for i, line := range lines {
 				if strings.HasPrefix(line, "Action:") {
 					action = strings.TrimSpace(strings.TrimPrefix(line, "Action:"))
 				}
 				if strings.HasPrefix(line, "Action Input:") {
 					actionInput = strings.TrimSpace(strings.TrimPrefix(line, "Action Input:"))
+					if actionInput == "" && i+1 < len(lines) {
+						actionInput = strings.TrimSpace(lines[i+1])
+					}
 				}
 			}
 
 			if action != "" {
+				log.Info("agent.tool.requested",
+					slog.String("agent_id", a.id),
+					slog.String("run_id", runID),
+					slog.String("tool", action),
+					slog.String("action_input", actionInput),
+				)
 				// Initialize as "Not Found"
 				var foundTool core.Tool
-				for _, t := range a.tools {
+				for _, t := range toolset {
 					if t.Name() == action {
 						foundTool = t
 						break
@@ -212,16 +337,52 @@ Final Answer: the final answer to the original input question
 
 				var observation string
 				if foundTool != nil {
+					log.Info("agent.tool.found",
+						slog.String("agent_id", a.id),
+						slog.String("run_id", runID),
+						slog.String("tool", action),
+					)
+					toolStart := time.Now()
+					toolCtx, toolSpan := a.tracer.Start(ctx, "Agent.Tool.Call", trace.WithAttributes(
+						attribute.String("tool.name", action),
+					))
 					// Tool execution
 					// We treat tool Call input as string for this basic implementation
-					res, err := foundTool.Call(ctx, actionInput)
+					res, err := foundTool.Call(toolCtx, actionInput)
+					toolSpan.End()
+					toolLatencyMs.Record(ctx, time.Since(toolStart).Seconds()*1000, metric.WithAttributes(
+						attribute.String("tool.name", action),
+					))
 					if err != nil {
 						observation = fmt.Sprintf("Error executing tool: %v", err)
+						agentErrorCounter.Add(ctx, 1)
+						log.Error("agent.tool.error",
+							slog.String("agent_id", a.id),
+							slog.String("run_id", runID),
+							slog.String("trace_id", traceID),
+							slog.String("span_id", spanID),
+							slog.String("tool", action),
+							slog.String("error", err.Error()),
+						)
 					} else {
 						observation = fmt.Sprintf("%v", res)
+						log.Info("agent.tool.complete",
+							slog.String("agent_id", a.id),
+							slog.String("run_id", runID),
+							slog.String("trace_id", traceID),
+							slog.String("span_id", spanID),
+							slog.String("tool", action),
+						)
 					}
 				} else {
 					observation = fmt.Sprintf("Tool %s not found", action)
+					log.Warn("agent.tool.missing",
+						slog.String("agent_id", a.id),
+						slog.String("run_id", runID),
+						slog.String("trace_id", traceID),
+						slog.String("span_id", spanID),
+						slog.String("tool", action),
+					)
 				}
 
 				// Append Observation
@@ -234,10 +395,311 @@ Final Answer: the final answer to the original input question
 		}
 
 		// If no tools defined, just return content (single turn behavior)
-		if len(a.tools) == 0 {
+		if len(toolset) == 0 {
+			a.storeMemory(ctx, mem, inputStr, content)
+			agentRunLatencyMs.Record(ctx, time.Since(start).Seconds()*1000)
+			log.Info("agent.run.complete",
+				slog.String("agent_id", a.id),
+				slog.String("run_id", runID),
+				slog.String("trace_id", traceID),
+				slog.String("span_id", spanID),
+				slog.Int("iterations", i+1),
+			)
 			return content, nil
 		}
 	}
 
+	agentErrorCounter.Add(ctx, 1)
+	log.Error("agent.run.timeout",
+		slog.String("agent_id", a.id),
+		slog.String("run_id", runID),
+		slog.String("trace_id", traceID),
+		slog.String("span_id", spanID),
+		slog.Int("iterations", a.maxIterations),
+	)
 	return nil, fmt.Errorf("agent exceeded max iterations (%d) without final answer", a.maxIterations)
+}
+
+// Close releases MCP client resources if configured.
+func (a *Agent) Close() error {
+	if len(a.mcpClients) == 0 {
+		return nil
+	}
+	var errs []error
+	for _, client := range a.mcpClients {
+		if err := client.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("closing mcp clients: %v", errs)
+	}
+	return nil
+}
+
+func (a *Agent) resolveMemory(ctx context.Context) core.Memory {
+	if a.memory != nil {
+		return a.memory
+	}
+	mem, _ := core.MemoryFromContext(ctx)
+	return mem
+}
+
+func (a *Agent) loadMemoryContext(ctx context.Context, mem core.Memory, query string) string {
+	if mem == nil {
+		return ""
+	}
+
+	memStart := time.Now()
+	memCtx, memSpan := a.tracer.Start(ctx, "Agent.Memory.Retrieve")
+	result, err := mem.Retrieve(memCtx, query)
+	if err != nil {
+		result, err = mem.Retrieve(memCtx, nil)
+		if err != nil {
+			memSpan.End()
+			memoryLatencyMs.Record(ctx, time.Since(memStart).Seconds()*1000, metric.WithAttributes(
+				attribute.String("memory.operation", "retrieve"),
+				attribute.String("memory.outcome", "empty"),
+			))
+			return ""
+		}
+	}
+	memSpan.End()
+	memoryLatencyMs.Record(ctx, time.Since(memStart).Seconds()*1000, metric.WithAttributes(
+		attribute.String("memory.operation", "retrieve"),
+		attribute.String("memory.outcome", "hit"),
+	))
+
+	switch value := result.(type) {
+	case string:
+		if strings.TrimSpace(value) == "" {
+			return ""
+		}
+		return fmt.Sprintf("Memory context:\n%s", value)
+	case []string:
+		if len(value) == 0 {
+			return ""
+		}
+		return fmt.Sprintf("Memory context:\n- %s", strings.Join(value, "\n- "))
+	case []any:
+		if len(value) == 0 {
+			return ""
+		}
+		parts := make([]string, 0, len(value))
+		for _, item := range value {
+			parts = append(parts, fmt.Sprint(item))
+		}
+		return fmt.Sprintf("Memory context:\n- %s", strings.Join(parts, "\n- "))
+	default:
+		text := strings.TrimSpace(fmt.Sprint(value))
+		if text == "" {
+			return ""
+		}
+		return fmt.Sprintf("Memory context:\n%s", text)
+	}
+}
+
+func (a *Agent) storeMemory(ctx context.Context, mem core.Memory, input, output string) {
+	if mem == nil {
+		return
+	}
+
+	memStart := time.Now()
+	memCtx, memSpan := a.tracer.Start(ctx, "Agent.Memory.Store")
+	entry := fmt.Sprintf("Timestamp: %s\nUser: %s\nAgent: %s", time.Now().UTC().Format(time.RFC3339), input, output)
+	if err := mem.Store(memCtx, entry); err != nil {
+		memSpan.End()
+		agentErrorCounter.Add(ctx, 1)
+		slog.Default().Error("agent.memory.store.error",
+			slog.String("agent_id", a.id),
+			slog.String("run_id", runIDFromContext(ctx)),
+			slog.String("trace_id", traceIDFromContext(ctx)),
+			slog.String("span_id", spanIDFromContext(ctx)),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+	memSpan.End()
+	memoryLatencyMs.Record(ctx, time.Since(memStart).Seconds()*1000, metric.WithAttributes(
+		attribute.String("memory.operation", "store"),
+		attribute.String("memory.outcome", "ok"),
+	))
+}
+
+func (a *Agent) resolveTools(ctx context.Context, log *slog.Logger, runID string) []core.Tool {
+	tools := append([]core.Tool(nil), a.tools...)
+	if len(a.mcpClients) == 0 {
+		return tools
+	}
+
+	allowed := a.skillAllowList()
+	for _, client := range a.mcpClients {
+		list, err := client.ListTools(ctx)
+		if err != nil {
+			log.Error("agent.mcp.list_tools.error",
+				slog.String("agent_id", a.id),
+				slog.String("run_id", runID),
+				slog.String("error", err.Error()),
+			)
+			continue
+		}
+		for _, tool := range list {
+			if len(allowed) > 0 && !allowed[tool.Name] {
+				continue
+			}
+			adapter, err := kmcp.NewToolAdapter(tool, client)
+			if err != nil {
+				log.Error("agent.mcp.tool_adapter.error",
+					slog.String("agent_id", a.id),
+					slog.String("run_id", runID),
+					slog.String("tool", tool.Name),
+					slog.String("error", err.Error()),
+				)
+				continue
+			}
+			tools = append(tools, adapter)
+		}
+	}
+
+	return dedupeTools(tools)
+}
+
+func (a *Agent) skillAllowList() map[string]bool {
+	if len(a.skills) == 0 {
+		return nil
+	}
+	allowed := make(map[string]bool, len(a.skills))
+	for _, skill := range a.skills {
+		if strings.TrimSpace(skill.Name) == "" {
+			continue
+		}
+		allowed[skill.Name] = true
+	}
+	return allowed
+}
+
+func dedupeTools(tools []core.Tool) []core.Tool {
+	if len(tools) < 2 {
+		return tools
+	}
+	seen := make(map[string]bool, len(tools))
+	out := make([]core.Tool, 0, len(tools))
+	for _, tool := range tools {
+		name := tool.Name()
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, tool)
+	}
+	slices.SortStableFunc(out, func(a, b core.Tool) int {
+		if a.Name() == b.Name() {
+			return 0
+		}
+		if a.Name() < b.Name() {
+			return -1
+		}
+		return 1
+	})
+	return out
+}
+
+func toolNames(tools []core.Tool) []string {
+	names := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		if name := tool.Name(); name != "" {
+			names = append(names, name)
+		}
+	}
+	slices.Sort(names)
+	return names
+}
+
+// ToolNames returns the resolved tool names for the agent.
+func (a *Agent) ToolNames() []string {
+	ctx := context.Background()
+	tools := a.resolveTools(ctx, slog.Default(), "tool-names")
+	return toolNames(tools)
+}
+
+// MCPTools returns the raw MCP tool definitions discovered from configured clients.
+func (a *Agent) MCPTools(ctx context.Context) ([]mcpgo.Tool, error) {
+	if len(a.mcpClients) == 0 {
+		return nil, nil
+	}
+	seen := make(map[string]bool)
+	out := make([]mcpgo.Tool, 0)
+	for _, client := range a.mcpClients {
+		list, err := client.ListTools(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, tool := range list {
+			if tool.Name == "" || seen[tool.Name] {
+				continue
+			}
+			seen[tool.Name] = true
+			out = append(out, tool)
+		}
+	}
+	slices.SortFunc(out, func(a, b mcpgo.Tool) int {
+		if a.Name == b.Name {
+			return 0
+		}
+		if a.Name < b.Name {
+			return -1
+		}
+		return 1
+	})
+	return out, nil
+}
+
+var (
+	metricsOnce       sync.Once
+	agentRunCounter   metric.Int64Counter
+	agentErrorCounter metric.Int64Counter
+	agentRunLatencyMs metric.Float64Histogram
+	llmLatencyMs      metric.Float64Histogram
+	toolLatencyMs     metric.Float64Histogram
+	memoryLatencyMs   metric.Float64Histogram
+)
+
+func initAgentMetrics() {
+	metricsOnce.Do(func() {
+		meter := otel.Meter("kairos/agent")
+		agentRunCounter, _ = meter.Int64Counter("kairos.agent.run.count")
+		agentErrorCounter, _ = meter.Int64Counter("kairos.agent.error.count")
+		agentRunLatencyMs, _ = meter.Float64Histogram("kairos.agent.run.latency_ms")
+		llmLatencyMs, _ = meter.Float64Histogram("kairos.agent.llm.latency_ms")
+		toolLatencyMs, _ = meter.Float64Histogram("kairos.agent.tool.latency_ms")
+		memoryLatencyMs, _ = meter.Float64Histogram("kairos.agent.memory.latency_ms")
+	})
+}
+
+func runIDFromContext(ctx context.Context) string {
+	if runID, ok := core.RunID(ctx); ok {
+		return runID
+	}
+	return "unknown"
+}
+
+func traceIDs(span trace.Span) (string, string) {
+	sc := span.SpanContext()
+	return sc.TraceID().String(), sc.SpanID().String()
+}
+
+func traceIDFromContext(ctx context.Context) string {
+	sc := trace.SpanFromContext(ctx).SpanContext()
+	if !sc.IsValid() {
+		return "unknown"
+	}
+	return sc.TraceID().String()
+}
+
+func spanIDFromContext(ctx context.Context) string {
+	sc := trace.SpanFromContext(ctx).SpanContext()
+	if !sc.IsValid() {
+		return "unknown"
+	}
+	return sc.SpanID().String()
 }

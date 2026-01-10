@@ -23,8 +23,16 @@ func NewClient(c client.MCPClient) *Client {
 
 // NewClientWithStdio creates a new MCP client that connects via Stdio.
 func NewClientWithStdio(command string, args []string) (*Client, error) {
-	// client.NewStdioMCPClient returns a *client.StdioMCPClient which implements mcp.Client
-	stdioClient, err := client.NewStdioMCPClient(command, args)
+	return NewClientWithStdioProtocol(command, args, mcp.LATEST_PROTOCOL_VERSION)
+}
+
+// NewClientWithStdioProtocol creates a new MCP client that connects via Stdio using a specified protocol version.
+func NewClientWithStdioProtocol(command string, args []string, protocolVersion string) (*Client, error) {
+	if protocolVersion == "" {
+		protocolVersion = mcp.LATEST_PROTOCOL_VERSION
+	}
+	// client.NewStdioMCPClient returns a *client.Client which implements mcp.Client
+	stdioClient, err := client.NewStdioMCPClient(command, nil, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +47,7 @@ func NewClientWithStdio(command string, args []string) (*Client, error) {
 	defer cancel()
 
 	initRequest := mcp.InitializeRequest{}
-	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
+	initRequest.Params.ProtocolVersion = protocolVersion
 	initRequest.Params.ClientInfo = mcp.Implementation{
 		Name:    "kairos-client",
 		Version: "0.1.0",

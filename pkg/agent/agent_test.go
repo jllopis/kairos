@@ -79,3 +79,30 @@ func TestAgent_SingleTurn(t *testing.T) {
 		t.Errorf("Unexpected result: %v", result)
 	}
 }
+
+type captureModelProvider struct {
+	LastModel string
+}
+
+func (c *captureModelProvider) Chat(_ context.Context, req llm.ChatRequest) (*llm.ChatResponse, error) {
+	c.LastModel = req.Model
+	return &llm.ChatResponse{Content: "ok"}, nil
+}
+
+func TestAgent_WithModel(t *testing.T) {
+	ctx := context.Background()
+	capture := &captureModelProvider{}
+
+	a, err := agent.New("model-agent", capture, agent.WithModel("kairos-test-model"))
+	if err != nil {
+		t.Fatalf("Failed to create agent: %v", err)
+	}
+
+	if _, err := a.Run(ctx, "Hello"); err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+
+	if capture.LastModel != "kairos-test-model" {
+		t.Fatalf("Expected model 'kairos-test-model', got '%s'", capture.LastModel)
+	}
+}
