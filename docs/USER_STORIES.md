@@ -7,14 +7,15 @@
 
 ## US-01: Run a Go agent with MCP tools
 As a developer, I want to instantiate a Go agent with MCP tools to test capabilities quickly.
-Status: [~] In progress
+Status: [x] Done
 Current implementation:
 - Agent can be created via typed API and run with a mock or Ollama LLM.
 - MCP client/server wrappers exist.
 - MCP tool adapter supports schema mapping and required-arg validation.
 - Agent can auto-discover MCP tools via registered clients, filtered by skills.
-Gaps to close:
-- Validate end-to-end MCP tool execution via example/test.
+ - Example MCP agent loads servers from config and executes a tool call.
+Follow-ups:
+- Add retry/backoff/timeouts for MCP tool calls.
 Acceptance criteria:
 - Create a Go agent via typed API and run a simple task.
 - Agent can call an external MCP tool.
@@ -40,11 +41,12 @@ Acceptance criteria:
 As a flow designer, I want the agent to choose the next action dynamically.
 Status: [~] In progress
 Current implementation:
-- ReAct-style loop selects tools based on LLM output.
- - Tool calls are logged with trace/span identifiers.
+- ReAct-style loop selects tools based on LLM output via prompt-driven "Action:" parsing.
+- Tool calls are logged with trace/span identifiers.
 Gaps to close:
-- Decision logging with trace/span IDs.
-- Structured tool-call parsing.
+- Decision logging with trace/span IDs and rationale.
+- Structured tool-call parsing (LLM tool calls instead of string parsing).
+- Provide tool definitions (function schema) in chat requests.
 Acceptance criteria:
 - Agent selects the next step among multiple tools or agents.
 - Decisions and intermediate results are logged.
@@ -54,7 +56,7 @@ As an SRE, I want traces, metrics, and logs for multi-agent diagnosis.
 Status: [~] In progress
 Current implementation:
 - OpenTelemetry tracer initialization and spans for agent, LLM, tool calls, and memory.
-- Basic metrics (run count, errors, latency histograms).
+- Basic metrics (run count, errors, latency histograms) via stdout exporter.
 - Structured logs include trace/span identifiers.
 Gaps to close:
 - Exporter configuration for OTLP backend (beyond stdout).

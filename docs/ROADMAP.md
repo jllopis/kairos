@@ -7,7 +7,7 @@
 
 ## Milestones
 - M0: Go SDK skeleton + hello agent (Phase 0) [x]
-- M1: Agent can call external MCP tool (Phase 1) [~]
+- M1: Agent can call external MCP tool (Phase 1) [x]
 - M2: OTel traces visible in backend (Phase 2) [~]
 - M3: YAML/JSON graph executes end-to-end (Phase 3) [ ]
 - M4: Emergent flow runs with decision logs (Phase 4) [~]
@@ -35,10 +35,14 @@ Milestone: Agent can call external MCP tool.
 Tasks:
 - [x] MCP client with tool invocation.
 - [x] MCP server for exposing tools.
-- [~] Skill -> MCP tool binding (Agent tool adapter).
+- [x] Skill -> MCP tool binding (Agent tool adapter).
 - [x] Tool schema/arguments mapping and validation.
-- [ ] Error handling and retries.
+- [x] Example: MCP agent loads tools from config and runs a tool call.
+- [ ] Error handling, retries, and timeout policy for tool calls.
+- [ ] Tool discovery caching and refresh strategy.
 Acceptance: US-01 complete.
+Notes:
+- Core MCP path works via config + stdio client/server; hardening is pending.
 
 ## Phase 2: Observability baseline (Estimate: M)
 Goals: OTel traces/metrics/logs from runtime.
@@ -46,8 +50,10 @@ Dependencies: Phase 0.
 Milestone: traces visible in OTel backend.
 Tasks:
 - [x] OTel tracer and span propagation in runtime (Agent/Runtime + tool/memory/LLM spans).
-- [x] Metrics for latency and error counts.
+- [x] Metrics for latency and error counts (stdout exporter).
 - [x] Structured logs with trace/span ids.
+- [ ] Configurable OTLP exporter (traces + metrics) and resource attributes.
+- [ ] Example config for OTLP backend.
 Acceptance: US-05 (partial).
 
 ## Phase 3: Explicit planner (Estimate: L)
@@ -65,9 +71,10 @@ Goals: dynamic next-step decisions.
 Dependencies: Phase 0, Phase 1.
 Milestone: emergent flow runs with decision logs.
 Tasks:
-- [~] Decision engine with tool selection (ReAct loop).
-- [ ] Logging of decisions and outcomes.
-- [ ] Structured tool-call parsing (avoid brittle string parsing).
+- [x] Decision engine with tool selection (basic ReAct loop).
+- [ ] Logging of decisions and outcomes (decision rationale + inputs/outputs).
+- [ ] Structured tool-call parsing (use tool calls vs string parsing).
+- [ ] Provide tool definitions to LLM (function schema) for native tool calls.
 Acceptance: US-04 complete.
 
 ## Phase 5: A2A distributed runtime (Estimate: L)
