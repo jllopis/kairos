@@ -112,6 +112,34 @@ Example config (streamable HTTP):
 }
 ```
 
+## HTTP Server Example
+
+See `examples/mcp-http-server/main.go` for a simple Streamable HTTP MCP server.
+
+Run it:
+
+```bash
+go run ./examples/mcp-http-server
+```
+
+Optional address override:
+
+```bash
+KAIROS_MCP_HTTP_ADDR=localhost:9090 go run ./examples/mcp-http-server
+```
+
+Then point your agent config to the server:
+
+```json
+{
+  "mcpServers": {
+    "echo-http": {
+      "transport": "http",
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
 Place it in one of:
 - `./.kairos/settings.json`
 - `$HOME/.kairos/settings.json`
