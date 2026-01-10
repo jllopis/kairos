@@ -102,6 +102,7 @@ func Load(path string) (*Config, error) {
 	}
 
 	normalizeMCPServers()
+	normalizeTelemetryConfig()
 
 	var cfg Config
 	if err := k.Unmarshal("", &cfg); err != nil {
@@ -161,4 +162,17 @@ func normalizeMCPServers() {
 		return
 	}
 	_ = k.Set("mcp.servers", raw)
+}
+
+func normalizeTelemetryConfig() {
+	if !k.Exists("telemetry.otlp_endpoint") {
+		if raw := k.Get("telemetry.otlp.endpoint"); raw != nil {
+			_ = k.Set("telemetry.otlp_endpoint", raw)
+		}
+	}
+	if !k.Exists("telemetry.otlp_insecure") {
+		if raw := k.Get("telemetry.otlp.insecure"); raw != nil {
+			_ = k.Set("telemetry.otlp_insecure", raw)
+		}
+	}
 }
