@@ -21,7 +21,11 @@ func main() {
 	}
 
 	// 2. Initialize Telemetry
-	shutdown, err := telemetry.Init("basic-agent", "v0.1.0")
+	shutdown, err := telemetry.InitWithConfig("basic-agent", "v0.1.0", telemetry.Config{
+		Exporter:     cfg.Telemetry.Exporter,
+		OTLPEndpoint: cfg.Telemetry.OTLPEndpoint,
+		OTLPInsecure: cfg.Telemetry.OTLPInsecure,
+	})
 	if err != nil {
 		log.Fatalf("failed to init telemetry: %v", err)
 	}

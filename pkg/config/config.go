@@ -12,10 +12,11 @@ import (
 )
 
 type Config struct {
-	Log    LogConfig    `koanf:"log"`
-	LLM    LLMConfig    `koanf:"llm"`
-	Memory MemoryConfig `koanf:"memory"`
-	MCP    MCPConfig    `koanf:"mcp"`
+	Log       LogConfig       `koanf:"log"`
+	LLM       LLMConfig       `koanf:"llm"`
+	Memory    MemoryConfig    `koanf:"memory"`
+	MCP       MCPConfig       `koanf:"mcp"`
+	Telemetry TelemetryConfig `koanf:"telemetry"`
 }
 
 type LogConfig struct {
@@ -49,6 +50,12 @@ type MCPServerConfig struct {
 	ProtocolVersion string   `koanf:"protocol_version"`
 }
 
+type TelemetryConfig struct {
+	Exporter     string `koanf:"exporter"` // stdout, otlp
+	OTLPEndpoint string `koanf:"otlp_endpoint"`
+	OTLPInsecure bool   `koanf:"otlp_insecure"`
+}
+
 // Global k instance
 var k = koanf.New(".")
 
@@ -66,6 +73,10 @@ func Load(path string) (*Config, error) {
 	k.Set("memory.embedder_provider", "ollama")
 	k.Set("memory.embedder_base_url", "http://localhost:11434")
 	k.Set("memory.embedder_model", "nomic-embed-text") // Default embedding model
+
+	k.Set("telemetry.exporter", "stdout")
+	k.Set("telemetry.otlp_endpoint", "")
+	k.Set("telemetry.otlp_insecure", true)
 
 	// 1. Load from file
 	if path != "" {

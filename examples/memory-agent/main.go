@@ -28,7 +28,11 @@ func main() {
 	cfg.Memory.Enabled = true
 
 	// 2. Initialize Telemetry
-	shutdown, err := telemetry.Init("memory-agent", "v0.1.0")
+	shutdown, err := telemetry.InitWithConfig("memory-agent", "v0.1.0", telemetry.Config{
+		Exporter:     cfg.Telemetry.Exporter,
+		OTLPEndpoint: cfg.Telemetry.OTLPEndpoint,
+		OTLPInsecure: cfg.Telemetry.OTLPInsecure,
+	})
 	if err != nil {
 		log.Fatalf("failed to init telemetry: %v", err)
 	}
