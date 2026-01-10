@@ -3,44 +3,29 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/jllopis/kairos/pkg/agent"
-	"github.com/jllopis/kairos/pkg/memory"
-	"github.com/jllopis/kairos/pkg/runtime"
+	"github.com/jllopis/kairos/pkg/llm"
 )
 
 func main() {
-	mem := memory.NewFileStore("./.kairos/memory.jsonl")
-	helloAgent, err := agent.New(
-		"hello-agent",
+	// 1. Define LLM (using Mock for hello-agent to be self-contained)
+	provider := &llm.MockProvider{Response: "Hello from Kairos Agent!"}
+
+	// 2. Create Agent
+	a, err := agent.New("hello-agent", provider,
 		agent.WithRole("Greeter"),
-		agent.WithMemory(mem),
-		agent.WithHandler(func(ctx context.Context, input any) (any, error) {
-			name, _ := input.(string)
-			if name == "" {
-				name = "world"
-			}
-			if err := mem.Store(ctx, map[string]any{"name": name}); err != nil {
-				return nil, err
-			}
-			return fmt.Sprintf("hello, %s", name), nil
-		}),
 	)
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to create agent: %v", err)
 	}
 
-	rt := runtime.NewLocal()
-	if err := rt.Start(context.Background()); err != nil {
-		panic(err)
-	}
-	defer func() {
-		_ = rt.Stop(context.Background())
-	}()
-
-	output, err := rt.Run(context.Background(), helloAgent, "kairos")
+	// 3. Run Agent
+	response, err := a.Run(context.Background(), "Say hello")
 	if err != nil {
-		panic(err)
+		log.Fatalf("agent run failed: %v", err)
 	}
-	fmt.Println(output)
+
+	fmt.Printf("Agent ID: %s\nRole: %s\nResponse: %v\n", a.ID(), a.Role(), response)
 }
