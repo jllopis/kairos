@@ -33,3 +33,18 @@ func (s *Server) RegisterTool(name, description string, schema interface{}, hand
 func (s *Server) ServeStdio() error {
 	return server.ServeStdio(s.mcpServer)
 }
+
+// StreamableHTTPServer returns a Streamable HTTP server for custom routing.
+func (s *Server) StreamableHTTPServer(opts ...server.StreamableHTTPOption) *server.StreamableHTTPServer {
+	return server.NewStreamableHTTPServer(s.mcpServer, opts...)
+}
+
+// ServeStreamableHTTP starts a Streamable HTTP server on the provided address.
+// If addr is empty, it defaults to "localhost:8080".
+func (s *Server) ServeStreamableHTTP(addr string, opts ...server.StreamableHTTPOption) error {
+	if addr == "" {
+		addr = "localhost:8080"
+	}
+	httpServer := server.NewStreamableHTTPServer(s.mcpServer, opts...)
+	return httpServer.Start(addr)
+}

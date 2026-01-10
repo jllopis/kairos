@@ -48,6 +48,8 @@ type MCPServerConfig struct {
 	Command         string   `koanf:"command"`
 	Args            []string `koanf:"args"`
 	ProtocolVersion string   `koanf:"protocol_version"`
+	Transport       string   `koanf:"transport"` // stdio, http
+	URL             string   `koanf:"url"`
 }
 
 type TelemetryConfig struct {

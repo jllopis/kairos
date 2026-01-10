@@ -3,6 +3,8 @@ package mcp
 import (
 	"context"
 	"errors"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +17,8 @@ const (
 	defaultRetries  = 2
 	defaultBackoff  = 200 * time.Millisecond
 	defaultCacheTTL = 30 * time.Second
+
+	defaultStreamableHTTPURL = "http://localhost:8080/mcp"
 )
 
 // ClientOption customizes the MCP client wrapper behavior.
@@ -116,6 +120,47 @@ func NewClientWithStdioProtocol(command string, args []string, protocolVersion s
 	}
 
 	return NewClient(stdioClient, opts...), nil
+}
+
+// NewClientWithStreamableHTTP creates a new MCP client that connects over Streamable HTTP.
+func NewClientWithStreamableHTTP(baseURL string, opts ...ClientOption) (*Client, error) {
+	return NewClientWithStreamableHTTPProtocol(baseURL, mcp.LATEST_PROTOCOL_VERSION, opts...)
+}
+
+// NewClientWithStreamableHTTPProtocol creates a new MCP client that connects over Streamable HTTP using a specified protocol version.
+func NewClientWithStreamableHTTPProtocol(baseURL, protocolVersion string, opts ...ClientOption) (*Client, error) {
+	normalized, err := normalizeStreamableHTTPURL(baseURL)
+	if err != nil {
+		return nil, err
+	}
+	if protocolVersion == "" {
+		protocolVersion = mcp.LATEST_PROTOCOL_VERSION
+	}
+
+	httpClient, err := client.NewStreamableHttpClient(normalized)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := httpClient.Start(context.Background()); err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	initRequest := mcp.InitializeRequest{}
+	initRequest.Params.ProtocolVersion = protocolVersion
+	initRequest.Params.ClientInfo = mcp.Implementation{
+		Name:    "kairos-client",
+		Version: "0.1.0",
+	}
+
+	if _, err := httpClient.Initialize(ctx, initRequest); err != nil {
+		return nil, err
+	}
+
+	return NewClient(httpClient, opts...), nil
 }
 
 // ListTools retrieves the list of tools available on the server.
@@ -236,4 +281,26 @@ func (c *Client) sleepBackoff(ctx context.Context, attempt int) error {
 	case <-timer.C:
 		return nil
 	}
+}
+
+func normalizeStreamableHTTPURL(baseURL string) (string, error) {
+	trimmed := strings.TrimSpace(baseURL)
+	if trimmed == "" {
+		return defaultStreamableHTTPURL, nil
+	}
+
+	if !strings.Contains(trimmed, "://") {
+		trimmed = "http://" + trimmed
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", err
+	}
+	if parsed.Path == "" || parsed.Path == "/" {
+		parsed.Path = "/mcp"
+	}
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String(), nil
 }

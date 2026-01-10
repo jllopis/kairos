@@ -109,14 +109,30 @@ func WithMCPClients(clients ...*kmcp.Client) Option {
 func WithMCPServerConfigs(servers map[string]config.MCPServerConfig) Option {
 	return func(a *Agent) error {
 		for name, server := range servers {
-			if strings.TrimSpace(server.Command) == "" {
-				return fmt.Errorf("mcp server %q missing command", name)
+			transport := strings.ToLower(strings.TrimSpace(server.Transport))
+			if transport == "" {
+				transport = "stdio"
 			}
-			client, err := kmcp.NewClientWithStdioProtocol(server.Command, server.Args, server.ProtocolVersion)
-			if err != nil {
-				return fmt.Errorf("mcp server %q: %w", name, err)
+
+			switch transport {
+			case "stdio":
+				if strings.TrimSpace(server.Command) == "" {
+					return fmt.Errorf("mcp server %q missing command", name)
+				}
+				client, err := kmcp.NewClientWithStdioProtocol(server.Command, server.Args, server.ProtocolVersion)
+				if err != nil {
+					return fmt.Errorf("mcp server %q: %w", name, err)
+				}
+				a.mcpClients = append(a.mcpClients, client)
+			case "http", "streamable-http", "streamablehttp":
+				client, err := kmcp.NewClientWithStreamableHTTPProtocol(server.URL, server.ProtocolVersion)
+				if err != nil {
+					return fmt.Errorf("mcp server %q: %w", name, err)
+				}
+				a.mcpClients = append(a.mcpClients, client)
+			default:
+				return fmt.Errorf("mcp server %q has unsupported transport %q", name, server.Transport)
 			}
-			a.mcpClients = append(a.mcpClients, client)
 		}
 		return nil
 	}

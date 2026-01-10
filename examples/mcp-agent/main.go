@@ -25,9 +25,14 @@ import (
 //
 //	{
 //	  "mcpServers": {
-//	    "fetch": {
+//	    "fetch-stdio": {
+//	      "transport": "stdio",
 //	      "command": "docker",
 //	      "args": ["run", "-i", "--rm", "mcp/fetch"]
+//	    },
+//	    "fetch-http": {
+//	      "transport": "http",
+//	      "url": "http://localhost:8080/mcp"
 //	    }
 //	  }
 //	}
