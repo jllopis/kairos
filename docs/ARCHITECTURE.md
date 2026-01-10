@@ -44,6 +44,12 @@ Example config block for OTLP exporter:
 }
 ```
 
+Equivalent environment variables:
+
+- `KAIROS_TELEMETRY_EXPORTER`
+- `KAIROS_TELEMETRY_OTLP_ENDPOINT`
+- `KAIROS_TELEMETRY_OTLP_INSECURE`
+
 #### Verification Steps
 1) Start an OTLP-compatible backend (e.g., local collector on `localhost:4317`).
 2) Run an example with OTLP enabled:
