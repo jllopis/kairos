@@ -58,8 +58,10 @@ Current implementation:
 - OpenTelemetry tracer initialization and spans for agent, LLM, tool calls, and memory.
 - Basic metrics (run count, errors, latency histograms) via stdout exporter.
 - Structured logs include trace/span identifiers.
+- Configurable OTLP exporter for traces and metrics.
+ - Example OTLP config in docs.
 Gaps to close:
-- Exporter configuration for OTLP backend (beyond stdout).
+- Validate OTLP export against a backend and document verification steps.
 Acceptance criteria:
 - Traces exported to a standard OTel backend.
 - Basic metrics (latency, errors) exported.

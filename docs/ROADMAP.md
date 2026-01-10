@@ -52,8 +52,8 @@ Tasks:
 - [x] OTel tracer and span propagation in runtime (Agent/Runtime + tool/memory/LLM spans).
 - [x] Metrics for latency and error counts (stdout exporter).
 - [x] Structured logs with trace/span ids.
-- [ ] Configurable OTLP exporter (traces + metrics) and resource attributes.
-- [ ] Example config for OTLP backend.
+- [x] Configurable OTLP exporter (traces + metrics) and resource attributes.
+- [x] Example config for OTLP backend.
 Acceptance: US-05 (partial).
 
 ## Phase 3: Explicit planner (Estimate: L)
