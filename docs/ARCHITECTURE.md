@@ -31,6 +31,19 @@
 - Metrics: latency per step, errors per agent, token usage.
 - Structured logs with trace/span ids and decision summaries.
 
+### Telemetry Configuration (OTLP)
+Example config block for OTLP exporter:
+
+```json
+{
+  "telemetry": {
+    "exporter": "otlp",
+    "otlp_endpoint": "localhost:4317",
+    "otlp_insecure": true
+  }
+}
+```
+
 ## Data Model (high level)
 - Agent: id, role, skills, tools, memory, policies.
 - Skill: semantic capability (AgentSkills spec).
