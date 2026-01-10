@@ -44,6 +44,19 @@ Example config block for OTLP exporter:
 }
 ```
 
+#### Verification Steps
+1) Start an OTLP-compatible backend (e.g., local collector on `localhost:4317`).
+2) Run an example with OTLP enabled:
+
+```bash
+KAIROS_TELEMETRY_EXPORTER=otlp \
+KAIROS_TELEMETRY_OTLP_ENDPOINT=localhost:4317 \
+KAIROS_TELEMETRY_OTLP_INSECURE=true \
+go run ./examples/basic-agent
+```
+
+3) Confirm traces and metrics arrive in the backend.
+
 ## Data Model (high level)
 - Agent: id, role, skills, tools, memory, policies.
 - Skill: semantic capability (AgentSkills spec).
