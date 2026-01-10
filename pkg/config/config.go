@@ -53,9 +53,10 @@ type MCPServerConfig struct {
 }
 
 type TelemetryConfig struct {
-	Exporter     string `koanf:"exporter"` // stdout, otlp
-	OTLPEndpoint string `koanf:"otlp_endpoint"`
-	OTLPInsecure bool   `koanf:"otlp_insecure"`
+	Exporter           string `koanf:"exporter"` // stdout, otlp
+	OTLPEndpoint       string `koanf:"otlp_endpoint"`
+	OTLPInsecure       bool   `koanf:"otlp_insecure"`
+	OTLPTimeoutSeconds int    `koanf:"otlp_timeout_seconds"`
 }
 
 // Global k instance
@@ -79,6 +80,7 @@ func Load(path string) (*Config, error) {
 	k.Set("telemetry.exporter", "stdout")
 	k.Set("telemetry.otlp_endpoint", "")
 	k.Set("telemetry.otlp_insecure", true)
+	k.Set("telemetry.otlp_timeout_seconds", 10)
 
 	// 1. Load from file
 	if path != "" {
@@ -165,7 +167,7 @@ func normalizeMCPServers() {
 }
 
 func normalizeTelemetryConfig() {
-	if (!k.Exists("telemetry.otlp_endpoint") || k.String("telemetry.otlp_endpoint") == "") {
+	if !k.Exists("telemetry.otlp_endpoint") || k.String("telemetry.otlp_endpoint") == "" {
 		if raw := k.Get("telemetry.otlp.endpoint"); raw != nil {
 			_ = k.Set("telemetry.otlp_endpoint", raw)
 		}
@@ -173,6 +175,11 @@ func normalizeTelemetryConfig() {
 	if !k.Exists("telemetry.otlp_insecure") {
 		if raw := k.Get("telemetry.otlp.insecure"); raw != nil {
 			_ = k.Set("telemetry.otlp_insecure", raw)
+		}
+	}
+	if !k.Exists("telemetry.otlp_timeout_seconds") {
+		if raw := k.Get("telemetry.otlp.timeout_seconds"); raw != nil {
+			_ = k.Set("telemetry.otlp_timeout_seconds", raw)
 		}
 	}
 }

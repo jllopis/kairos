@@ -22,9 +22,10 @@ type ShutdownFunc func(context.Context) error
 
 // Config controls telemetry exporter behavior.
 type Config struct {
-	Exporter     string
-	OTLPEndpoint string
-	OTLPInsecure bool
+	Exporter           string
+	OTLPEndpoint       string
+	OTLPInsecure       bool
+	OTLPTimeoutSeconds int
 }
 
 // Init initializes the OpenTelemetry SDK with stdout exporters.
@@ -110,11 +111,17 @@ func initStdout(res *resource.Resource) (*trace.TracerProvider, *metric.MeterPro
 }
 
 func initOTLP(res *resource.Resource, cfg Config) (*trace.TracerProvider, *metric.MeterProvider, error) {
+	timeout := 10 * time.Second
+	if cfg.OTLPTimeoutSeconds > 0 {
+		timeout = time.Duration(cfg.OTLPTimeoutSeconds) * time.Second
+	}
 	traceOpts := []otlptracegrpc.Option{
 		otlptracegrpc.WithEndpoint(cfg.OTLPEndpoint),
+		otlptracegrpc.WithTimeout(timeout),
 	}
 	metricOpts := []otlpmetricgrpc.Option{
 		otlpmetricgrpc.WithEndpoint(cfg.OTLPEndpoint),
+		otlpmetricgrpc.WithTimeout(timeout),
 	}
 	if cfg.OTLPInsecure {
 		traceOpts = append(traceOpts, otlptracegrpc.WithInsecure())
