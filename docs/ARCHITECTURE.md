@@ -1,0 +1,68 @@
+# Architecture - Kairos Framework
+
+## Goals
+- Go-native runtime with first-class SDK.
+- Interoperability by standards: MCP, A2A/ACP, AgentSkills, AGENTS.md.
+- Observability by default with OpenTelemetry traces, metrics, and logs.
+- Multi-agent distributed execution with governance and production readiness.
+
+## Layered Architecture
+1) Interfaces (UI/CLI)
+2) Control Plane (API, auth, policies, governance)
+3) Multi-Agent Runtime Core (Go)
+4) Planner + Memory + Tools
+5) Interop: MCP + A2A/ACP + AGENTS.md
+6) Observability + Storage
+
+## Core Components (Go)
+- Agent runtime: lifecycle, scheduling, context propagation, tool execution.
+- Planner: explicit graphs + emergent planner, single internal model.
+- Memory: short, long, shared, persistent.
+- Tools/Skills: AgentSkills as semantic layer; binding to MCP tools.
+- Policy engine: scopes, allow/deny, audit events.
+
+## Interoperability
+- MCP client and server.
+- A2A/ACP for discovery, delegation, and remote execution.
+- AGENTS.md auto-loading on startup to enforce repo rules.
+
+## Observability
+- OpenTelemetry tracing for agent runs, planner steps, tool calls, A2A hops.
+- Metrics: latency per step, errors per agent, token usage.
+- Structured logs with trace/span ids and decision summaries.
+
+## Data Model (high level)
+- Agent: id, role, skills, tools, memory, policies.
+- Skill: semantic capability (AgentSkills spec).
+- Tool: MCP implementation that fulfills skills.
+- Plan: graph or emergent plan state.
+- Memory: interface Store/Retrieve with pluggable backends.
+
+## Execution Flow (runtime)
+1) Load AGENTS.md and apply repository rules.
+2) Initialize agent with skills, memory, tools, policies.
+3) Build plan (explicit graph or emergent).
+4) Execute steps with context propagation.
+5) Emit traces/metrics/logs and audit events.
+
+## Governance and Security
+- Policy enforcement on tool usage and agent delegation.
+- Human-in-the-loop points.
+- Auditing for every action and tool call.
+
+## Deployment
+- Single Go binary.
+- Docker/Kubernetes ready.
+- Horizontal scaling with A2A federation.
+
+## Suggested Package Layout (initial)
+- core/agent
+- core/runtime
+- core/planner
+- core/memory
+- core/tools
+- interop/mcp
+- interop/a2a
+- observability/otel
+- controlplane/api
+- ui (future)
