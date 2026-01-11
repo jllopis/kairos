@@ -112,6 +112,32 @@ Example config (streamable HTTP):
 }
 ```
 
+### Client policy tuning (per server)
+
+You can override retry/timeout/cache behavior per MCP server:
+
+```json
+{
+  "mcpServers": {
+    "fetch": {
+      "transport": "stdio",
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "mcp/fetch"],
+      "timeout_seconds": 15,
+      "retry_count": 2,
+      "retry_backoff_ms": 200,
+      "cache_ttl_seconds": 30
+    }
+  }
+}
+```
+
+Notes:
+- `timeout_seconds`: per-request timeout (omit to use defaults).
+- `retry_count`: number of retries (0 disables retries).
+- `retry_backoff_ms`: retry backoff in milliseconds.
+- `cache_ttl_seconds`: tool discovery cache TTL (0 disables caching).
+
 ### Remote MCP Client Example
 
 See `examples/mcp-remote-agent/main.go` for a remote MCP client example using Microsoft Learn.
@@ -171,8 +197,14 @@ Place it in one of:
 ## Verification
 
 A new test `pkg/mcp/tool_adapter_test.go` verifies MCP tool mapping behavior.
-Run it with:
 
 ```bash
 go test -v ./pkg/mcp -run TestToolAdapter
+```
+
+End-to-end smoke tests:
+
+```bash
+go test -v ./pkg/mcp -run TestClient_Stdio_ListToolsAndCall
+go test -v ./pkg/mcp -run TestClient_StreamableHTTP_ListTools
 ```

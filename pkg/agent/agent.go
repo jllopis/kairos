@@ -115,18 +115,19 @@ func WithMCPServerConfigs(servers map[string]config.MCPServerConfig) Option {
 				transport = "stdio"
 			}
 
+			opts := mcpClientOptions(server)
 			switch transport {
 			case "stdio":
 				if strings.TrimSpace(server.Command) == "" {
 					return fmt.Errorf("mcp server %q missing command", name)
 				}
-				client, err := kmcp.NewClientWithStdioProtocol(server.Command, server.Args, server.ProtocolVersion)
+				client, err := kmcp.NewClientWithStdioProtocol(server.Command, server.Args, server.ProtocolVersion, opts...)
 				if err != nil {
 					return fmt.Errorf("mcp server %q: %w", name, err)
 				}
 				a.mcpClients = append(a.mcpClients, client)
 			case "http", "streamable-http", "streamablehttp":
-				client, err := kmcp.NewClientWithStreamableHTTPProtocol(server.URL, server.ProtocolVersion)
+				client, err := kmcp.NewClientWithStreamableHTTPProtocol(server.URL, server.ProtocolVersion, opts...)
 				if err != nil {
 					return fmt.Errorf("mcp server %q: %w", name, err)
 				}
@@ -924,6 +925,31 @@ func spanIDFromContext(ctx context.Context) string {
 		return "unknown"
 	}
 	return sc.SpanID().String()
+}
+
+func mcpClientOptions(server config.MCPServerConfig) []kmcp.ClientOption {
+	var opts []kmcp.ClientOption
+	if server.TimeoutSeconds != nil && *server.TimeoutSeconds > 0 {
+		opts = append(opts, kmcp.WithTimeout(time.Duration(*server.TimeoutSeconds)*time.Second))
+	}
+
+	retries := -1
+	backoff := time.Duration(0)
+	if server.RetryCount != nil {
+		retries = *server.RetryCount
+	}
+	if server.RetryBackoffMs != nil && *server.RetryBackoffMs > 0 {
+		backoff = time.Duration(*server.RetryBackoffMs) * time.Millisecond
+	}
+	if retries >= 0 || backoff > 0 {
+		opts = append(opts, kmcp.WithRetry(retries, backoff))
+	}
+
+	if server.CacheTTLSeconds != nil && *server.CacheTTLSeconds >= 0 {
+		opts = append(opts, kmcp.WithToolCacheTTL(time.Duration(*server.CacheTTLSeconds)*time.Second))
+	}
+
+	return opts
 }
 
 type decisionPayload struct {

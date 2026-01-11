@@ -8,8 +8,8 @@
 ## Milestones
 - M0: Go SDK skeleton + hello agent (Phase 0) [x]
 - M1: Agent can call external MCP tool (Phase 1) [x]
-- M2: OTel traces visible in backend (Phase 2) [~]
-- M3: YAML/JSON graph executes end-to-end (Phase 3) [ ]
+- M2: OTel traces visible in backend (Phase 2) [x]
+- M3: YAML/JSON graph executes end-to-end (Phase 3) [~]
 - M4: Emergent flow runs with decision logs (Phase 4) [~]
 - M5: Two agents delegate with distributed traces (Phase 5) [ ]
 - M6: Per-agent memory with short/long backends (Phase 6) [x]
@@ -41,8 +41,8 @@ Tasks:
 - [x] Error handling, retries, and timeout policy for tool calls.
 - [x] Tool discovery caching and refresh strategy.
 Follow-ups (post-milestone):
-- [ ] Expose MCP retry/timeout/cache policy in config.
-- [ ] Add end-to-end MCP smoke tests for stdio + HTTP.
+- [x] Expose MCP retry/timeout/cache policy in config.
+- [x] Add end-to-end MCP smoke tests for stdio + HTTP.
 Acceptance: US-01 complete.
 Notes:
 - Core MCP path works via config + stdio/http client/server; hardening now defaults in the client.
@@ -58,8 +58,10 @@ Tasks:
 - [x] Structured logs with trace/span ids.
 - [x] Configurable OTLP exporter (traces + metrics) and resource attributes.
 - [x] Example config for OTLP backend.
-- [ ] Validate OTLP export against a backend and document a smoke-test.
+- [x] Validate OTLP export against a backend and document a smoke-test.
 Acceptance: US-05 (partial).
+Notes:
+- OTLP smoke test is opt-in via environment variables to avoid default test dependencies.
 
 ## Phase 3: Explicit planner (Estimate: L)
 Goals: deterministic graph execution.
@@ -68,8 +70,12 @@ Milestone: YAML/JSON graph executes end-to-end.
 Tasks:
 - [x] Graph model and executor.
 - [x] YAML/JSON parser and serializer.
-- [~] Per-node tracing and audit events.
+- [x] Per-node tracing (spans).
+- [ ] Audit events for node execution.
 - [x] Documentation and example for graph usage.
+Follow-ups (post-milestone):
+- [ ] Branching/conditions and multi-edge evaluation.
+- [ ] Graph serialization helpers (emit JSON/YAML).
 Acceptance: US-03 complete.
 
 ## Phase 4: Emergent planner (Estimate: M)
@@ -78,11 +84,13 @@ Dependencies: Phase 0, Phase 1.
 Milestone: emergent flow runs with decision logs.
 Tasks:
 - [x] Decision engine with tool selection (basic ReAct loop).
-- [ ] Logging of decisions and outcomes (decision rationale + inputs/outputs).
+- [x] Logging of decisions and outcomes (decision rationale + inputs/outputs).
 - [x] Structured tool-call parsing (LLM tool calls + JSON args).
 - [x] Provide tool definitions to LLM (function schema) for native tool calls.
-- [ ] Prefer tool calls over "Action:" parsing when available (deprecate string parsing path).
+- [~] Prefer tool calls over "Action:" parsing when available (deprecate string parsing path).
 Acceptance: US-04 partial.
+Notes:
+- Fallback "Action:" parsing is now configurable; full deprecation still pending.
 
 ## Phase 5: A2A distributed runtime (Estimate: L)
 Goals: discovery, delegation, and trace continuity.

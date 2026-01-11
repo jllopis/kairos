@@ -60,6 +60,10 @@ type MCPServerConfig struct {
 	ProtocolVersion string   `koanf:"protocol_version"`
 	Transport       string   `koanf:"transport"` // stdio, http
 	URL             string   `koanf:"url"`
+	TimeoutSeconds  *int     `koanf:"timeout_seconds"`
+	RetryCount      *int     `koanf:"retry_count"`
+	RetryBackoffMs  *int     `koanf:"retry_backoff_ms"`
+	CacheTTLSeconds *int     `koanf:"cache_ttl_seconds"`
 }
 
 type TelemetryConfig struct {
