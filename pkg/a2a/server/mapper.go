@@ -72,6 +72,28 @@ func ExtractText(message *a2av1.Message) string {
 	return out
 }
 
+// ExtractData returns the first data part as a map, if present.
+func ExtractData(message *a2av1.Message) map[string]interface{} {
+	if message == nil {
+		return nil
+	}
+	for _, part := range message.Parts {
+		if part == nil {
+			continue
+		}
+		dataPart := part.GetData()
+		if dataPart == nil {
+			continue
+		}
+		data := dataPart.GetData()
+		if data == nil {
+			return nil
+		}
+		return data.AsMap()
+	}
+	return nil
+}
+
 func structFromMap(data map[string]interface{}) *structpb.Struct {
 	if len(data) == 0 {
 		return nil
