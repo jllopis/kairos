@@ -537,3 +537,59 @@ func TestCancelTask_DoesNotOverrideCompleted(t *testing.T) {
 		t.Fatalf("expected completed state, got %v", out.GetStatus().GetState())
 	}
 }
+
+func TestCancelTask_DoesNotOverrideFailed(t *testing.T) {
+	handler := &SimpleHandler{
+		Store:    NewMemoryTaskStore(),
+		Executor: &stubExecutor{Output: "ok"},
+	}
+
+	task, err := handler.Store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	failed := newStatus(a2av1.TaskState_TASK_STATE_FAILED, task.History[0])
+	if err := handler.Store.UpdateStatus(context.Background(), task.Id, failed); err != nil {
+		t.Fatalf("UpdateStatus error: %v", err)
+	}
+
+	out, err := handler.CancelTask(context.Background(), &a2av1.CancelTaskRequest{Name: task.Id})
+	if err != nil {
+		t.Fatalf("CancelTask error: %v", err)
+	}
+	if out.GetStatus().GetState() != a2av1.TaskState_TASK_STATE_FAILED {
+		t.Fatalf("expected failed state, got %v", out.GetStatus().GetState())
+	}
+}
+
+func TestCancelTask_DoesNotOverrideRejected(t *testing.T) {
+	handler := &SimpleHandler{
+		Store:    NewMemoryTaskStore(),
+		Executor: &stubExecutor{Output: "ok"},
+	}
+
+	task, err := handler.Store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	rejected := newStatus(a2av1.TaskState_TASK_STATE_REJECTED, task.History[0])
+	if err := handler.Store.UpdateStatus(context.Background(), task.Id, rejected); err != nil {
+		t.Fatalf("UpdateStatus error: %v", err)
+	}
+
+	out, err := handler.CancelTask(context.Background(), &a2av1.CancelTaskRequest{Name: task.Id})
+	if err != nil {
+		t.Fatalf("CancelTask error: %v", err)
+	}
+	if out.GetStatus().GetState() != a2av1.TaskState_TASK_STATE_REJECTED {
+		t.Fatalf("expected rejected state, got %v", out.GetStatus().GetState())
+	}
+}
