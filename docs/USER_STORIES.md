@@ -38,6 +38,7 @@ Current implementation:
 - Graph schema with nodes/edges and validation.
 - JSON/YAML parsers for graph definitions.
 - Linear executor with per-node tracing.
+- Walkthrough and example usage in `docs/walkthrough-explicit-planner.md` and `examples/explicit-planner`.
 Gaps to close:
 - Branching/conditions support and richer audit events.
 Acceptance criteria:

@@ -152,3 +152,6 @@ Example config (full, with telemetry):
 - observability/otel
 - controlplane/api
 - ui (future)
+
+## Explicit planner walkthrough
+- `docs/walkthrough-explicit-planner.md`
