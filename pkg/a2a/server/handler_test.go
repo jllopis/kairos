@@ -672,3 +672,36 @@ func TestSendMessage_AppendsHistoryForExistingTask(t *testing.T) {
 		t.Fatalf("expected appended message in history")
 	}
 }
+
+func TestSendMessage_RejectsTerminalTask(t *testing.T) {
+	handler := &SimpleHandler{
+		Store:    NewMemoryTaskStore(),
+		Executor: &stubExecutor{Output: "ok"},
+	}
+
+	task, err := handler.Store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	completed := newStatus(a2av1.TaskState_TASK_STATE_COMPLETED, task.History[0])
+	if err := handler.Store.UpdateStatus(context.Background(), task.Id, completed); err != nil {
+		t.Fatalf("UpdateStatus error: %v", err)
+	}
+
+	req := &a2av1.SendMessageRequest{
+		Request: &a2av1.Message{
+			MessageId: "msg-2",
+			TaskId:    task.Id,
+			Role:      a2av1.Role_ROLE_USER,
+			Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "follow-up"}}},
+		},
+		Configuration: &a2av1.SendMessageConfiguration{Blocking: true},
+	}
+	if _, err := handler.SendMessage(context.Background(), req); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("expected FailedPrecondition, got %v", status.Code(err))
+	}
+}
