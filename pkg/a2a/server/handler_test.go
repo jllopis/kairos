@@ -408,3 +408,22 @@ func TestSubscribeToTask_InvalidName(t *testing.T) {
 		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
 	}
 }
+
+func TestPushConfig_InvalidNames(t *testing.T) {
+	handler := &SimpleHandler{PushCfgs: NewMemoryPushConfigStore()}
+
+	_, err := handler.GetTaskPushNotificationConfig(context.Background(), &a2av1.GetTaskPushNotificationConfigRequest{Name: "bad"})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for Get, got %v", status.Code(err))
+	}
+
+	_, err = handler.ListTaskPushNotificationConfig(context.Background(), &a2av1.ListTaskPushNotificationConfigRequest{Parent: "tasks/"})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for List, got %v", status.Code(err))
+	}
+
+	_, err = handler.DeleteTaskPushNotificationConfig(context.Background(), &a2av1.DeleteTaskPushNotificationConfigRequest{Name: "tasks/abc/invalid"})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for Delete, got %v", status.Code(err))
+	}
+}
