@@ -1,6 +1,6 @@
 # A2A Implementation Plan (Kairos)
 
-This plan follows the normative A2A proto (`docs/protocols/A2A/a2a.proto`) and prioritizes gRPC streaming for the MVP.
+This plan follows the normative A2A proto (`pkg/a2a/proto/a2a.proto`) and prioritizes gRPC streaming for the MVP.
 
 ## Goals
 - Full protocol fidelity (types generated from proto).

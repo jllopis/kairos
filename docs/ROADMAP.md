@@ -99,7 +99,7 @@ Goals: discovery, delegation, and trace continuity.
 Dependencies: Phase 0, Phase 2.
 Milestone: two agents delegate with distributed traces.
 Tasks:
-- [ ] Pin A2A proto version and generate Go types from `docs/protocols/A2A/a2a.proto`.
+- [ ] Pin A2A proto version and generate Go types from `pkg/a2a/proto/a2a.proto`.
 - [ ] Implement gRPC binding with streaming (SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask).
 - [ ] AgentCard publishing (well-known) + discovery client.
 - [ ] Remote agent invocation (call/response) and task lifecycle mapping.

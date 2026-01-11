@@ -27,7 +27,7 @@ Acceptance criteria:
 As an architect, I want an agent to delegate tasks to another agent via A2A.
 Status: [ ] Planned
 Implementation plan (MVP, gRPC binding):
-- Types generated from `docs/protocols/A2A/a2a.proto`.
+- Types generated from `pkg/a2a/proto/a2a.proto`.
 - A2AService server with SendMessage + SendStreamingMessage + Get/List/Cancel Task.
 - AgentCard publishing + discovery client.
 - Task/Message/Artifact mapping with trace propagation.

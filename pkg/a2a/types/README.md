@@ -1,6 +1,6 @@
 # A2A Generated Types
 
-This package hosts Go types generated from `docs/protocols/A2A/a2a.proto`.
+This package hosts Go types generated from `pkg/a2a/proto/a2a.proto`.
 
 Generation:
 ```bash

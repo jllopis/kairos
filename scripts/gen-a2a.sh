@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROTO_DIR="${ROOT}/docs/protocols/A2A"
+PROTO_DIR="${ROOT}/pkg/a2a/proto"
 OUT_DIR="${ROOT}/pkg/a2a/types"
 GOOGLEAPIS_DIR="${A2A_GOOGLEAPIS_DIR:-${ROOT}/third_party/googleapis}"
 
@@ -33,7 +33,7 @@ protoc \
   -I "${PROTO_DIR}" \
   -I "${GOOGLEAPIS_DIR}" \
   --go_out="${OUT_DIR}" \
-  --go_opt=paths=source_relative,Mdocs/protocols/A2A/a2a.proto=github.com/jllopis/kairos/pkg/a2a/types \
+  --go_opt=paths=source_relative,Mpkg/a2a/proto/a2a.proto=github.com/jllopis/kairos/pkg/a2a/types \
   --go-grpc_out="${OUT_DIR}" \
-  --go-grpc_opt=paths=source_relative,Mdocs/protocols/A2A/a2a.proto=github.com/jllopis/kairos/pkg/a2a/types \
+  --go-grpc_opt=paths=source_relative,Mpkg/a2a/proto/a2a.proto=github.com/jllopis/kairos/pkg/a2a/types \
   "${PROTO_DIR}/a2a.proto"

@@ -28,7 +28,7 @@
 
 ### A2A integration plan (MVP)
 - gRPC binding first (streaming required in MVP).
-- Go types generated directly from `docs/protocols/A2A/a2a.proto`.
+- Go types generated directly from `pkg/a2a/proto/a2a.proto`.
 - AgentCard publishing + discovery, plus A2AService server/client.
 - Task/Message/Artifact mapping with trace propagation.
 
