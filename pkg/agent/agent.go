@@ -39,6 +39,7 @@ type Agent struct {
 	maxIterations         int
 	mcpClients            []*kmcp.Client
 	disableActionFallback bool
+	warnOnActionFallback  bool
 }
 
 // Option configures an Agent instance.
@@ -174,6 +175,14 @@ func WithMaxIterations(max int) Option {
 func WithDisableActionFallback(disable bool) Option {
 	return func(a *Agent) error {
 		a.disableActionFallback = disable
+		return nil
+	}
+}
+
+// WithActionFallbackWarning enables log warnings when legacy Action parsing is used.
+func WithActionFallbackWarning(enable bool) Option {
+	return func(a *Agent) error {
+		a.warnOnActionFallback = enable
 		return nil
 	}
 }
@@ -377,6 +386,15 @@ Final Answer: the final answer to the original input question
 		// Simple parsing logic for now.
 		// TODO: Make this robust (regex or structured output)
 		if !a.disableActionFallback && strings.Contains(content, "Action:") {
+			if a.warnOnActionFallback {
+				log.Warn("agent.action.fallback",
+					slog.String("agent_id", a.id),
+					slog.String("run_id", runID),
+					slog.String("trace_id", traceID),
+					slog.String("span_id", spanID),
+					slog.String("note", "legacy action parsing used"),
+				)
+			}
 			logDecision(log, decisionPayload{
 				AgentID:       a.id,
 				RunID:         runID,

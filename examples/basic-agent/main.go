@@ -55,6 +55,7 @@ func main() {
 		agent.WithRole("Helpful Assistant"),
 		agent.WithModel(cfg.LLM.Model),
 		agent.WithDisableActionFallback(agentCfg.DisableActionFallback),
+		agent.WithActionFallbackWarning(agentCfg.WarnOnActionFallback),
 	)
 	if err != nil {
 		log.Fatalf("failed to create agent: %v", err)

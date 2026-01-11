@@ -71,6 +71,7 @@ func main() {
 		agent.WithSkills([]core.Skill{{Name: "fetch"}}),
 		agent.WithModel(cfg.LLM.Model),
 		agent.WithDisableActionFallback(agentCfg.DisableActionFallback),
+		agent.WithActionFallbackWarning(agentCfg.WarnOnActionFallback),
 		agent.WithMCPServerConfigs(cfg.MCP.Servers),
 	)
 	if err != nil {

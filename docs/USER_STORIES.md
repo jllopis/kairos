@@ -55,8 +55,8 @@ Current implementation:
 - LLM tool-calls are supported (function schema + structured tool calls).
 - Tool calls are logged with trace/span identifiers.
 Gaps to close:
-- Decision logging with trace/span IDs and rationale.
 - Prefer tool calls over string parsing when supported (deprecate "Action:" path).
+- Deprecate legacy Action parsing (warn + eventual removal plan).
 Acceptance criteria:
 - Agent selects the next step among multiple tools or agents.
 - Decisions and intermediate results are logged.

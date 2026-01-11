@@ -85,6 +85,7 @@ func main() {
 		agent.WithRole("Helpful Assistant with Memory"),
 		agent.WithModel(cfg.LLM.Model),
 		agent.WithDisableActionFallback(agentCfg.DisableActionFallback),
+		agent.WithActionFallbackWarning(agentCfg.WarnOnActionFallback),
 		agent.WithMemory(mem),
 	)
 	if err != nil {

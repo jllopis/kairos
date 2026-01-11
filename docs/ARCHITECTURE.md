@@ -95,6 +95,7 @@ go test ./pkg/telemetry -run TestOTLPSmoke -count=1
 
 ## Agent loop options
 - `agent.WithDisableActionFallback(true)` disables legacy "Action:" parsing in the ReAct loop when tool calls are supported.
+- `agent.WithActionFallbackWarning(true)` emits a warning log when legacy Action parsing is used.
 - Config: `agent.disable_action_fallback` or `KAIROS_AGENT_DISABLE_ACTION_FALLBACK=true`.
 - Per-agent overrides can be defined under `agents.<agent_id>`.
 
@@ -102,7 +103,8 @@ Example config:
 ```json
 {
   "agent": {
-    "disable_action_fallback": false
+    "disable_action_fallback": false,
+    "warn_on_action_fallback": true
   },
   "agents": {
     "mcp-agent": {

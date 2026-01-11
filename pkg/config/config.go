@@ -35,10 +35,12 @@ type LLMConfig struct {
 
 type AgentConfig struct {
 	DisableActionFallback bool `koanf:"disable_action_fallback"`
+	WarnOnActionFallback  bool `koanf:"warn_on_action_fallback"`
 }
 
 type AgentOverrideConfig struct {
 	DisableActionFallback *bool `koanf:"disable_action_fallback"`
+	WarnOnActionFallback  *bool `koanf:"warn_on_action_fallback"`
 }
 
 type MemoryConfig struct {
@@ -84,6 +86,7 @@ func Load(path string) (*Config, error) {
 	k.Set("llm.model", "qwen2.5-coder:7b-instruct-q5_K_M")
 	k.Set("llm.base_url", "http://localhost:11434")
 	k.Set("agent.disable_action_fallback", false)
+	k.Set("agent.warn_on_action_fallback", false)
 
 	k.Set("memory.enabled", false)
 	k.Set("memory.provider", "vector")
@@ -145,6 +148,9 @@ func (c *Config) AgentConfigFor(id string) AgentConfig {
 	}
 	if override.DisableActionFallback != nil {
 		cfg.DisableActionFallback = *override.DisableActionFallback
+	}
+	if override.WarnOnActionFallback != nil {
+		cfg.WarnOnActionFallback = *override.WarnOnActionFallback
 	}
 	return cfg
 }

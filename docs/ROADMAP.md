@@ -88,6 +88,7 @@ Tasks:
 - [x] Structured tool-call parsing (LLM tool calls + JSON args).
 - [x] Provide tool definitions to LLM (function schema) for native tool calls.
 - [~] Prefer tool calls over "Action:" parsing when available (deprecate string parsing path).
+- [x] Optional warning when legacy "Action:" parsing is used.
 Acceptance: US-04 partial.
 Notes:
 - Fallback "Action:" parsing is now configurable; full deprecation still pending.
