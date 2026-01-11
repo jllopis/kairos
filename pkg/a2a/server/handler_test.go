@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type streamRecorder struct {
@@ -190,5 +192,78 @@ func TestPushNotificationConfigCRUD(t *testing.T) {
 	delReq := &a2av1.DeleteTaskPushNotificationConfigRequest{Name: cfg.GetName()}
 	if _, err := handler.DeleteTaskPushNotificationConfig(context.Background(), delReq); err != nil {
 		t.Fatalf("DeleteTaskPushNotificationConfig error: %v", err)
+	}
+}
+
+func TestGetExtendedAgentCard_NotSupported(t *testing.T) {
+	handler := &SimpleHandler{}
+
+	if _, err := handler.GetExtendedAgentCard(context.Background(), &a2av1.GetExtendedAgentCardRequest{}); status.Code(err) != codes.Unimplemented {
+		t.Fatalf("expected Unimplemented, got %v", status.Code(err))
+	}
+}
+
+func TestGetExtendedAgentCard_MissingSkills(t *testing.T) {
+	handler := &SimpleHandler{
+		Card: &a2av1.AgentCard{
+			SupportsExtendedAgentCard: boolPtr(true),
+		},
+	}
+
+	if _, err := handler.GetExtendedAgentCard(context.Background(), &a2av1.GetExtendedAgentCardRequest{}); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("expected FailedPrecondition, got %v", status.Code(err))
+	}
+}
+
+func TestGetExtendedAgentCard_OK(t *testing.T) {
+	handler := &SimpleHandler{
+		Card: &a2av1.AgentCard{
+			SupportsExtendedAgentCard: boolPtr(true),
+			Skills:                    []*a2av1.AgentSkill{{Id: "echo", Name: "Echo"}},
+		},
+	}
+
+	card, err := handler.GetExtendedAgentCard(context.Background(), &a2av1.GetExtendedAgentCardRequest{})
+	if err != nil {
+		t.Fatalf("GetExtendedAgentCard error: %v", err)
+	}
+	if len(card.GetSkills()) == 0 {
+		t.Fatalf("expected skills in card")
+	}
+}
+
+func TestSetTaskPushNotificationConfig_InvalidParent(t *testing.T) {
+	handler := &SimpleHandler{
+		Store:    NewMemoryTaskStore(),
+		PushCfgs: NewMemoryPushConfigStore(),
+	}
+	req := &a2av1.SetTaskPushNotificationConfigRequest{
+		Parent: "tasks/",
+		Config: &a2av1.TaskPushNotificationConfig{
+			PushNotificationConfig: &a2av1.PushNotificationConfig{Url: "https://example.com/hook"},
+		},
+	}
+	if _, err := handler.SetTaskPushNotificationConfig(context.Background(), req); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
+	}
+}
+
+func TestSetTaskPushNotificationConfig_MissingConfig(t *testing.T) {
+	store := NewMemoryTaskStore()
+	task, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	handler := &SimpleHandler{
+		Store:    store,
+		PushCfgs: NewMemoryPushConfigStore(),
+	}
+	req := &a2av1.SetTaskPushNotificationConfigRequest{Parent: fmt.Sprintf("tasks/%s", task.Id)}
+	if _, err := handler.SetTaskPushNotificationConfig(context.Background(), req); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
 	}
 }
