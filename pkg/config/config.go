@@ -85,7 +85,7 @@ func Load(path string) (*Config, error) {
 	k.Set("llm.provider", "ollama")
 	k.Set("llm.model", "qwen2.5-coder:7b-instruct-q5_K_M")
 	k.Set("llm.base_url", "http://localhost:11434")
-	k.Set("agent.disable_action_fallback", false)
+	k.Set("agent.disable_action_fallback", true)
 	k.Set("agent.warn_on_action_fallback", false)
 
 	k.Set("memory.enabled", false)

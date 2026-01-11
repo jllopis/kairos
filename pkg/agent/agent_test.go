@@ -46,12 +46,23 @@ func (t *toolWithDefinition) ToolDefinition() llm.Tool {
 type toolCallProvider struct {
 	CallCount int
 	LastReq   llm.ChatRequest
+	ToolName  string
+	ToolArgs  string
+	Final     string
 }
 
 func (p *toolCallProvider) Chat(_ context.Context, req llm.ChatRequest) (*llm.ChatResponse, error) {
 	p.CallCount++
 	p.LastReq = req
 	if p.CallCount == 1 {
+		toolName := p.ToolName
+		if toolName == "" {
+			toolName = "search"
+		}
+		toolArgs := p.ToolArgs
+		if toolArgs == "" {
+			toolArgs = `{"query":"hello"}`
+		}
 		return &llm.ChatResponse{
 			Content: "",
 			ToolCalls: []llm.ToolCall{
@@ -59,14 +70,18 @@ func (p *toolCallProvider) Chat(_ context.Context, req llm.ChatRequest) (*llm.Ch
 					ID:   "call-1",
 					Type: llm.ToolTypeFunction,
 					Function: llm.FunctionCall{
-						Name:      "search",
-						Arguments: `{"query":"hello"}`,
+						Name:      toolName,
+						Arguments: toolArgs,
 					},
 				},
 			},
 		}, nil
 	}
-	return &llm.ChatResponse{Content: "Final Answer: done"}, nil
+	final := p.Final
+	if final == "" {
+		final = "Final Answer: done"
+	}
+	return &llm.ChatResponse{Content: final}, nil
 }
 
 func TestAgent_ReActLoop(t *testing.T) {
@@ -75,19 +90,17 @@ func TestAgent_ReActLoop(t *testing.T) {
 	// Setup Toolkit
 	tool := &MockTool{NameVal: "Calculator"}
 
-	// Setup Scripted Mock LLM
-	// Scenario:
-	// 1. User: "What is 10 + 5?"
-	// 2. LLM: "Thought: need math. Action: Calculator\nAction Input: 10 + 5"
-	// 3. Agent: Executes Calculator -> "Result from Calculator with 10 + 5"
-	// 4. LLM: "Final Answer: 15"
-	mockLLM := &llm.ScriptedMockProvider{}
-	mockLLM.AddResponse("Thought: need math. Action: Calculator\nAction Input: 10 + 5")
-	mockLLM.AddResponse("Final Answer: 15")
+	// Setup ToolCall LLM
+	toolCallLLM := &toolCallProvider{
+		ToolName: "Calculator",
+		ToolArgs: `{"input":"10 + 5"}`,
+		Final:    "Final Answer: 15",
+	}
 
 	// Create Agent
-	a, err := agent.New("test-agent", mockLLM,
+	a, err := agent.New("test-agent", toolCallLLM,
 		agent.WithTools([]core.Tool{tool}),
+		agent.WithDisableActionFallback(true),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create agent: %v", err)
@@ -104,8 +117,8 @@ func TestAgent_ReActLoop(t *testing.T) {
 		t.Errorf("Expected result '15', got '%v'", result)
 	}
 
-	if mockLLM.CallCount != 2 {
-		t.Errorf("Expected 2 LLM calls, got %d", mockLLM.CallCount)
+	if toolCallLLM.CallCount != 2 {
+		t.Errorf("Expected 2 LLM calls, got %d", toolCallLLM.CallCount)
 	}
 }
 
@@ -133,7 +146,11 @@ func TestAgent_ToolCallsStructured(t *testing.T) {
 	ctx := context.Background()
 
 	tool := &toolWithDefinition{NameVal: "search"}
-	provider := &toolCallProvider{}
+	provider := &toolCallProvider{
+		ToolName: "search",
+		ToolArgs: `{"query":"hello"}`,
+		Final:    "Final Answer: done",
+	}
 
 	a, err := agent.New("tool-call-agent", provider, agent.WithTools([]core.Tool{tool}))
 	if err != nil {

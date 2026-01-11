@@ -91,7 +91,7 @@ Tasks:
 - [x] Optional warning when legacy "Action:" parsing is used.
 Acceptance: US-04 partial.
 Notes:
-- Fallback "Action:" parsing is now configurable; full deprecation still pending.
+- Fallback "Action:" parsing is now configurable and disabled by default; full deprecation still pending.
 
 ## Phase 5: A2A distributed runtime (Estimate: L)
 Goals: discovery, delegation, and trace continuity.

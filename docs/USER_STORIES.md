@@ -50,10 +50,11 @@ Acceptance criteria:
 As a flow designer, I want the agent to choose the next action dynamically.
 Status: [~] In progress
 Current implementation:
-- ReAct-style loop selects tools based on LLM output, supporting LLM tool calls when available.
+- ReAct-style loop selects tools based on LLM tool calls by default.
 - Prompt-driven "Action:" parsing remains as a fallback for providers without tool calls.
 - LLM tool-calls are supported (function schema + structured tool calls).
 - Tool calls are logged with trace/span identifiers.
+ - Legacy Action parsing is disabled by default and can be enabled explicitly.
 Gaps to close:
 - Prefer tool calls over string parsing when supported (deprecate "Action:" path).
 - Deprecate legacy Action parsing (warn + eventual removal plan).
