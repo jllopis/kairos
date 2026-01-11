@@ -192,15 +192,18 @@ func (s *MemoryTaskStore) ListTasks(ctx context.Context, filter TaskFilter) ([]*
 		}
 		offset = parsed
 	}
-	if offset < 0 || offset > total {
+	if offset < 0 {
 		return nil, 0, errInvalidPageToken
 	}
-
-	end := offset + pageSize
-	if end > total {
-		end = total
+	if offset < total {
+		end := offset + pageSize
+		if end > total {
+			end = total
+		}
+		entries = entries[offset:end]
+	} else {
+		entries = nil
 	}
-	entries = entries[offset:end]
 
 	out := make([]*a2av1.Task, 0, len(entries))
 	for _, entry := range entries {
