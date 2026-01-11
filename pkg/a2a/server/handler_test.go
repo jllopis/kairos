@@ -747,3 +747,23 @@ func TestSendMessage_PreservesContextID(t *testing.T) {
 		t.Fatalf("expected task context to override custom context id")
 	}
 }
+
+func TestSendMessage_TaskNotFound(t *testing.T) {
+	handler := &SimpleHandler{
+		Store:    NewMemoryTaskStore(),
+		Executor: &stubExecutor{Output: "ok"},
+	}
+
+	req := &a2av1.SendMessageRequest{
+		Request: &a2av1.Message{
+			MessageId: "msg-1",
+			TaskId:    "missing",
+			Role:      a2av1.Role_ROLE_USER,
+			Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+		},
+		Configuration: &a2av1.SendMessageConfiguration{Blocking: true},
+	}
+	if _, err := handler.SendMessage(context.Background(), req); status.Code(err) != codes.NotFound {
+		t.Fatalf("expected NotFound, got %v", status.Code(err))
+	}
+}
