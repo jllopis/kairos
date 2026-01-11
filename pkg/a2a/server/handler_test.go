@@ -832,3 +832,66 @@ func TestSendStreamingMessage_ExecutorError(t *testing.T) {
 		t.Fatalf("expected failed task status, got %v", taskList[0].GetStatus().GetState())
 	}
 }
+
+func TestListTasks_Filtering(t *testing.T) {
+	store := NewMemoryTaskStore()
+	handler := &SimpleHandler{Store: store}
+
+	taskA, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		ContextId: "ctx-a",
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "alpha"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	taskB, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-2",
+		Role:      a2av1.Role_ROLE_USER,
+		ContextId: "ctx-b",
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "beta"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	if err := store.UpdateStatus(context.Background(), taskB.Id, newStatus(a2av1.TaskState_TASK_STATE_WORKING, taskB.History[0])); err != nil {
+		t.Fatalf("UpdateStatus error: %v", err)
+	}
+	if err := store.AddArtifacts(context.Background(), taskA.Id, []*a2av1.Artifact{{Name: "artifact"}}); err != nil {
+		t.Fatalf("AddArtifacts error: %v", err)
+	}
+
+	resp, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{ContextId: "ctx-a", IncludeArtifacts: boolPtr(true)})
+	if err != nil {
+		t.Fatalf("ListTasks error: %v", err)
+	}
+	if len(resp.GetTasks()) != 1 {
+		t.Fatalf("expected 1 task for context, got %d", len(resp.GetTasks()))
+	}
+	if resp.GetTasks()[0].GetContextId() != "ctx-a" {
+		t.Fatalf("expected ctx-a")
+	}
+	if len(resp.GetTasks()[0].GetArtifacts()) == 0 {
+		t.Fatalf("expected artifacts included")
+	}
+
+	resp, err = handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{Status: a2av1.TaskState_TASK_STATE_WORKING})
+	if err != nil {
+		t.Fatalf("ListTasks error: %v", err)
+	}
+	if len(resp.GetTasks()) != 1 || resp.GetTasks()[0].GetId() != taskB.Id {
+		t.Fatalf("expected working task")
+	}
+
+	resp, err = handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{ContextId: "ctx-a", IncludeArtifacts: boolPtr(false)})
+	if err != nil {
+		t.Fatalf("ListTasks error: %v", err)
+	}
+	if len(resp.GetTasks()) != 1 {
+		t.Fatalf("expected 1 task")
+	}
+	if len(resp.GetTasks()[0].GetArtifacts()) != 0 {
+		t.Fatalf("expected artifacts stripped when include_artifacts is false")
+	}
+}
