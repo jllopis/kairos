@@ -130,6 +130,9 @@ func (h *SimpleHandler) ListTasks(ctx context.Context, req *a2av1.ListTasksReque
 	if h.Store == nil {
 		return nil, status.Error(codes.FailedPrecondition, "task store not configured")
 	}
+	if req.GetPageToken() != "" {
+		return nil, status.Error(codes.InvalidArgument, "page tokens not supported")
+	}
 
 	filter := TaskFilter{
 		ContextID:        req.GetContextId(),
