@@ -30,7 +30,7 @@ func WithExecutor(exec Executor) HandlerOption {
 func WithAgentCard(card *a2av1.AgentCard) HandlerOption {
 	return func(h *SimpleHandler) {
 		if card != nil {
-			h.AgentCard = card
+			h.Card = card
 		}
 	}
 }
