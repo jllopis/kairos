@@ -967,3 +967,39 @@ func TestListTasks_PageSize(t *testing.T) {
 		t.Fatalf("expected page size 1, got %d", resp.GetPageSize())
 	}
 }
+
+func TestListTasks_LastUpdatedAfter(t *testing.T) {
+	store := NewMemoryTaskStore()
+	handler := &SimpleHandler{Store: store}
+
+	_, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "alpha"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	time.Sleep(10 * time.Millisecond)
+	later := time.Now().UTC()
+	time.Sleep(10 * time.Millisecond)
+	_, err = store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-2",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "beta"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+
+	resp, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{LastUpdatedAfter: later.UnixMilli()})
+	if err != nil {
+		t.Fatalf("ListTasks error: %v", err)
+	}
+	if len(resp.GetTasks()) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(resp.GetTasks()))
+	}
+	if resp.GetTasks()[0].GetHistory()[0].GetMessageId() != "msg-2" {
+		t.Fatalf("expected the newer task")
+	}
+}
