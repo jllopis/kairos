@@ -1226,6 +1226,39 @@ func TestListTasks_DefaultPageSize(t *testing.T) {
 	}
 }
 
+func TestListTasks_DefaultPageSizeWithPageToken(t *testing.T) {
+	store := NewMemoryTaskStore()
+	handler := &SimpleHandler{Store: store}
+
+	_, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "alpha"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	_, err = store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-2",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "beta"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+
+	resp, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{PageSize: int32Ptr(0), PageToken: "1"})
+	if err != nil {
+		t.Fatalf("ListTasks error: %v", err)
+	}
+	if resp.GetPageSize() != 50 {
+		t.Fatalf("expected default page size 50, got %d", resp.GetPageSize())
+	}
+	if len(resp.GetTasks()) != 1 {
+		t.Fatalf("expected 1 task on page, got %d", len(resp.GetTasks()))
+	}
+}
+
 func TestListTasks_NegativePageSizeRejected(t *testing.T) {
 	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
 
