@@ -106,9 +106,11 @@ Tasks:
 - [ ] Trace context propagation over A2A (end-to-end).
 - [ ] Minimal auth middleware hooks (OIDC/mTLS stubs; config-driven).
 - [ ] Conformance tests (golden proto/JSON payloads, streaming order, cancel).
+- [ ] Implement ListTasks pagination with page tokens (currently rejected with InvalidArgument).
 Acceptance: US-02 complete, US-05 complete.
 Notes:
 - MVP binding is gRPC-first for streaming stability; HTTP+JSON/JSON-RPC follow later.
+- ListTasks supports `page_size` only; `page_token` is explicitly rejected until pagination is implemented.
 
 ## Phase 6: Multi-level memory (Estimate: M)
 Goals: short and long-term memory backends.
