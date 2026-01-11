@@ -157,6 +157,49 @@ func TestSubscribeToTask_TerminalStatus(t *testing.T) {
 	}
 }
 
+func TestSubscribeToTask_TerminalStatusWithArtifacts(t *testing.T) {
+	store := NewMemoryTaskStore()
+	task, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	if err := store.AddArtifacts(context.Background(), task.Id, []*a2av1.Artifact{
+		{Name: "result", Parts: []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "done"}}}},
+	}); err != nil {
+		t.Fatalf("AddArtifacts error: %v", err)
+	}
+	status := newStatus(a2av1.TaskState_TASK_STATE_COMPLETED, task.History[0])
+	if err := store.UpdateStatus(context.Background(), task.Id, status); err != nil {
+		t.Fatalf("UpdateStatus error: %v", err)
+	}
+
+	handler := &SimpleHandler{Store: store}
+	stream := newStreamRecorder()
+
+	req := &a2av1.SubscribeToTaskRequest{Name: fmt.Sprintf("tasks/%s", task.Id)}
+	if err := handler.SubscribeToTask(req, stream); err != nil {
+		t.Fatalf("SubscribeToTask error: %v", err)
+	}
+	responses := stream.snapshot()
+	if len(responses) != 1 {
+		t.Fatalf("expected 1 stream response, got %d", len(responses))
+	}
+	event := responses[0].GetStatusUpdate()
+	if event == nil || !event.Final {
+		t.Fatalf("expected final status update")
+	}
+	if event.GetStatus().GetState() != a2av1.TaskState_TASK_STATE_COMPLETED {
+		t.Fatalf("expected completed state, got %v", event.GetStatus().GetState())
+	}
+	if responses[0].GetArtifactUpdate() != nil {
+		t.Fatalf("expected no artifact update for terminal snapshot")
+	}
+}
+
 func TestPushNotificationConfigCRUD(t *testing.T) {
 	store := NewMemoryTaskStore()
 	task, err := store.CreateTask(context.Background(), &a2av1.Message{
