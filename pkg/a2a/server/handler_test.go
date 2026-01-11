@@ -1046,10 +1046,50 @@ func TestGetTask_HistoryLengthAndArtifacts(t *testing.T) {
 
 }
 
-func TestListTasks_PageTokenUnsupported(t *testing.T) {
-	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
+func TestListTasks_PageTokenPagination(t *testing.T) {
+	store := NewMemoryTaskStore()
+	handler := &SimpleHandler{Store: store}
 
-	_, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{PageToken: "next"})
+	_, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "alpha"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	_, err = store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-2",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "beta"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+
+	first, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{PageSize: int32Ptr(1)})
+	if err != nil {
+		t.Fatalf("ListTasks error: %v", err)
+	}
+	if len(first.GetTasks()) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(first.GetTasks()))
+	}
+	if first.GetNextPageToken() == "" {
+		t.Fatalf("expected next page token")
+	}
+
+	second, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{PageSize: int32Ptr(1), PageToken: first.GetNextPageToken()})
+	if err != nil {
+		t.Fatalf("ListTasks error: %v", err)
+	}
+	if len(second.GetTasks()) != 1 {
+		t.Fatalf("expected 1 task on second page, got %d", len(second.GetTasks()))
+	}
+	if first.GetTasks()[0].GetId() == second.GetTasks()[0].GetId() {
+		t.Fatalf("expected different tasks across pages")
+	}
+
+	_, err = handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{PageToken: "bad"})
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
 	}

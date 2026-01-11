@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -17,6 +19,7 @@ type TaskFilter struct {
 	ContextID        string
 	Status           a2av1.TaskState
 	PageSize         int32
+	PageToken        string
 	HistoryLength    int32
 	IncludeArtifacts bool
 	LastUpdatedAfter time.Time
@@ -43,6 +46,8 @@ type taskRecord struct {
 	task      *a2av1.Task
 	updatedAt time.Time
 }
+
+var errInvalidPageToken = fmt.Errorf("invalid page token")
 
 // NewMemoryTaskStore creates a new in-memory task store.
 func NewMemoryTaskStore() *MemoryTaskStore {
@@ -152,7 +157,7 @@ func (s *MemoryTaskStore) ListTasks(ctx context.Context, filter TaskFilter) ([]*
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var out []*a2av1.Task
+	var entries []taskRecord
 	for _, record := range s.tasks {
 		if filter.ContextID != "" && record.task.ContextId != filter.ContextID {
 			continue
@@ -163,16 +168,43 @@ func (s *MemoryTaskStore) ListTasks(ctx context.Context, filter TaskFilter) ([]*
 		if !filter.LastUpdatedAfter.IsZero() && record.updatedAt.Before(filter.LastUpdatedAfter) {
 			continue
 		}
-		out = append(out, filterTask(record.task, filter.HistoryLength, filter.IncludeArtifacts))
+		entries = append(entries, taskRecord{task: record.task, updatedAt: record.updatedAt})
 	}
 
-	total := len(out)
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].updatedAt.Equal(entries[j].updatedAt) {
+			return entries[i].task.Id < entries[j].task.Id
+		}
+		return entries[i].updatedAt.After(entries[j].updatedAt)
+	})
+
+	total := len(entries)
 	pageSize := int(filter.PageSize)
 	if pageSize <= 0 {
 		pageSize = 50
 	}
-	if pageSize < total {
-		out = out[:pageSize]
+
+	offset := 0
+	if filter.PageToken != "" {
+		parsed, err := parsePageToken(filter.PageToken)
+		if err != nil {
+			return nil, 0, errInvalidPageToken
+		}
+		offset = parsed
+	}
+	if offset < 0 || offset > total {
+		return nil, 0, errInvalidPageToken
+	}
+
+	end := offset + pageSize
+	if end > total {
+		end = total
+	}
+	entries = entries[offset:end]
+
+	out := make([]*a2av1.Task, 0, len(entries))
+	for _, entry := range entries {
+		out = append(out, filterTask(entry.task, filter.HistoryLength, filter.IncludeArtifacts))
 	}
 	return out, total, nil
 }
@@ -225,4 +257,15 @@ func cloneMessage(message *a2av1.Message) *a2av1.Message {
 		return nil
 	}
 	return proto.Clone(message).(*a2av1.Message)
+}
+
+func parsePageToken(token string) (int, error) {
+	if token == "" {
+		return 0, nil
+	}
+	value, err := strconv.Atoi(token)
+	if err != nil {
+		return 0, err
+	}
+	return value, nil
 }

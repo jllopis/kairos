@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"errors"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -130,14 +132,12 @@ func (h *SimpleHandler) ListTasks(ctx context.Context, req *a2av1.ListTasksReque
 	if h.Store == nil {
 		return nil, status.Error(codes.FailedPrecondition, "task store not configured")
 	}
-	if req.GetPageToken() != "" {
-		return nil, status.Error(codes.InvalidArgument, "page tokens not supported")
-	}
 
 	filter := TaskFilter{
 		ContextID:        req.GetContextId(),
 		Status:           req.GetStatus(),
 		PageSize:         req.GetPageSize(),
+		PageToken:        req.GetPageToken(),
 		HistoryLength:    req.GetHistoryLength(),
 		IncludeArtifacts: req.GetIncludeArtifacts(),
 	}
@@ -147,6 +147,9 @@ func (h *SimpleHandler) ListTasks(ctx context.Context, req *a2av1.ListTasksReque
 
 	tasks, total, err := h.Store.ListTasks(ctx, filter)
 	if err != nil {
+		if errors.Is(err, errInvalidPageToken) {
+			return nil, status.Error(codes.InvalidArgument, "invalid page token")
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -155,10 +158,17 @@ func (h *SimpleHandler) ListTasks(ctx context.Context, req *a2av1.ListTasksReque
 		pageSize = 50
 	}
 
+	nextPageToken := ""
+	offset, err := parsePageToken(filter.PageToken)
+	if err == nil && offset+int(pageSize) < total {
+		nextPageToken = strconv.Itoa(offset + int(pageSize))
+	}
+
 	return &a2av1.ListTasksResponse{
-		Tasks:     tasks,
-		PageSize:  pageSize,
-		TotalSize: int32(total),
+		Tasks:         tasks,
+		PageSize:      pageSize,
+		TotalSize:     int32(total),
+		NextPageToken: nextPageToken,
 	}, nil
 }
 
