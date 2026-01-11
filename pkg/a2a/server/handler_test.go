@@ -1626,6 +1626,76 @@ func TestListTasks_ContextFilterWithPagination(t *testing.T) {
 	}
 }
 
+func TestListTasks_ContextAndStatusFiltersWithPagination(t *testing.T) {
+	store := NewMemoryTaskStore()
+	handler := &SimpleHandler{Store: store}
+
+	taskA, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		ContextId: "ctx-a",
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "alpha"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	taskB, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-2",
+		Role:      a2av1.Role_ROLE_USER,
+		ContextId: "ctx-a",
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "beta"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	if err := store.UpdateStatus(context.Background(), taskA.Id, newStatus(a2av1.TaskState_TASK_STATE_WORKING, taskA.History[0])); err != nil {
+		t.Fatalf("UpdateStatus error: %v", err)
+	}
+	if err := store.UpdateStatus(context.Background(), taskB.Id, newStatus(a2av1.TaskState_TASK_STATE_WORKING, taskB.History[0])); err != nil {
+		t.Fatalf("UpdateStatus error: %v", err)
+	}
+	_, err = store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-3",
+		Role:      a2av1.Role_ROLE_USER,
+		ContextId: "ctx-b",
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "gamma"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+
+	page1, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{
+		ContextId: "ctx-a",
+		Status:    a2av1.TaskState_TASK_STATE_WORKING,
+		PageSize:  int32Ptr(1),
+	})
+	if err != nil {
+		t.Fatalf("ListTasks error: %v", err)
+	}
+	if len(page1.GetTasks()) != 1 {
+		t.Fatalf("expected 1 task on page 1, got %d", len(page1.GetTasks()))
+	}
+	if page1.GetNextPageToken() == "" {
+		t.Fatalf("expected next page token")
+	}
+
+	page2, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{
+		ContextId: "ctx-a",
+		Status:    a2av1.TaskState_TASK_STATE_WORKING,
+		PageSize:  int32Ptr(1),
+		PageToken: page1.GetNextPageToken(),
+	})
+	if err != nil {
+		t.Fatalf("ListTasks error: %v", err)
+	}
+	if len(page2.GetTasks()) != 1 {
+		t.Fatalf("expected 1 task on page 2, got %d", len(page2.GetTasks()))
+	}
+	if page1.GetTasks()[0].GetId() == page2.GetTasks()[0].GetId() {
+		t.Fatalf("expected different tasks across pages")
+	}
+}
+
 func TestListTasks_NegativePageSizeRejected(t *testing.T) {
 	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
 
