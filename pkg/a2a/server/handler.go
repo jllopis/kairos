@@ -4,9 +4,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // Executor runs a task and returns a response message payload.
@@ -19,6 +22,7 @@ type SimpleHandler struct {
 	Store    TaskStore
 	Executor Executor
 	Card     *a2av1.AgentCard
+	PushCfgs PushConfigStore
 }
 
 // AgentCard exposes the configured agent card for capability checks.
@@ -171,7 +175,187 @@ func (h *SimpleHandler) CancelTask(ctx context.Context, req *a2av1.CancelTaskReq
 }
 
 func (h *SimpleHandler) SubscribeToTask(req *a2av1.SubscribeToTaskRequest, stream a2av1.A2AService_SubscribeToTaskServer) error {
-	return status.Error(codes.Unimplemented, "SubscribeToTask not implemented")
+	if h.Store == nil {
+		return status.Error(codes.FailedPrecondition, "task store not configured")
+	}
+	taskID, err := parseTaskName(req.GetName())
+	if err != nil {
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	task, err := h.Store.GetTask(stream.Context(), taskID, 0, true)
+	if err != nil {
+		return status.Error(codes.NotFound, err.Error())
+	}
+
+	lastStatus := task.GetStatus()
+	lastArtifactCount := len(task.GetArtifacts())
+
+	if err := sendStatusUpdate(stream, task, lastStatus, isTerminalState(lastStatus.GetState())); err != nil {
+		return err
+	}
+	if isTerminalState(lastStatus.GetState()) {
+		return nil
+	}
+
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		case <-ticker.C:
+			latest, err := h.Store.GetTask(stream.Context(), taskID, 0, true)
+			if err != nil {
+				return status.Error(codes.NotFound, err.Error())
+			}
+
+			latestStatus := latest.GetStatus()
+			statusChanged := !proto.Equal(lastStatus, latestStatus)
+			if statusChanged {
+				lastStatus = latestStatus
+				final := isTerminalState(latestStatus.GetState())
+				if err := sendStatusUpdate(stream, latest, latestStatus, final); err != nil {
+					return err
+				}
+				if final {
+					return nil
+				}
+			}
+
+			artifactCount := len(latest.GetArtifacts())
+			if artifactCount > lastArtifactCount {
+				for _, artifact := range latest.GetArtifacts()[lastArtifactCount:] {
+					event := &a2av1.TaskArtifactUpdateEvent{
+						TaskId:    latest.Id,
+						ContextId: latest.ContextId,
+						Artifact:  artifact,
+						Append:    true,
+					}
+					if err := stream.Send(&a2av1.StreamResponse{Payload: &a2av1.StreamResponse_ArtifactUpdate{ArtifactUpdate: event}}); err != nil {
+						return err
+					}
+				}
+				lastArtifactCount = artifactCount
+			}
+		}
+	}
+}
+
+func (h *SimpleHandler) SetTaskPushNotificationConfig(ctx context.Context, req *a2av1.SetTaskPushNotificationConfigRequest) (*a2av1.TaskPushNotificationConfig, error) {
+	if h.Store == nil || h.PushCfgs == nil {
+		return nil, status.Error(codes.FailedPrecondition, "push config store not configured")
+	}
+	taskID, err := parseTaskName(req.GetParent())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if _, err := h.Store.GetTask(ctx, taskID, 0, false); err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	cfg := req.GetConfig()
+	if cfg == nil || cfg.GetPushNotificationConfig() == nil {
+		return nil, status.Error(codes.InvalidArgument, "config is required")
+	}
+	if cfg.GetName() != "" {
+		parsedTask, parsedConfig, err := parsePushConfigName(cfg.GetName())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if parsedTask != taskID {
+			return nil, status.Error(codes.InvalidArgument, "config task mismatch")
+		}
+		if req.GetConfigId() == "" {
+			req.ConfigId = parsedConfig
+		} else if req.GetConfigId() != parsedConfig {
+			return nil, status.Error(codes.InvalidArgument, "config id mismatch")
+		}
+	}
+
+	configID := req.GetConfigId()
+	pushCfg := cfg.GetPushNotificationConfig()
+	if configID == "" {
+		configID = pushCfg.GetId()
+	}
+	if configID == "" {
+		configID = uuid.NewString()
+	}
+	if pushCfg.GetId() != "" && pushCfg.GetId() != configID {
+		return nil, status.Error(codes.InvalidArgument, "config id mismatch")
+	}
+	cloned := proto.Clone(pushCfg).(*a2av1.PushNotificationConfig)
+	cloned.Id = configID
+
+	resource := &a2av1.TaskPushNotificationConfig{
+		Name:                   pushConfigResourceName(taskID, configID),
+		PushNotificationConfig: cloned,
+	}
+	stored, err := h.PushCfgs.Set(ctx, taskID, configID, resource)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return stored, nil
+}
+
+func (h *SimpleHandler) GetTaskPushNotificationConfig(ctx context.Context, req *a2av1.GetTaskPushNotificationConfigRequest) (*a2av1.TaskPushNotificationConfig, error) {
+	if h.PushCfgs == nil {
+		return nil, status.Error(codes.FailedPrecondition, "push config store not configured")
+	}
+	taskID, configID, err := parsePushConfigName(req.GetName())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	cfg, err := h.PushCfgs.Get(ctx, taskID, configID)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	return cfg, nil
+}
+
+func (h *SimpleHandler) ListTaskPushNotificationConfig(ctx context.Context, req *a2av1.ListTaskPushNotificationConfigRequest) (*a2av1.ListTaskPushNotificationConfigResponse, error) {
+	if h.PushCfgs == nil {
+		return nil, status.Error(codes.FailedPrecondition, "push config store not configured")
+	}
+	if req.GetPageToken() != "" {
+		return nil, status.Error(codes.InvalidArgument, "page tokens not supported")
+	}
+	taskID, err := parseTaskName(req.GetParent())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	configs, err := h.PushCfgs.List(ctx, taskID, req.GetPageSize())
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &a2av1.ListTaskPushNotificationConfigResponse{
+		Configs:       configs,
+		NextPageToken: "",
+	}, nil
+}
+
+func (h *SimpleHandler) DeleteTaskPushNotificationConfig(ctx context.Context, req *a2av1.DeleteTaskPushNotificationConfigRequest) (*emptypb.Empty, error) {
+	if h.PushCfgs == nil {
+		return nil, status.Error(codes.FailedPrecondition, "push config store not configured")
+	}
+	taskID, configID, err := parsePushConfigName(req.GetName())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if err := h.PushCfgs.Delete(ctx, taskID, configID); err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func sendStatusUpdate(stream a2av1.A2AService_SubscribeToTaskServer, task *a2av1.Task, status *a2av1.TaskStatus, final bool) error {
+	event := &a2av1.TaskStatusUpdateEvent{
+		TaskId:    task.Id,
+		ContextId: task.ContextId,
+		Status:    status,
+		Final:     final,
+	}
+	return stream.Send(&a2av1.StreamResponse{Payload: &a2av1.StreamResponse_StatusUpdate{StatusUpdate: event}})
 }
 
 func (h *SimpleHandler) GetExtendedAgentCard(ctx context.Context, req *a2av1.GetExtendedAgentCardRequest) (*a2av1.AgentCard, error) {

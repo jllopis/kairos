@@ -35,11 +35,21 @@ func WithAgentCard(card *a2av1.AgentCard) HandlerOption {
 	}
 }
 
+// WithPushConfigStore overrides the push notification config store.
+func WithPushConfigStore(store PushConfigStore) HandlerOption {
+	return func(h *SimpleHandler) {
+		if store != nil {
+			h.PushCfgs = store
+		}
+	}
+}
+
 // NewAgentHandler wires a SimpleHandler to a Kairos agent.
 func NewAgentHandler(agent core.Agent, opts ...HandlerOption) *SimpleHandler {
 	handler := &SimpleHandler{
 		Store:    NewMemoryTaskStore(),
 		Executor: &AgentExecutor{Agent: agent},
+		PushCfgs: NewMemoryPushConfigStore(),
 	}
 	for _, opt := range opts {
 		if opt != nil {

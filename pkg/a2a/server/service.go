@@ -127,32 +127,75 @@ func (s *Service) GetExtendedAgentCard(ctx context.Context, req *a2av1.GetExtend
 	return s.handler.GetExtendedAgentCard(ctx, req)
 }
 
-func (s *Service) SetTaskPushNotificationConfig(context.Context, *a2av1.SetTaskPushNotificationConfigRequest) (*a2av1.TaskPushNotificationConfig, error) {
+func (s *Service) SetTaskPushNotificationConfig(ctx context.Context, req *a2av1.SetTaskPushNotificationConfigRequest) (*a2av1.TaskPushNotificationConfig, error) {
 	if !supportsPushNotifications(s.handler) {
 		return nil, status.Error(codes.Unimplemented, "push notifications not supported")
 	}
-	return nil, status.Error(codes.Unimplemented, "SetTaskPushNotificationConfig not implemented")
+	handler, ok := s.handler.(pushNotificationHandler)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "SetTaskPushNotificationConfig handler not configured")
+	}
+	ctx, span := s.tracer.Start(ctx, "A2A.SetTaskPushNotificationConfig", trace.WithAttributes(
+		attribute.String("a2a.method", "SetTaskPushNotificationConfig"),
+		attribute.String("a2a.task_id", req.GetParent()),
+	))
+	defer span.End()
+	return handler.SetTaskPushNotificationConfig(ctx, req)
 }
 
-func (s *Service) GetTaskPushNotificationConfig(context.Context, *a2av1.GetTaskPushNotificationConfigRequest) (*a2av1.TaskPushNotificationConfig, error) {
+func (s *Service) GetTaskPushNotificationConfig(ctx context.Context, req *a2av1.GetTaskPushNotificationConfigRequest) (*a2av1.TaskPushNotificationConfig, error) {
 	if !supportsPushNotifications(s.handler) {
 		return nil, status.Error(codes.Unimplemented, "push notifications not supported")
 	}
-	return nil, status.Error(codes.Unimplemented, "GetTaskPushNotificationConfig not implemented")
+	handler, ok := s.handler.(pushNotificationHandler)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "GetTaskPushNotificationConfig handler not configured")
+	}
+	ctx, span := s.tracer.Start(ctx, "A2A.GetTaskPushNotificationConfig", trace.WithAttributes(
+		attribute.String("a2a.method", "GetTaskPushNotificationConfig"),
+		attribute.String("a2a.config_name", req.GetName()),
+	))
+	defer span.End()
+	return handler.GetTaskPushNotificationConfig(ctx, req)
 }
 
-func (s *Service) ListTaskPushNotificationConfig(context.Context, *a2av1.ListTaskPushNotificationConfigRequest) (*a2av1.ListTaskPushNotificationConfigResponse, error) {
+func (s *Service) ListTaskPushNotificationConfig(ctx context.Context, req *a2av1.ListTaskPushNotificationConfigRequest) (*a2av1.ListTaskPushNotificationConfigResponse, error) {
 	if !supportsPushNotifications(s.handler) {
 		return nil, status.Error(codes.Unimplemented, "push notifications not supported")
 	}
-	return nil, status.Error(codes.Unimplemented, "ListTaskPushNotificationConfig not implemented")
+	handler, ok := s.handler.(pushNotificationHandler)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "ListTaskPushNotificationConfig handler not configured")
+	}
+	ctx, span := s.tracer.Start(ctx, "A2A.ListTaskPushNotificationConfig", trace.WithAttributes(
+		attribute.String("a2a.method", "ListTaskPushNotificationConfig"),
+		attribute.String("a2a.task_id", req.GetParent()),
+	))
+	defer span.End()
+	return handler.ListTaskPushNotificationConfig(ctx, req)
 }
 
-func (s *Service) DeleteTaskPushNotificationConfig(context.Context, *a2av1.DeleteTaskPushNotificationConfigRequest) (*emptypb.Empty, error) {
+func (s *Service) DeleteTaskPushNotificationConfig(ctx context.Context, req *a2av1.DeleteTaskPushNotificationConfigRequest) (*emptypb.Empty, error) {
 	if !supportsPushNotifications(s.handler) {
 		return nil, status.Error(codes.Unimplemented, "push notifications not supported")
 	}
-	return nil, status.Error(codes.Unimplemented, "DeleteTaskPushNotificationConfig not implemented")
+	handler, ok := s.handler.(pushNotificationHandler)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "DeleteTaskPushNotificationConfig handler not configured")
+	}
+	ctx, span := s.tracer.Start(ctx, "A2A.DeleteTaskPushNotificationConfig", trace.WithAttributes(
+		attribute.String("a2a.method", "DeleteTaskPushNotificationConfig"),
+		attribute.String("a2a.config_name", req.GetName()),
+	))
+	defer span.End()
+	return handler.DeleteTaskPushNotificationConfig(ctx, req)
+}
+
+type pushNotificationHandler interface {
+	SetTaskPushNotificationConfig(ctx context.Context, req *a2av1.SetTaskPushNotificationConfigRequest) (*a2av1.TaskPushNotificationConfig, error)
+	GetTaskPushNotificationConfig(ctx context.Context, req *a2av1.GetTaskPushNotificationConfigRequest) (*a2av1.TaskPushNotificationConfig, error)
+	ListTaskPushNotificationConfig(ctx context.Context, req *a2av1.ListTaskPushNotificationConfigRequest) (*a2av1.ListTaskPushNotificationConfigResponse, error)
+	DeleteTaskPushNotificationConfig(ctx context.Context, req *a2av1.DeleteTaskPushNotificationConfigRequest) (*emptypb.Empty, error)
 }
 
 type agentCardProvider interface {
