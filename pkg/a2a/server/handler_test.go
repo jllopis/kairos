@@ -510,7 +510,7 @@ func TestCancelTask_Idempotent(t *testing.T) {
 	}
 }
 
-func TestCancelTask_OverridesCompleted(t *testing.T) {
+func TestCancelTask_DoesNotOverrideCompleted(t *testing.T) {
 	handler := &SimpleHandler{
 		Store:    NewMemoryTaskStore(),
 		Executor: &stubExecutor{Output: "ok"},
@@ -529,7 +529,11 @@ func TestCancelTask_OverridesCompleted(t *testing.T) {
 		t.Fatalf("UpdateStatus error: %v", err)
 	}
 
-	if _, err := handler.CancelTask(context.Background(), &a2av1.CancelTaskRequest{Name: task.Id}); status.Code(err) != codes.FailedPrecondition {
-		t.Fatalf("expected FailedPrecondition, got %v", status.Code(err))
+	out, err := handler.CancelTask(context.Background(), &a2av1.CancelTaskRequest{Name: task.Id})
+	if err != nil {
+		t.Fatalf("CancelTask error: %v", err)
+	}
+	if out.GetStatus().GetState() != a2av1.TaskState_TASK_STATE_COMPLETED {
+		t.Fatalf("expected completed state, got %v", out.GetStatus().GetState())
 	}
 }

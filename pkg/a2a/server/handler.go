@@ -173,7 +173,7 @@ func (h *SimpleHandler) CancelTask(ctx context.Context, req *a2av1.CancelTaskReq
 	}
 	state := task.GetStatus().GetState()
 	if isTerminalState(state) && state != a2av1.TaskState_TASK_STATE_CANCELLED {
-		return nil, status.Error(codes.FailedPrecondition, "task is in terminal state")
+		return task, nil
 	}
 	task, err = h.Store.CancelTask(ctx, taskID)
 	if err != nil {
