@@ -3,7 +3,9 @@ package server
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
+	"time"
 
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
 	"google.golang.org/grpc/codes"
@@ -12,6 +14,7 @@ import (
 )
 
 type streamRecorder struct {
+	mu     sync.Mutex
 	ctx    context.Context
 	sent   []*a2av1.StreamResponse
 	closed bool
@@ -22,6 +25,8 @@ func newStreamRecorder() *streamRecorder {
 }
 
 func (s *streamRecorder) Send(resp *a2av1.StreamResponse) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.sent = append(s.sent, resp)
 	return nil
 }
@@ -32,6 +37,14 @@ func (s *streamRecorder) SetTrailer(metadata.MD)       {}
 func (s *streamRecorder) Context() context.Context     { return s.ctx }
 func (s *streamRecorder) SendMsg(any) error            { return nil }
 func (s *streamRecorder) RecvMsg(any) error            { return nil }
+
+func (s *streamRecorder) snapshot() []*a2av1.StreamResponse {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]*a2av1.StreamResponse, len(s.sent))
+	copy(out, s.sent)
+	return out
+}
 
 type stubExecutor struct {
 	Output    any
@@ -69,16 +82,17 @@ func TestSendStreamingMessage_Order(t *testing.T) {
 		t.Fatalf("SendStreamingMessage error: %v", err)
 	}
 
-	if len(stream.sent) != 3 {
-		t.Fatalf("expected 3 stream responses, got %d", len(stream.sent))
+	responses := stream.snapshot()
+	if len(responses) != 3 {
+		t.Fatalf("expected 3 stream responses, got %d", len(responses))
 	}
-	if stream.sent[0].GetTask() == nil {
+	if responses[0].GetTask() == nil {
 		t.Fatalf("expected task as first stream response")
 	}
-	if stream.sent[1].GetMsg() == nil {
+	if responses[1].GetMsg() == nil {
 		t.Fatalf("expected message as second stream response")
 	}
-	status := stream.sent[2].GetStatusUpdate()
+	status := responses[2].GetStatusUpdate()
 	if status == nil || !status.Final {
 		t.Fatalf("expected final status update as third response")
 	}
@@ -130,10 +144,11 @@ func TestSubscribeToTask_TerminalStatus(t *testing.T) {
 	if err := handler.SubscribeToTask(req, stream); err != nil {
 		t.Fatalf("SubscribeToTask error: %v", err)
 	}
-	if len(stream.sent) != 1 {
-		t.Fatalf("expected 1 stream response, got %d", len(stream.sent))
+	responses := stream.snapshot()
+	if len(responses) != 1 {
+		t.Fatalf("expected 1 stream response, got %d", len(responses))
 	}
-	event := stream.sent[0].GetStatusUpdate()
+	event := responses[0].GetStatusUpdate()
 	if event == nil || !event.Final {
 		t.Fatalf("expected final status update")
 	}
@@ -193,6 +208,79 @@ func TestPushNotificationConfigCRUD(t *testing.T) {
 	if _, err := handler.DeleteTaskPushNotificationConfig(context.Background(), delReq); err != nil {
 		t.Fatalf("DeleteTaskPushNotificationConfig error: %v", err)
 	}
+}
+
+func TestSubscribeToTask_UpdatesAndArtifacts(t *testing.T) {
+	store := NewMemoryTaskStore()
+	task, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+
+	handler := &SimpleHandler{Store: store}
+	stream := newStreamRecorder()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	stream.ctx = ctx
+
+	done := make(chan error, 1)
+	go func() {
+		req := &a2av1.SubscribeToTaskRequest{Name: fmt.Sprintf("tasks/%s", task.Id)}
+		done <- handler.SubscribeToTask(req, stream)
+	}()
+
+	waitFor := func(cond func() bool) bool {
+		deadline := time.Now().Add(1 * time.Second)
+		for time.Now().Before(deadline) {
+			if cond() {
+				return true
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		return false
+	}
+
+	if ok := waitFor(func() bool { return len(stream.snapshot()) > 0 }); !ok {
+		t.Fatalf("expected initial status update")
+	}
+
+	working := newStatus(a2av1.TaskState_TASK_STATE_WORKING, task.History[0])
+	if err := store.UpdateStatus(context.Background(), task.Id, working); err != nil {
+		t.Fatalf("UpdateStatus error: %v", err)
+	}
+	if ok := waitFor(func() bool {
+		for _, resp := range stream.snapshot() {
+			if resp.GetStatusUpdate() != nil && resp.GetStatusUpdate().GetStatus().GetState() == a2av1.TaskState_TASK_STATE_WORKING {
+				return true
+			}
+		}
+		return false
+	}); !ok {
+		t.Fatalf("expected working status update")
+	}
+
+	artifact := &a2av1.Artifact{Name: "result", Parts: []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "done"}}}}
+	if err := store.AddArtifacts(context.Background(), task.Id, []*a2av1.Artifact{artifact}); err != nil {
+		t.Fatalf("AddArtifacts error: %v", err)
+	}
+
+	if ok := waitFor(func() bool {
+		for _, resp := range stream.snapshot() {
+			if resp.GetArtifactUpdate() != nil {
+				return true
+			}
+		}
+		return false
+	}); !ok {
+		t.Fatalf("expected artifact update")
+	}
+
+	cancel()
+	<-done
 }
 
 func TestGetExtendedAgentCard_NotSupported(t *testing.T) {
