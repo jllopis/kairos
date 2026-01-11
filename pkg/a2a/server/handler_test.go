@@ -1332,6 +1332,51 @@ func TestListTasks_OrderingAcrossPages(t *testing.T) {
 	}
 }
 
+func TestListTasks_OrderingWithEqualTimestamps(t *testing.T) {
+	store := NewMemoryTaskStore()
+	handler := &SimpleHandler{Store: store}
+
+	firstTask, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "alpha"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	secondTask, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-2",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "beta"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+
+	fixed := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	store.mu.Lock()
+	store.tasks[firstTask.Id].updatedAt = fixed
+	store.tasks[secondTask.Id].updatedAt = fixed
+	store.mu.Unlock()
+
+	resp, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{PageSize: int32Ptr(2)})
+	if err != nil {
+		t.Fatalf("ListTasks error: %v", err)
+	}
+	if len(resp.GetTasks()) != 2 {
+		t.Fatalf("expected 2 tasks, got %d", len(resp.GetTasks()))
+	}
+
+	expectedFirst := firstTask.Id
+	expectedSecond := secondTask.Id
+	if expectedSecond < expectedFirst {
+		expectedFirst, expectedSecond = expectedSecond, expectedFirst
+	}
+	if resp.GetTasks()[0].GetId() != expectedFirst || resp.GetTasks()[1].GetId() != expectedSecond {
+		t.Fatalf("expected id order %s then %s", expectedFirst, expectedSecond)
+	}
+}
+
 func TestListTasks_NegativePageSizeRejected(t *testing.T) {
 	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
 
