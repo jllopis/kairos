@@ -167,9 +167,17 @@ func (h *SimpleHandler) CancelTask(ctx context.Context, req *a2av1.CancelTaskReq
 	if taskID == "" {
 		return nil, status.Error(codes.InvalidArgument, "task id is required")
 	}
-	task, err := h.Store.CancelTask(ctx, taskID)
+	task, err := h.Store.GetTask(ctx, taskID, 0, true)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	state := task.GetStatus().GetState()
+	if isTerminalState(state) && state != a2av1.TaskState_TASK_STATE_CANCELLED {
+		return nil, status.Error(codes.FailedPrecondition, "task is in terminal state")
+	}
+	task, err = h.Store.CancelTask(ctx, taskID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return task, nil
 }

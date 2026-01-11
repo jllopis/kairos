@@ -185,6 +185,9 @@ func (s *MemoryTaskStore) CancelTask(ctx context.Context, taskID string) (*a2av1
 	if !ok {
 		return nil, fmt.Errorf("task %q not found", taskID)
 	}
+	if isTerminalState(record.task.GetStatus().GetState()) && record.task.GetStatus().GetState() != a2av1.TaskState_TASK_STATE_CANCELLED {
+		return nil, fmt.Errorf("task %q is in terminal state", taskID)
+	}
 	status := newStatus(a2av1.TaskState_TASK_STATE_CANCELLED, record.task.GetStatus().GetMessage())
 	record.task.Status = status
 	record.updatedAt = time.Now().UTC()

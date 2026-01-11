@@ -529,11 +529,7 @@ func TestCancelTask_OverridesCompleted(t *testing.T) {
 		t.Fatalf("UpdateStatus error: %v", err)
 	}
 
-	out, err := handler.CancelTask(context.Background(), &a2av1.CancelTaskRequest{Name: task.Id})
-	if err != nil {
-		t.Fatalf("CancelTask error: %v", err)
-	}
-	if out.GetStatus().GetState() != a2av1.TaskState_TASK_STATE_CANCELLED {
-		t.Fatalf("expected cancelled state, got %v", out.GetStatus().GetState())
+	if _, err := handler.CancelTask(context.Background(), &a2av1.CancelTaskRequest{Name: task.Id}); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("expected FailedPrecondition, got %v", status.Code(err))
 	}
 }
