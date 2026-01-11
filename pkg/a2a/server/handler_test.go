@@ -1179,6 +1179,31 @@ func TestListTasks_PageTokenWhitespace(t *testing.T) {
 	}
 }
 
+func TestListTasks_PageTokenLargeOffset(t *testing.T) {
+	store := NewMemoryTaskStore()
+	handler := &SimpleHandler{Store: store}
+
+	_, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "alpha"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+
+	resp, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{PageToken: "999999", PageSize: int32Ptr(1)})
+	if err != nil {
+		t.Fatalf("ListTasks error: %v", err)
+	}
+	if len(resp.GetTasks()) != 0 {
+		t.Fatalf("expected empty page, got %d", len(resp.GetTasks()))
+	}
+	if resp.GetNextPageToken() != "" {
+		t.Fatalf("expected no next page token")
+	}
+}
+
 func TestGetTask_InvalidName(t *testing.T) {
 	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
 
