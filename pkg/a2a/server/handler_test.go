@@ -427,3 +427,18 @@ func TestPushConfig_InvalidNames(t *testing.T) {
 		t.Fatalf("expected InvalidArgument for Delete, got %v", status.Code(err))
 	}
 }
+
+func TestTaskOps_InvalidNames(t *testing.T) {
+	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
+
+	_, err := handler.GetTask(context.Background(), &a2av1.GetTaskRequest{Name: ""})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for GetTask, got %v", status.Code(err))
+	}
+
+	_, err = handler.CancelTask(context.Background(), &a2av1.CancelTaskRequest{Name: ""})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for CancelTask, got %v", status.Code(err))
+	}
+
+}
