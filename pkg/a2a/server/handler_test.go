@@ -440,5 +440,23 @@ func TestTaskOps_InvalidNames(t *testing.T) {
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected InvalidArgument for CancelTask, got %v", status.Code(err))
 	}
+}
 
+func TestSendMessage_InvalidMessage(t *testing.T) {
+	handler := &SimpleHandler{
+		Store:    NewMemoryTaskStore(),
+		Executor: &stubExecutor{Output: "ok"},
+	}
+
+	_, err := handler.SendMessage(context.Background(), &a2av1.SendMessageRequest{})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for missing message, got %v", status.Code(err))
+	}
+
+	_, err = handler.SendMessage(context.Background(), &a2av1.SendMessageRequest{
+		Request: &a2av1.Message{MessageId: "msg-1"},
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for missing role/parts, got %v", status.Code(err))
+	}
 }
