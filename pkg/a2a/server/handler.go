@@ -154,6 +154,9 @@ func (h *SimpleHandler) ListTasks(ctx context.Context, req *a2av1.ListTasksReque
 	}
 
 	pageSize := filter.PageSize
+	if pageSize < 0 {
+		return nil, status.Error(codes.InvalidArgument, "page size must be >= 0")
+	}
 	if pageSize <= 0 {
 		pageSize = 50
 	}
