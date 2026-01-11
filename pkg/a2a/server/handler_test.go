@@ -1119,3 +1119,12 @@ func TestListTasks_PageTokenBeyondRange(t *testing.T) {
 		t.Fatalf("expected no next page token")
 	}
 }
+
+func TestListTasks_PageTokenNegative(t *testing.T) {
+	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
+
+	_, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{PageToken: "-1"})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
+	}
+}
