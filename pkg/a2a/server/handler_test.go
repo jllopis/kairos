@@ -1377,6 +1377,46 @@ func TestListTasks_OrderingWithEqualTimestamps(t *testing.T) {
 	}
 }
 
+func TestListTasks_OrderingByUpdatedAt(t *testing.T) {
+	store := NewMemoryTaskStore()
+	handler := &SimpleHandler{Store: store}
+
+	taskA, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "alpha"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	taskB, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-2",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "beta"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	time.Sleep(5 * time.Millisecond)
+	if err := store.UpdateStatus(context.Background(), taskA.Id, newStatus(a2av1.TaskState_TASK_STATE_WORKING, taskA.History[0])); err != nil {
+		t.Fatalf("UpdateStatus error: %v", err)
+	}
+
+	resp, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{PageSize: int32Ptr(2)})
+	if err != nil {
+		t.Fatalf("ListTasks error: %v", err)
+	}
+	if len(resp.GetTasks()) != 2 {
+		t.Fatalf("expected 2 tasks, got %d", len(resp.GetTasks()))
+	}
+	if resp.GetTasks()[0].GetId() != taskA.Id {
+		t.Fatalf("expected updated task first")
+	}
+	if resp.GetTasks()[1].GetId() != taskB.Id {
+		t.Fatalf("expected other task second")
+	}
+}
+
 func TestListTasks_NegativePageSizeRejected(t *testing.T) {
 	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
 
