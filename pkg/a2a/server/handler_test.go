@@ -1170,6 +1170,15 @@ func TestListTasks_PageTokenLeadingZeros(t *testing.T) {
 	}
 }
 
+func TestListTasks_PageTokenWhitespace(t *testing.T) {
+	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
+
+	_, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{PageToken: " 1"})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
+	}
+}
+
 func TestGetTask_InvalidName(t *testing.T) {
 	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
 
