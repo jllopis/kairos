@@ -176,9 +176,9 @@ func (h *SimpleHandler) CancelTask(ctx context.Context, req *a2av1.CancelTaskReq
 	if h.Store == nil {
 		return nil, status.Error(codes.FailedPrecondition, "task store not configured")
 	}
-	taskID := req.GetName()
-	if taskID == "" {
-		return nil, status.Error(codes.InvalidArgument, "task id is required")
+	taskID, err := parseTaskName(req.GetName())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	task, err := h.Store.GetTask(ctx, taskID, 0, true)
 	if err != nil {

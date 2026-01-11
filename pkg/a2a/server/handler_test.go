@@ -1137,3 +1137,12 @@ func TestGetTask_InvalidName(t *testing.T) {
 		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
 	}
 }
+
+func TestCancelTask_InvalidName(t *testing.T) {
+	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
+
+	_, err := handler.CancelTask(context.Background(), &a2av1.CancelTaskRequest{Name: "tasks/"})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
+	}
+}
