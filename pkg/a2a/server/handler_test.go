@@ -1128,3 +1128,12 @@ func TestListTasks_PageTokenNegative(t *testing.T) {
 		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
 	}
 }
+
+func TestGetTask_InvalidName(t *testing.T) {
+	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
+
+	_, err := handler.GetTask(context.Background(), &a2av1.GetTaskRequest{Name: "tasks/"})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
+	}
+}
