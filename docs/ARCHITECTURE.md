@@ -26,6 +26,12 @@
 - A2A/ACP for discovery, delegation, and remote execution.
 - AGENTS.md auto-loading on startup to enforce repo rules.
 
+### A2A integration plan (MVP)
+- gRPC binding first (streaming required in MVP).
+- Go types generated directly from `docs/protocols/A2A/a2a.proto`.
+- AgentCard publishing + discovery, plus A2AService server/client.
+- Task/Message/Artifact mapping with trace propagation.
+
 ## Observability
 - OpenTelemetry tracing for agent runs, planner steps, tool calls, A2A hops.
 - Metrics: latency per step, errors per agent, token usage.
@@ -98,6 +104,15 @@ go test ./pkg/telemetry -run TestOTLPSmoke -count=1
 - `agent.WithActionFallbackWarning(true)` emits a warning log when legacy Action parsing is used.
 - Config: `agent.disable_action_fallback` or `KAIROS_AGENT_DISABLE_ACTION_FALLBACK=true` (default: true).
 - Per-agent overrides can be defined under `agents.<agent_id>`.
+
+### Action fallback deprecation plan
+- Phase 1 (current): fallback is disabled by default; enable explicitly via config/env.
+- Phase 2 (next minor): warning on every fallback use + doc/changelog note.
+- Phase 3 (following minor): legacy-only; requires explicit flag and logs a startup warning.
+- Phase 4 (next major): remove fallback path and related flags.
+
+Activation summary:
+- Enable fallback only by setting `agent.disable_action_fallback=false` (or `KAIROS_AGENT_DISABLE_ACTION_FALLBACK=false`).
 
 Example config:
 ```json

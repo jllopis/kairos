@@ -92,16 +92,23 @@ Tasks:
 Acceptance: US-04 partial.
 Notes:
 - Fallback "Action:" parsing is now configurable and disabled by default; full deprecation still pending.
+- Deprecation plan: next minor adds warnings; following minor keeps legacy-only flag; next major removes fallback.
 
 ## Phase 5: A2A distributed runtime (Estimate: L)
 Goals: discovery, delegation, and trace continuity.
 Dependencies: Phase 0, Phase 2.
 Milestone: two agents delegate with distributed traces.
 Tasks:
-- [ ] A2A discovery and registration.
-- [ ] Remote agent invocation (call/response).
-- [ ] Trace context propagation over A2A.
+- [ ] Pin A2A proto version and generate Go types from `docs/protocols/A2A/a2a.proto`.
+- [ ] Implement gRPC binding with streaming (SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask).
+- [ ] AgentCard publishing (well-known) + discovery client.
+- [ ] Remote agent invocation (call/response) and task lifecycle mapping.
+- [ ] Trace context propagation over A2A (end-to-end).
+- [ ] Minimal auth middleware hooks (OIDC/mTLS stubs; config-driven).
+- [ ] Conformance tests (golden proto/JSON payloads, streaming order, cancel).
 Acceptance: US-02 complete, US-05 complete.
+Notes:
+- MVP binding is gRPC-first for streaming stability; HTTP+JSON/JSON-RPC follow later.
 
 ## Phase 6: Multi-level memory (Estimate: M)
 Goals: short and long-term memory backends.

@@ -26,6 +26,14 @@ Acceptance criteria:
 ## US-02: A2A discovery and delegation
 As an architect, I want an agent to delegate tasks to another agent via A2A.
 Status: [ ] Planned
+Implementation plan (MVP, gRPC binding):
+- Types generated from `docs/protocols/A2A/a2a.proto`.
+- A2AService server with SendMessage + SendStreamingMessage + Get/List/Cancel Task.
+- AgentCard publishing + discovery client.
+- Task/Message/Artifact mapping with trace propagation.
+Gaps to close:
+- AuthN/AuthZ middleware (OIDC/mTLS) and multi-tenant routing.
+- Conformance tests across bindings (JSON-RPC/HTTP+JSON).
 Acceptance criteria:
 - Remote agent registers and is discoverable.
 - Agent A calls Agent B and receives a response.
@@ -58,6 +66,7 @@ Current implementation:
 Gaps to close:
 - Prefer tool calls over string parsing when supported (deprecate "Action:" path).
 - Deprecate legacy Action parsing (warn + eventual removal plan).
+ - Document fallback deprecation phases and activation rules.
 Acceptance criteria:
 - Agent selects the next step among multiple tools or agents.
 - Decisions and intermediate results are logged.
