@@ -1,6 +1,9 @@
 package server
 
-import "github.com/jllopis/kairos/pkg/core"
+import (
+	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
+	"github.com/jllopis/kairos/pkg/core"
+)
 
 // HandlerOption customizes the SimpleHandler wiring.
 type HandlerOption func(*SimpleHandler)
@@ -19,6 +22,15 @@ func WithExecutor(exec Executor) HandlerOption {
 	return func(h *SimpleHandler) {
 		if exec != nil {
 			h.Executor = exec
+		}
+	}
+}
+
+// WithAgentCard configures the handler AgentCard (used for GetExtendedAgentCard).
+func WithAgentCard(card *a2av1.AgentCard) HandlerOption {
+	return func(h *SimpleHandler) {
+		if card != nil {
+			h.AgentCard = card
 		}
 	}
 }

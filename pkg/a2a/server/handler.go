@@ -16,8 +16,9 @@ type Executor interface {
 
 // SimpleHandler implements core A2A operations using a TaskStore and Executor.
 type SimpleHandler struct {
-	Store    TaskStore
-	Executor Executor
+	Store     TaskStore
+	Executor  Executor
+	AgentCard *a2av1.AgentCard
 }
 
 func (h *SimpleHandler) SendMessage(ctx context.Context, req *a2av1.SendMessageRequest) (*a2av1.SendMessageResponse, error) {
@@ -169,7 +170,13 @@ func (h *SimpleHandler) SubscribeToTask(req *a2av1.SubscribeToTaskRequest, strea
 }
 
 func (h *SimpleHandler) GetExtendedAgentCard(ctx context.Context, req *a2av1.GetExtendedAgentCardRequest) (*a2av1.AgentCard, error) {
-	return nil, status.Error(codes.Unimplemented, "GetExtendedAgentCard not implemented")
+	if h.AgentCard == nil || !h.AgentCard.GetSupportsExtendedAgentCard() {
+		return nil, status.Error(codes.Unimplemented, "extended agent card not supported")
+	}
+	if len(h.AgentCard.GetSkills()) == 0 {
+		return nil, status.Error(codes.FailedPrecondition, "extended agent card not configured")
+	}
+	return h.AgentCard, nil
 }
 
 func (h *SimpleHandler) ensureTask(ctx context.Context, message *a2av1.Message) (*a2av1.Task, bool, error) {

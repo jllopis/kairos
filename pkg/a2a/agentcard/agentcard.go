@@ -27,7 +27,10 @@ func Build(cfg Config) *a2av1.AgentCard {
 	protocolVersion := stringPtr(cfg.ProtocolVersion)
 	documentationURL := stringPtr(cfg.DocumentationURL)
 	iconURL := stringPtr(cfg.IconURL)
-	supportsExtended := boolPtr(cfg.SupportsExtendedCard)
+	var supportsExtended *bool
+	if cfg.SupportsExtendedCard {
+		supportsExtended = boolPtr(true)
+	}
 
 	return &a2av1.AgentCard{
 		ProtocolVersion:           protocolVersion,
