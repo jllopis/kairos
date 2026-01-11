@@ -13,6 +13,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+var errStub = fmt.Errorf("executor error")
+
 type streamRecorder struct {
 	mu     sync.Mutex
 	ctx    context.Context
@@ -765,5 +767,35 @@ func TestSendMessage_TaskNotFound(t *testing.T) {
 	}
 	if _, err := handler.SendMessage(context.Background(), req); status.Code(err) != codes.NotFound {
 		t.Fatalf("expected NotFound, got %v", status.Code(err))
+	}
+}
+
+func TestSendMessage_ExecutorError(t *testing.T) {
+	handler := &SimpleHandler{
+		Store:    NewMemoryTaskStore(),
+		Executor: &stubExecutor{Err: errStub},
+	}
+
+	req := &a2av1.SendMessageRequest{
+		Request: &a2av1.Message{
+			MessageId: "msg-1",
+			Role:      a2av1.Role_ROLE_USER,
+			Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+		},
+		Configuration: &a2av1.SendMessageConfiguration{Blocking: true},
+	}
+	if _, err := handler.SendMessage(context.Background(), req); status.Code(err) != codes.Internal {
+		t.Fatalf("expected Internal, got %v", status.Code(err))
+	}
+
+	taskList, _, err := handler.Store.ListTasks(context.Background(), TaskFilter{})
+	if err != nil {
+		t.Fatalf("ListTasks error: %v", err)
+	}
+	if len(taskList) == 0 {
+		t.Fatalf("expected task to be stored")
+	}
+	if taskList[0].GetStatus().GetState() != a2av1.TaskState_TASK_STATE_FAILED {
+		t.Fatalf("expected failed task status, got %v", taskList[0].GetStatus().GetState())
 	}
 }
