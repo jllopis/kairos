@@ -398,3 +398,13 @@ func TestSetTaskPushNotificationConfig_MissingConfig(t *testing.T) {
 		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
 	}
 }
+
+func TestSubscribeToTask_InvalidName(t *testing.T) {
+	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
+	req := &a2av1.SubscribeToTaskRequest{Name: "tasks/"}
+	stream := newStreamRecorder()
+
+	if err := handler.SubscribeToTask(req, stream); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
+	}
+}
