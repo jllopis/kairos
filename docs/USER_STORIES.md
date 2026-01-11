@@ -37,10 +37,10 @@ Status: [~] In progress
 Current implementation:
 - Graph schema with nodes/edges and validation.
 - JSON/YAML parsers for graph definitions.
-- Linear executor with per-node tracing.
+- Executor with per-node tracing, branching conditions, and audit hooks.
 - Walkthrough and example usage in `docs/walkthrough-explicit-planner.md` and `examples/explicit-planner`.
 Gaps to close:
-- Branching/conditions support and richer audit events.
+- Richer audit events (persisted store) and advanced condition types.
 Acceptance criteria:
 - Graph defined in YAML/JSON executes correctly.
 - Each node is traced with OpenTelemetry spans.

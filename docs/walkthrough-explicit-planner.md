@@ -59,6 +59,51 @@ if err != nil {
 fmt.Printf("last output: %v\n", state.Last)
 ```
 
+## Branching conditions
+
+Use `condition` in edges to select the next node. Supported conditions:
+- `last==<value>` / `last!=<value>`
+- `output.<node_id>==<value>` / `output.<node_id>!=<value>`
+- `default` (fallback when no condition matches)
+
+Example:
+
+```yaml
+nodes:
+  step-1:
+    type: log
+    input: "ok"
+  step-2:
+    type: log
+    input: "branch-ok"
+  step-3:
+    type: log
+    input: "branch-default"
+edges:
+  - from: step-1
+    to: step-2
+    condition: "last==ok"
+  - from: step-1
+    to: step-3
+    condition: "default"
+```
+
+## Serialization helpers
+
+```go
+jsonPayload, err := planner.MarshalJSON(graph, true)
+yamlPayload, err := planner.MarshalYAML(graph)
+```
+
+## Audit hook
+
+```go
+exec := planner.NewExecutor(handlers)
+exec.AuditHook = func(ctx context.Context, event planner.AuditEvent) {
+  fmt.Printf("node=%s status=%s\n", event.NodeID, event.Status)
+}
+```
+
 ## Notes
-- The executor currently supports a single linear path (one outgoing edge per node).
-- Branching/conditions and richer audit events are planned in a later phase.
+- Branching uses first matching condition and an optional `default` edge.
+- Audit events emit start/completed/failed with timestamps and output.

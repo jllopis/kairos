@@ -3,6 +3,8 @@ package planner
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -25,8 +27,9 @@ func NewState() *State {
 
 // Executor runs a graph using node handlers.
 type Executor struct {
-	Handlers map[string]Handler
-	tracer   trace.Tracer
+	Handlers  map[string]Handler
+	AuditHook func(ctx context.Context, event AuditEvent)
+	tracer    trace.Tracer
 }
 
 // NewExecutor creates an executor with provided handlers.
@@ -35,6 +38,17 @@ func NewExecutor(handlers map[string]Handler) *Executor {
 		Handlers: handlers,
 		tracer:   otel.Tracer("kairos/planner"),
 	}
+}
+
+// AuditEvent captures node execution details for observability.
+type AuditEvent struct {
+	NodeID     string
+	NodeType   string
+	Status     string
+	Output     any
+	Error      string
+	StartedAt  time.Time
+	FinishedAt time.Time
 }
 
 // Execute runs the graph from its start node and returns the final state.
@@ -77,6 +91,14 @@ func (e *Executor) Execute(ctx context.Context, graph *Graph, state *State) (*St
 			return nil, fmt.Errorf("no handler for node type %q", node.Type)
 		}
 
+		started := time.Now().UTC()
+		e.emitAudit(ctx, AuditEvent{
+			NodeID:    node.ID,
+			NodeType:  node.Type,
+			Status:    "started",
+			StartedAt: started,
+		})
+
 		nodeCtx, span := e.tracer.Start(ctx, "Planner.Node",
 			trace.WithAttributes(
 				attribute.String("node.id", node.ID),
@@ -86,19 +108,35 @@ func (e *Executor) Execute(ctx context.Context, graph *Graph, state *State) (*St
 		output, err := handler(nodeCtx, node, state)
 		span.End()
 		if err != nil {
+			e.emitAudit(ctx, AuditEvent{
+				NodeID:     node.ID,
+				NodeType:   node.Type,
+				Status:     "failed",
+				Error:      err.Error(),
+				StartedAt:  started,
+				FinishedAt: time.Now().UTC(),
+			})
 			return nil, fmt.Errorf("node %q failed: %w", node.ID, err)
 		}
+		e.emitAudit(ctx, AuditEvent{
+			NodeID:     node.ID,
+			NodeType:   node.Type,
+			Status:     "completed",
+			Output:     output,
+			StartedAt:  started,
+			FinishedAt: time.Now().UTC(),
+		})
 		state.Outputs[node.ID] = output
 		state.Last = output
 
-		next := adjacency[currentID]
-		if len(next) == 0 {
+		next, err := selectNextNode(currentID, adjacency[currentID], graph, state)
+		if err != nil {
+			return nil, err
+		}
+		if next == "" {
 			break
 		}
-		if len(next) > 1 {
-			return nil, fmt.Errorf("node %q has multiple outgoing edges", currentID)
-		}
-		currentID = next[0]
+		currentID = next
 	}
 
 	return state, nil
@@ -147,4 +185,89 @@ func buildAdjacency(graph *Graph) (map[string][]string, error) {
 		adj[edge.From] = append(adj[edge.From], edge.To)
 	}
 	return adj, nil
+}
+
+func selectNextNode(currentID string, candidates []string, graph *Graph, state *State) (string, error) {
+	if len(candidates) == 0 {
+		return "", nil
+	}
+	edges := edgesFrom(graph, currentID)
+	if len(edges) == 0 {
+		return "", nil
+	}
+
+	var fallback string
+	for _, edge := range edges {
+		cond := strings.TrimSpace(edge.Condition)
+		if cond == "" || cond == "default" || cond == "always" {
+			if fallback == "" {
+				fallback = edge.To
+			}
+			continue
+		}
+		ok, err := evaluateCondition(cond, state)
+		if err != nil {
+			return "", fmt.Errorf("edge condition %q on %q: %w", cond, currentID, err)
+		}
+		if ok {
+			return edge.To, nil
+		}
+	}
+	return fallback, nil
+}
+
+func edgesFrom(graph *Graph, from string) []Edge {
+	out := make([]Edge, 0)
+	for _, edge := range graph.Edges {
+		if edge.From == from {
+			out = append(out, edge)
+		}
+	}
+	return out
+}
+
+func evaluateCondition(condition string, state *State) (bool, error) {
+	switch {
+	case strings.HasPrefix(condition, "last=="):
+		value := strings.TrimSpace(strings.TrimPrefix(condition, "last=="))
+		return fmt.Sprint(state.Last) == value, nil
+	case strings.HasPrefix(condition, "last!="):
+		value := strings.TrimSpace(strings.TrimPrefix(condition, "last!="))
+		return fmt.Sprint(state.Last) != value, nil
+	case strings.HasPrefix(condition, "output."):
+		return evalOutputCondition(condition, state)
+	default:
+		return false, fmt.Errorf("unsupported condition")
+	}
+}
+
+func evalOutputCondition(condition string, state *State) (bool, error) {
+	rest := strings.TrimPrefix(condition, "output.")
+	if parts := strings.SplitN(rest, "==", 2); len(parts) == 2 {
+		return compareOutput(parts[0], parts[1], state, true), nil
+	}
+	if parts := strings.SplitN(rest, "!=", 2); len(parts) == 2 {
+		return compareOutput(parts[0], parts[1], state, false), nil
+	}
+	return false, fmt.Errorf("invalid output condition")
+}
+
+func compareOutput(nodeID, rawValue string, state *State, equal bool) bool {
+	nodeID = strings.TrimSpace(nodeID)
+	value := strings.TrimSpace(rawValue)
+	got, ok := state.Outputs[nodeID]
+	if !ok {
+		return false
+	}
+	if equal {
+		return fmt.Sprint(got) == value
+	}
+	return fmt.Sprint(got) != value
+}
+
+func (e *Executor) emitAudit(ctx context.Context, event AuditEvent) {
+	if e.AuditHook == nil {
+		return
+	}
+	e.AuditHook(ctx, event)
 }

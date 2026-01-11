@@ -71,11 +71,11 @@ Tasks:
 - [x] Graph model and executor.
 - [x] YAML/JSON parser and serializer.
 - [x] Per-node tracing (spans).
-- [ ] Audit events for node execution.
+- [x] Audit events for node execution.
 - [x] Documentation and example for graph usage.
 Follow-ups (post-milestone):
-- [ ] Branching/conditions and multi-edge evaluation.
-- [ ] Graph serialization helpers (emit JSON/YAML).
+- [x] Branching/conditions and multi-edge evaluation.
+- [x] Graph serialization helpers (emit JSON/YAML).
 Acceptance: US-03 complete.
 
 ## Phase 4: Emergent planner (Estimate: M)
