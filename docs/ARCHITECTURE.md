@@ -50,6 +50,7 @@ Equivalent environment variables:
 - `KAIROS_TELEMETRY_EXPORTER`
 - `KAIROS_TELEMETRY_OTLP_ENDPOINT`
 - `KAIROS_TELEMETRY_OTLP_INSECURE`
+- `KAIROS_TELEMETRY_OTLP_TIMEOUT_SECONDS`
 
 #### Verification Steps
 1) Start an OTLP-compatible backend (e.g., local collector on `localhost:4317`).
@@ -64,12 +65,26 @@ go run ./examples/basic-agent
 
 3) Confirm traces and metrics arrive in the backend.
 
+Optional OTLP smoke test:
+```bash
+KAIROS_OTLP_SMOKE_TEST=1 \
+KAIROS_TELEMETRY_OTLP_ENDPOINT=localhost:4317 \
+KAIROS_TELEMETRY_OTLP_INSECURE=true \
+KAIROS_TELEMETRY_OTLP_TIMEOUT_SECONDS=30 \
+go test ./pkg/telemetry -run TestOTLPSmoke -count=1
+```
+
 ## Data Model (high level)
 - Agent: id, role, skills, tools, memory, policies.
 - Skill: semantic capability (AgentSkills spec).
 - Tool: MCP implementation that fulfills skills.
 - Plan: graph or emergent plan state.
 - Memory: interface Store/Retrieve with pluggable backends.
+
+## Explicit planner groundwork
+- Graph schema (`pkg/planner`): nodes, edges, and optional start node.
+- JSON/YAML parsers with validation for well-formed graphs.
+- Executor supports linear paths with per-node tracing; branching/conditions are future work.
 
 ## Execution Flow (runtime)
 1) Load AGENTS.md and apply repository rules.

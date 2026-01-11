@@ -66,9 +66,9 @@ Goals: deterministic graph execution.
 Dependencies: Phase 0, Phase 1.
 Milestone: YAML/JSON graph executes end-to-end.
 Tasks:
-- [ ] Graph model and executor.
-- [ ] YAML/JSON parser and serializer.
-- [ ] Per-node tracing and audit events.
+- [x] Graph model and executor.
+- [x] YAML/JSON parser and serializer.
+- [~] Per-node tracing and audit events.
 Acceptance: US-03 complete.
 
 ## Phase 4: Emergent planner (Estimate: M)

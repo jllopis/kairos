@@ -33,7 +33,13 @@ Acceptance criteria:
 
 ## US-03: Explicit planner with graphs
 As an engineer, I want to define deterministic flows using a graph planner.
-Status: [ ] Planned
+Status: [~] In progress
+Current implementation:
+- Graph schema with nodes/edges and validation.
+- JSON/YAML parsers for graph definitions.
+- Linear executor with per-node tracing.
+Gaps to close:
+- Branching/conditions support and richer audit events.
 Acceptance criteria:
 - Graph defined in YAML/JSON executes correctly.
 - Each node is traced with OpenTelemetry spans.
