@@ -8,6 +8,6 @@ Generation:
 ```
 
 Notes:
-- Install `protoc`, `protoc-gen-go`, and `protoc-gen-go-grpc` before running.
+- The script bootstraps `protoc` and plugins into `tools/bin` (pinned versions).
 - Provide googleapis protos and set `A2A_GOOGLEAPIS_DIR` (expects `google/api/annotations.proto`).
 - The proto file is the normative source; do not edit generated files manually.
