@@ -111,7 +111,7 @@ func NewClientWithStdioProtocol(command string, args []string, protocolVersion s
 	initRequest.Params.ProtocolVersion = protocolVersion
 	initRequest.Params.ClientInfo = mcp.Implementation{
 		Name:    "kairos-client",
-		Version: "0.1.0",
+		Version: "0.2.5",
 	}
 
 	_, err = stdioClient.Initialize(ctx, initRequest)
@@ -153,7 +153,7 @@ func NewClientWithStreamableHTTPProtocol(baseURL, protocolVersion string, opts .
 	initRequest.Params.ProtocolVersion = protocolVersion
 	initRequest.Params.ClientInfo = mcp.Implementation{
 		Name:    "kairos-client",
-		Version: "0.1.0",
+		Version: "0.2.5",
 	}
 
 	if _, err := httpClient.Initialize(ctx, initRequest); err != nil {

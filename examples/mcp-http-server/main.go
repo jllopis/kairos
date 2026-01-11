@@ -16,7 +16,7 @@ func main() {
 		addr = "localhost:8080"
 	}
 
-	server := mcp.NewServer("kairos-http-tools", "0.1.0")
+	server := mcp.NewServer("kairos-http-tools", "0.2.5")
 	server.RegisterTool("echo", "Echo back a message", nil, func(ctx context.Context, args map[string]interface{}) (*mcpgo.CallToolResult, error) {
 		message := fmt.Sprint(args["message"])
 		return &mcpgo.CallToolResult{

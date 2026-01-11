@@ -28,7 +28,7 @@ func main() {
 	cfg.Memory.Enabled = true
 
 	// 2. Initialize Telemetry
-	shutdown, err := telemetry.InitWithConfig("memory-agent", "v0.1.0", telemetry.Config{
+	shutdown, err := telemetry.InitWithConfig("memory-agent", "v0.2.5", telemetry.Config{
 		Exporter:           cfg.Telemetry.Exporter,
 		OTLPEndpoint:       cfg.Telemetry.OTLPEndpoint,
 		OTLPInsecure:       cfg.Telemetry.OTLPInsecure,
@@ -80,9 +80,11 @@ func main() {
 	}
 
 	// 5. Create Agent
+	agentCfg := cfg.AgentConfigFor("memory-assistant")
 	a, err := agent.New("memory-assistant", provider,
 		agent.WithRole("Helpful Assistant with Memory"),
 		agent.WithModel(cfg.LLM.Model),
+		agent.WithDisableActionFallback(agentCfg.DisableActionFallback),
 		agent.WithMemory(mem),
 	)
 	if err != nil {

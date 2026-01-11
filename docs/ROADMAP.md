@@ -38,11 +38,15 @@ Tasks:
 - [x] Skill -> MCP tool binding (Agent tool adapter).
 - [x] Tool schema/arguments mapping and validation.
 - [x] Example: MCP agent loads tools from config and runs a tool call.
-- [ ] Error handling, retries, and timeout policy for tool calls.
-- [ ] Tool discovery caching and refresh strategy.
+- [x] Error handling, retries, and timeout policy for tool calls.
+- [x] Tool discovery caching and refresh strategy.
+Follow-ups (post-milestone):
+- [ ] Expose MCP retry/timeout/cache policy in config.
+- [ ] Add end-to-end MCP smoke tests for stdio + HTTP.
 Acceptance: US-01 complete.
 Notes:
-- Core MCP path works via config + stdio client/server; hardening is pending.
+- Core MCP path works via config + stdio/http client/server; hardening now defaults in the client.
+- Exposing retry/timeout/cache policy in config is still pending.
 
 ## Phase 2: Observability baseline (Estimate: M)
 Goals: OTel traces/metrics/logs from runtime.
@@ -54,6 +58,7 @@ Tasks:
 - [x] Structured logs with trace/span ids.
 - [x] Configurable OTLP exporter (traces + metrics) and resource attributes.
 - [x] Example config for OTLP backend.
+- [ ] Validate OTLP export against a backend and document a smoke-test.
 Acceptance: US-05 (partial).
 
 ## Phase 3: Explicit planner (Estimate: L)
@@ -73,9 +78,10 @@ Milestone: emergent flow runs with decision logs.
 Tasks:
 - [x] Decision engine with tool selection (basic ReAct loop).
 - [ ] Logging of decisions and outcomes (decision rationale + inputs/outputs).
-- [ ] Structured tool-call parsing (use tool calls vs string parsing).
-- [ ] Provide tool definitions to LLM (function schema) for native tool calls.
-Acceptance: US-04 complete.
+- [x] Structured tool-call parsing (LLM tool calls + JSON args).
+- [x] Provide tool definitions to LLM (function schema) for native tool calls.
+- [ ] Prefer tool calls over "Action:" parsing when available (deprecate string parsing path).
+Acceptance: US-04 partial.
 
 ## Phase 5: A2A distributed runtime (Estimate: L)
 Goals: discovery, delegation, and trace continuity.

@@ -65,10 +65,12 @@ func main() {
 		provider = mock
 	}
 
+	agentCfg := cfg.AgentConfigFor("mcp-agent")
 	ag, err := agent.New("mcp-agent", provider,
 		agent.WithRole("Tool user"),
 		agent.WithSkills([]core.Skill{{Name: "fetch"}}),
 		agent.WithModel(cfg.LLM.Model),
+		agent.WithDisableActionFallback(agentCfg.DisableActionFallback),
 		agent.WithMCPServerConfigs(cfg.MCP.Servers),
 	)
 	if err != nil {

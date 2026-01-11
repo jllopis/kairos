@@ -112,6 +112,29 @@ Example config (streamable HTTP):
 }
 ```
 
+### Remote MCP Client Example
+
+See `examples/mcp-remote-agent/main.go` for a remote MCP client example using Microsoft Learn.
+
+Example config:
+
+```json
+{
+  "mcpServers": {
+    "microsoft.docs.mcp": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
+    }
+  }
+}
+```
+
+Run it:
+
+```bash
+go run ./examples/mcp-remote-agent
+```
+
 ## HTTP Server Example
 
 See `examples/mcp-http-server/main.go` for a simple Streamable HTTP MCP server.

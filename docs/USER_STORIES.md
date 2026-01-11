@@ -11,11 +11,13 @@ Status: [x] Done
 Current implementation:
 - Agent can be created via typed API and run with a mock or Ollama LLM.
 - MCP client/server wrappers exist.
+- MCP client includes retries, timeouts, and tool discovery caching by default.
 - MCP tool adapter supports schema mapping and required-arg validation.
 - Agent can auto-discover MCP tools via registered clients, filtered by skills.
- - Example MCP agent loads servers from config and executes a tool call.
+- Example MCP agent loads servers from config and executes a tool call.
 Follow-ups:
-- Add retry/backoff/timeouts for MCP tool calls.
+- Expose MCP retry/timeout/cache policy in config and docs.
+- Add end-to-end MCP smoke tests for stdio + HTTP.
 Acceptance criteria:
 - Create a Go agent via typed API and run a simple task.
 - Agent can call an external MCP tool.
@@ -41,12 +43,13 @@ Acceptance criteria:
 As a flow designer, I want the agent to choose the next action dynamically.
 Status: [~] In progress
 Current implementation:
-- ReAct-style loop selects tools based on LLM output via prompt-driven "Action:" parsing.
+- ReAct-style loop selects tools based on LLM output, supporting LLM tool calls when available.
+- Prompt-driven "Action:" parsing remains as a fallback for providers without tool calls.
+- LLM tool-calls are supported (function schema + structured tool calls).
 - Tool calls are logged with trace/span identifiers.
 Gaps to close:
 - Decision logging with trace/span IDs and rationale.
-- Structured tool-call parsing (LLM tool calls instead of string parsing).
-- Provide tool definitions (function schema) in chat requests.
+- Prefer tool calls over string parsing when supported (deprecate "Action:" path).
 Acceptance criteria:
 - Agent selects the next step among multiple tools or agents.
 - Decisions and intermediate results are logged.
@@ -59,7 +62,7 @@ Current implementation:
 - Basic metrics (run count, errors, latency histograms) via stdout exporter.
 - Structured logs include trace/span identifiers.
 - Configurable OTLP exporter for traces and metrics.
- - Example OTLP config in docs.
+- Example OTLP config in docs.
 Gaps to close:
 - Validate OTLP export against a backend and document verification steps.
 Acceptance criteria:

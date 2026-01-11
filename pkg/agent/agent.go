@@ -28,16 +28,17 @@ type toolDefiner interface {
 
 // Agent is an LLM-driven agent implementation.
 type Agent struct {
-	id            string
-	role          string
-	skills        []core.Skill
-	tools         []core.Tool
-	memory        core.Memory
-	llm           llm.Provider
-	tracer        trace.Tracer
-	model         string
-	maxIterations int
-	mcpClients    []*kmcp.Client
+	id                    string
+	role                  string
+	skills                []core.Skill
+	tools                 []core.Tool
+	memory                core.Memory
+	llm                   llm.Provider
+	tracer                trace.Tracer
+	model                 string
+	maxIterations         int
+	mcpClients            []*kmcp.Client
+	disableActionFallback bool
 }
 
 // Option configures an Agent instance.
@@ -164,6 +165,14 @@ func WithMaxIterations(max int) Option {
 			return errors.New("max iterations must be at least 1")
 		}
 		a.maxIterations = max
+		return nil
+	}
+}
+
+// WithDisableActionFallback disables legacy "Action:" parsing in the ReAct loop.
+func WithDisableActionFallback(disable bool) Option {
+	return func(a *Agent) error {
+		a.disableActionFallback = disable
 		return nil
 	}
 }
@@ -298,7 +307,18 @@ Final Answer: the final answer to the original input question
 		messages = append(messages, llm.Message{Role: llm.RoleAssistant, Content: content})
 
 		if len(resp.ToolCalls) > 0 {
-			a.handleToolCalls(ctx, log, runID, traceID, spanID, toolset, resp.ToolCalls, &messages)
+			logDecision(log, decisionPayload{
+				AgentID:       a.id,
+				RunID:         runID,
+				TraceID:       traceID,
+				SpanID:        spanID,
+				Iteration:     i + 1,
+				DecisionType:  "tool_call",
+				Rationale:     summarizeToolCallRationale(content),
+				InputSummary:  summarizeText(inputStr),
+				OutputSummary: summarizeText(content),
+			})
+			a.handleToolCalls(ctx, log, runID, traceID, spanID, toolset, resp.ToolCalls, &messages, content)
 			continue
 		}
 
@@ -307,6 +327,17 @@ Final Answer: the final answer to the original input question
 			parts := strings.Split(content, "Final Answer:")
 			if len(parts) > 1 {
 				finalAnswer := strings.TrimSpace(parts[1])
+				logDecision(log, decisionPayload{
+					AgentID:       a.id,
+					RunID:         runID,
+					TraceID:       traceID,
+					SpanID:        spanID,
+					Iteration:     i + 1,
+					DecisionType:  "final_answer",
+					Rationale:     summarizeFinalRationale(content),
+					InputSummary:  summarizeText(inputStr),
+					OutputSummary: summarizeText(finalAnswer),
+				})
 				a.storeMemory(ctx, mem, inputStr, finalAnswer)
 				agentRunLatencyMs.Record(ctx, time.Since(start).Seconds()*1000)
 				log.Info("agent.run.complete",
@@ -318,6 +349,17 @@ Final Answer: the final answer to the original input question
 				)
 				return finalAnswer, nil
 			}
+			logDecision(log, decisionPayload{
+				AgentID:       a.id,
+				RunID:         runID,
+				TraceID:       traceID,
+				SpanID:        spanID,
+				Iteration:     i + 1,
+				DecisionType:  "final_answer",
+				Rationale:     summarizeFinalRationale(content),
+				InputSummary:  summarizeText(inputStr),
+				OutputSummary: summarizeText(content),
+			})
 			a.storeMemory(ctx, mem, inputStr, content)
 			agentRunLatencyMs.Record(ctx, time.Since(start).Seconds()*1000)
 			log.Info("agent.run.complete",
@@ -333,7 +375,18 @@ Final Answer: the final answer to the original input question
 		// Check for Action
 		// Simple parsing logic for now.
 		// TODO: Make this robust (regex or structured output)
-		if strings.Contains(content, "Action:") {
+		if !a.disableActionFallback && strings.Contains(content, "Action:") {
+			logDecision(log, decisionPayload{
+				AgentID:       a.id,
+				RunID:         runID,
+				TraceID:       traceID,
+				SpanID:        spanID,
+				Iteration:     i + 1,
+				DecisionType:  "fallback_action",
+				Rationale:     summarizeFallbackRationale(content),
+				InputSummary:  summarizeText(inputStr),
+				OutputSummary: summarizeText(content),
+			})
 			lines := strings.Split(content, "\n")
 			var action, actionInput string
 
@@ -657,10 +710,21 @@ func toolDefinitions(tools []core.Tool) []llm.Tool {
 	return defs
 }
 
-func (a *Agent) handleToolCalls(ctx context.Context, log *slog.Logger, runID, traceID, spanID string, toolset []core.Tool, calls []llm.ToolCall, messages *[]llm.Message) {
+func (a *Agent) handleToolCalls(ctx context.Context, log *slog.Logger, runID, traceID, spanID string, toolset []core.Tool, calls []llm.ToolCall, messages *[]llm.Message, rationale string) {
 	for _, call := range calls {
 		toolName := call.Function.Name
 		args := strings.TrimSpace(call.Function.Arguments)
+		logDecision(log, decisionPayload{
+			AgentID:       a.id,
+			RunID:         runID,
+			TraceID:       traceID,
+			SpanID:        spanID,
+			DecisionType:  "tool_call",
+			Rationale:     summarizeText(rationale),
+			OutputSummary: summarizeText(args),
+			ToolName:      toolName,
+			ToolCallID:    call.ID,
+		})
 		log.Info("agent.tool.requested",
 			slog.String("agent_id", a.id),
 			slog.String("run_id", runID),
@@ -711,6 +775,16 @@ func (a *Agent) handleToolCalls(ctx context.Context, log *slog.Logger, runID, tr
 			))
 			if err != nil {
 				observation = fmt.Sprintf("Error executing tool: %v", err)
+				logDecisionOutcome(log, decisionPayload{
+					AgentID:       a.id,
+					RunID:         runID,
+					TraceID:       traceID,
+					SpanID:        spanID,
+					DecisionType:  "tool_call",
+					OutputSummary: summarizeText(observation),
+					ToolName:      toolName,
+					ToolCallID:    call.ID,
+				}, err)
 				agentErrorCounter.Add(ctx, 1)
 				log.Error("agent.tool.error",
 					slog.String("agent_id", a.id),
@@ -723,6 +797,16 @@ func (a *Agent) handleToolCalls(ctx context.Context, log *slog.Logger, runID, tr
 				)
 			} else {
 				observation = fmt.Sprintf("%v", res)
+				logDecisionOutcome(log, decisionPayload{
+					AgentID:       a.id,
+					RunID:         runID,
+					TraceID:       traceID,
+					SpanID:        spanID,
+					DecisionType:  "tool_call",
+					OutputSummary: summarizeText(observation),
+					ToolName:      toolName,
+					ToolCallID:    call.ID,
+				}, nil)
 				log.Info("agent.tool.complete",
 					slog.String("agent_id", a.id),
 					slog.String("run_id", runID),
@@ -840,4 +924,95 @@ func spanIDFromContext(ctx context.Context) string {
 		return "unknown"
 	}
 	return sc.SpanID().String()
+}
+
+type decisionPayload struct {
+	AgentID       string
+	RunID         string
+	TraceID       string
+	SpanID        string
+	DecisionType  string
+	Rationale     string
+	InputSummary  string
+	OutputSummary string
+	Iteration     int
+	ToolName      string
+	ToolCallID    string
+}
+
+func logDecision(log *slog.Logger, payload decisionPayload) {
+	log.Info("agent.decision",
+		slog.String("agent_id", payload.AgentID),
+		slog.String("run_id", payload.RunID),
+		slog.String("trace_id", payload.TraceID),
+		slog.String("span_id", payload.SpanID),
+		slog.String("decision_type", payload.DecisionType),
+		slog.String("rationale", summarizeText(payload.Rationale)),
+		slog.String("input_summary", summarizeText(payload.InputSummary)),
+		slog.String("output_summary", summarizeText(payload.OutputSummary)),
+		slog.Int("iteration", payload.Iteration),
+		slog.String("tool", payload.ToolName),
+		slog.String("tool_call_id", payload.ToolCallID),
+	)
+}
+
+func logDecisionOutcome(log *slog.Logger, payload decisionPayload, err error) {
+	attrs := []any{
+		slog.String("agent_id", payload.AgentID),
+		slog.String("run_id", payload.RunID),
+		slog.String("trace_id", payload.TraceID),
+		slog.String("span_id", payload.SpanID),
+		slog.String("decision_type", payload.DecisionType),
+		slog.String("output_summary", summarizeText(payload.OutputSummary)),
+		slog.String("tool", payload.ToolName),
+		slog.String("tool_call_id", payload.ToolCallID),
+	}
+	if err != nil {
+		attrs = append(attrs, slog.String("error", err.Error()))
+	}
+	log.Info("agent.decision.outcome", attrs...)
+}
+
+func summarizeToolCallRationale(content string) string {
+	text := strings.TrimSpace(content)
+	if text == "" {
+		return "tool_call"
+	}
+	return summarizeText(text)
+}
+
+func summarizeFinalRationale(content string) string {
+	parts := strings.SplitN(content, "Final Answer:", 2)
+	if len(parts) == 0 {
+		return "final_answer"
+	}
+	rationale := strings.TrimSpace(parts[0])
+	if rationale == "" {
+		return "final_answer"
+	}
+	return summarizeText(rationale)
+}
+
+func summarizeFallbackRationale(content string) string {
+	parts := strings.SplitN(content, "Action:", 2)
+	if len(parts) == 0 {
+		return "fallback_action"
+	}
+	rationale := strings.TrimSpace(parts[0])
+	if rationale == "" {
+		return "fallback_action"
+	}
+	return summarizeText(rationale)
+}
+
+func summarizeText(text string) string {
+	const maxLen = 400
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return ""
+	}
+	if len(trimmed) <= maxLen {
+		return trimmed
+	}
+	return trimmed[:maxLen] + "..."
 }

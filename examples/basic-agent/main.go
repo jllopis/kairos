@@ -15,13 +15,14 @@ func main() {
 	ctx := context.Background()
 
 	// 1. Load Configuration
+	// Example: KAIROS_AGENT_DISABLE_ACTION_FALLBACK=true
 	cfg, err := config.Load("")
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
 	// 2. Initialize Telemetry
-	shutdown, err := telemetry.InitWithConfig("basic-agent", "v0.1.0", telemetry.Config{
+	shutdown, err := telemetry.InitWithConfig("basic-agent", "v0.2.5", telemetry.Config{
 		Exporter:           cfg.Telemetry.Exporter,
 		OTLPEndpoint:       cfg.Telemetry.OTLPEndpoint,
 		OTLPInsecure:       cfg.Telemetry.OTLPInsecure,
@@ -49,9 +50,11 @@ func main() {
 	}
 
 	// 4. Create Agent
+	agentCfg := cfg.AgentConfigFor("basic-assistant")
 	a, err := agent.New("basic-assistant", provider,
 		agent.WithRole("Helpful Assistant"),
 		agent.WithModel(cfg.LLM.Model),
+		agent.WithDisableActionFallback(agentCfg.DisableActionFallback),
 	)
 	if err != nil {
 		log.Fatalf("failed to create agent: %v", err)

@@ -29,7 +29,8 @@
 ## Observability
 - OpenTelemetry tracing for agent runs, planner steps, tool calls, A2A hops.
 - Metrics: latency per step, errors per agent, token usage.
-- Structured logs with trace/span ids and decision summaries.
+- Structured logs with trace/span ids and decision summaries (rationale + inputs/outputs).
+- Decision events emitted per iteration, including tool-call outcomes for auditing.
 
 ### Telemetry Configuration (OTLP)
 Example config block for OTLP exporter:
@@ -76,6 +77,44 @@ go run ./examples/basic-agent
 3) Build plan (explicit graph or emergent).
 4) Execute steps with context propagation.
 5) Emit traces/metrics/logs and audit events.
+
+## Agent loop options
+- `agent.WithDisableActionFallback(true)` disables legacy "Action:" parsing in the ReAct loop when tool calls are supported.
+- Config: `agent.disable_action_fallback` or `KAIROS_AGENT_DISABLE_ACTION_FALLBACK=true`.
+- Per-agent overrides can be defined under `agents.<agent_id>`.
+
+Example config:
+```json
+{
+  "agent": {
+    "disable_action_fallback": false
+  },
+  "agents": {
+    "mcp-agent": {
+      "disable_action_fallback": true
+    }
+  }
+}
+```
+
+Example config (full, with telemetry):
+```json
+{
+  "agent": {
+    "disable_action_fallback": false
+  },
+  "agents": {
+    "mcp-agent": {
+      "disable_action_fallback": true
+    }
+  },
+  "telemetry": {
+    "exporter": "otlp",
+    "otlp_endpoint": "localhost:4317",
+    "otlp_insecure": true
+  }
+}
+```
 
 ## Governance and Security
 - Policy enforcement on tool usage and agent delegation.

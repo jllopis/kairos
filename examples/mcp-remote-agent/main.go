@@ -51,10 +51,12 @@ func main() {
 		provider = mock
 	}
 
+	agentCfg := cfg.AgentConfigFor("remote-mcp-agent")
 	ag, err := agent.New("remote-mcp-agent", provider,
 		agent.WithRole("Remote MCP client"),
 		agent.WithSkills([]core.Skill{}),
 		agent.WithModel(cfg.LLM.Model),
+		agent.WithDisableActionFallback(agentCfg.DisableActionFallback),
 		agent.WithMCPServerConfigs(cfg.MCP.Servers),
 	)
 	if err != nil {

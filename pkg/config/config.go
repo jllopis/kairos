@@ -12,11 +12,13 @@ import (
 )
 
 type Config struct {
-	Log       LogConfig       `koanf:"log"`
-	LLM       LLMConfig       `koanf:"llm"`
-	Memory    MemoryConfig    `koanf:"memory"`
-	MCP       MCPConfig       `koanf:"mcp"`
-	Telemetry TelemetryConfig `koanf:"telemetry"`
+	Log       LogConfig                      `koanf:"log"`
+	LLM       LLMConfig                      `koanf:"llm"`
+	Agent     AgentConfig                    `koanf:"agent"`
+	Agents    map[string]AgentOverrideConfig `koanf:"agents"`
+	Memory    MemoryConfig                   `koanf:"memory"`
+	MCP       MCPConfig                      `koanf:"mcp"`
+	Telemetry TelemetryConfig                `koanf:"telemetry"`
 }
 
 type LogConfig struct {
@@ -29,6 +31,14 @@ type LLMConfig struct {
 	Model    string `koanf:"model"`
 	BaseURL  string `koanf:"base_url"`
 	APIKey   string `koanf:"api_key"`
+}
+
+type AgentConfig struct {
+	DisableActionFallback bool `koanf:"disable_action_fallback"`
+}
+
+type AgentOverrideConfig struct {
+	DisableActionFallback *bool `koanf:"disable_action_fallback"`
 }
 
 type MemoryConfig struct {
@@ -69,6 +79,7 @@ func Load(path string) (*Config, error) {
 	k.Set("llm.provider", "ollama")
 	k.Set("llm.model", "qwen2.5-coder:7b-instruct-q5_K_M")
 	k.Set("llm.base_url", "http://localhost:11434")
+	k.Set("agent.disable_action_fallback", false)
 
 	k.Set("memory.enabled", false)
 	k.Set("memory.provider", "vector")
@@ -104,6 +115,7 @@ func Load(path string) (*Config, error) {
 	}
 
 	normalizeMCPServers()
+	normalizeMCPServerTransport()
 	normalizeTelemetryConfig()
 
 	var cfg Config
@@ -112,6 +124,25 @@ func Load(path string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// AgentConfigFor returns the effective agent config for a specific agent id.
+func (c *Config) AgentConfigFor(id string) AgentConfig {
+	if c == nil {
+		return AgentConfig{}
+	}
+	cfg := c.Agent
+	if c.Agents == nil || id == "" {
+		return cfg
+	}
+	override, ok := c.Agents[id]
+	if !ok {
+		return cfg
+	}
+	if override.DisableActionFallback != nil {
+		cfg.DisableActionFallback = *override.DisableActionFallback
+	}
+	return cfg
 }
 
 func loadFromFile(path string) error {
@@ -164,6 +195,32 @@ func normalizeMCPServers() {
 		return
 	}
 	_ = k.Set("mcp.servers", raw)
+}
+
+func normalizeMCPServerTransport() {
+	raw := k.Get("mcp.servers")
+	servers, ok := raw.(map[string]interface{})
+	if !ok || len(servers) == 0 {
+		return
+	}
+	updated := false
+	for name, entry := range servers {
+		payload, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if _, ok := payload["transport"]; ok {
+			continue
+		}
+		if transport, ok := payload["type"]; ok {
+			payload["transport"] = transport
+			servers[name] = payload
+			updated = true
+		}
+	}
+	if updated {
+		_ = k.Set("mcp.servers", servers)
+	}
 }
 
 func normalizeTelemetryConfig() {
