@@ -60,6 +60,14 @@ func (c *Client) withTimeout(ctx context.Context) (context.Context, context.Canc
 	return context.WithTimeout(ctx, c.timeout)
 }
 
+func (c *Client) streamContext(ctx context.Context) context.Context {
+	if c.timeout <= 0 {
+		return ctx
+	}
+	streamCtx, _ := context.WithTimeout(ctx, c.timeout)
+	return streamCtx
+}
+
 // WithCredentials attaches per-RPC credentials to outgoing calls.
 func WithCredentials(creds credentials.PerRPCCredentials) Option {
 	return func(c *Client) {
@@ -130,9 +138,7 @@ func (c *Client) SendMessage(ctx context.Context, req *a2av1.SendMessageRequest,
 
 // SendStreamingMessage forwards to the A2A SendStreamingMessage RPC.
 func (c *Client) SendStreamingMessage(ctx context.Context, req *a2av1.SendMessageRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[a2av1.StreamResponse], error) {
-	ctx, cancel := c.withTimeout(ctx)
-	defer cancel()
-	return c.raw.SendStreamingMessage(ctx, req, opts...)
+	return c.raw.SendStreamingMessage(c.streamContext(ctx), req, opts...)
 }
 
 // GetTask forwards to the A2A GetTask RPC.
@@ -164,9 +170,7 @@ func (c *Client) CancelTask(ctx context.Context, req *a2av1.CancelTaskRequest, o
 
 // SubscribeToTask forwards to the A2A SubscribeToTask RPC.
 func (c *Client) SubscribeToTask(ctx context.Context, req *a2av1.SubscribeToTaskRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[a2av1.StreamResponse], error) {
-	ctx, cancel := c.withTimeout(ctx)
-	defer cancel()
-	return c.raw.SubscribeToTask(ctx, req, opts...)
+	return c.raw.SubscribeToTask(c.streamContext(ctx), req, opts...)
 }
 
 // GetExtendedAgentCard forwards to the A2A GetExtendedAgentCard RPC.

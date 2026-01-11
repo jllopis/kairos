@@ -19,9 +19,10 @@ const bufSize = 1024 * 1024
 
 type testServer struct {
 	a2av1.UnimplementedA2AServiceServer
-	failFor  int32
-	sleep    time.Duration
-	attempts int32
+	failFor     int32
+	sleep       time.Duration
+	streamSleep time.Duration
+	attempts    int32
 }
 
 func (s *testServer) SendMessage(ctx context.Context, req *a2av1.SendMessageRequest) (*a2av1.SendMessageResponse, error) {
@@ -37,6 +38,28 @@ func (s *testServer) SendMessage(ctx context.Context, req *a2av1.SendMessageRequ
 		}
 	}
 	return &a2av1.SendMessageResponse{}, nil
+}
+
+func (s *testServer) SendStreamingMessage(req *a2av1.SendMessageRequest, stream a2av1.A2AService_SendStreamingMessageServer) error {
+	if s.streamSleep > 0 {
+		select {
+		case <-time.After(s.streamSleep):
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		}
+	}
+	return stream.Send(&a2av1.StreamResponse{})
+}
+
+func (s *testServer) SubscribeToTask(req *a2av1.SubscribeToTaskRequest, stream a2av1.A2AService_SubscribeToTaskServer) error {
+	if s.streamSleep > 0 {
+		select {
+		case <-time.After(s.streamSleep):
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		}
+	}
+	return stream.Send(&a2av1.StreamResponse{})
 }
 
 func newTestClient(t *testing.T, server *testServer) (grpc.ClientConnInterface, func()) {
@@ -105,6 +128,36 @@ func TestClientTimeout(t *testing.T) {
 	client := New(conn, WithTimeout(50*time.Millisecond))
 	_, err := client.SendMessage(context.Background(), &a2av1.SendMessageRequest{})
 	if status.Code(err) != codes.DeadlineExceeded {
+		t.Fatalf("expected DeadlineExceeded, got %v", status.Code(err))
+	}
+}
+
+func TestClientStreamingTimeout(t *testing.T) {
+	server := &testServer{streamSleep: 200 * time.Millisecond}
+	conn, cleanup := newTestClient(t, server)
+	defer cleanup()
+
+	client := New(conn, WithTimeout(50*time.Millisecond))
+	stream, err := client.SendStreamingMessage(context.Background(), &a2av1.SendMessageRequest{})
+	if err != nil {
+		t.Fatalf("SendStreamingMessage error: %v", err)
+	}
+	if _, err := stream.Recv(); status.Code(err) != codes.DeadlineExceeded {
+		t.Fatalf("expected DeadlineExceeded, got %v", status.Code(err))
+	}
+}
+
+func TestClientSubscribeTimeout(t *testing.T) {
+	server := &testServer{streamSleep: 200 * time.Millisecond}
+	conn, cleanup := newTestClient(t, server)
+	defer cleanup()
+
+	client := New(conn, WithTimeout(50*time.Millisecond))
+	stream, err := client.SubscribeToTask(context.Background(), &a2av1.SubscribeToTaskRequest{Name: "tasks/abc"})
+	if err != nil {
+		t.Fatalf("SubscribeToTask error: %v", err)
+	}
+	if _, err := stream.Recv(); status.Code(err) != codes.DeadlineExceeded {
 		t.Fatalf("expected DeadlineExceeded, got %v", status.Code(err))
 	}
 }
