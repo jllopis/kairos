@@ -460,3 +460,24 @@ func TestSendMessage_InvalidMessage(t *testing.T) {
 		t.Fatalf("expected InvalidArgument for missing role/parts, got %v", status.Code(err))
 	}
 }
+
+func TestSendStreamingMessage_InvalidMessage(t *testing.T) {
+	handler := &SimpleHandler{
+		Store:    NewMemoryTaskStore(),
+		Executor: &stubExecutor{Output: "ok"},
+		Card: &a2av1.AgentCard{
+			Capabilities: &a2av1.AgentCapabilities{Streaming: boolPtr(true)},
+		},
+	}
+	stream := newStreamRecorder()
+
+	if err := handler.SendStreamingMessage(&a2av1.SendMessageRequest{}, stream); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for missing message, got %v", status.Code(err))
+	}
+
+	if err := handler.SendStreamingMessage(&a2av1.SendMessageRequest{
+		Request: &a2av1.Message{MessageId: "msg-1"},
+	}, stream); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for missing role/parts, got %v", status.Code(err))
+	}
+}
