@@ -1108,7 +1108,7 @@ func TestListTasks_PageTokenBeyondRange(t *testing.T) {
 		t.Fatalf("CreateTask error: %v", err)
 	}
 
-	resp, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{PageToken: "10"})
+	resp, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{PageToken: "10", PageSize: int32Ptr(1)})
 	if err != nil {
 		t.Fatalf("ListTasks error: %v", err)
 	}
