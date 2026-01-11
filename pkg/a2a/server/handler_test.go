@@ -593,3 +593,42 @@ func TestCancelTask_DoesNotOverrideRejected(t *testing.T) {
 		t.Fatalf("expected rejected state, got %v", out.GetStatus().GetState())
 	}
 }
+
+func TestSendMessage_BlockingAndAsync(t *testing.T) {
+	handler := &SimpleHandler{
+		Store:    NewMemoryTaskStore(),
+		Executor: &stubExecutor{Output: "ok"},
+	}
+
+	blockingReq := &a2av1.SendMessageRequest{
+		Request: &a2av1.Message{
+			MessageId: "msg-1",
+			Role:      a2av1.Role_ROLE_USER,
+			Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+		},
+		Configuration: &a2av1.SendMessageConfiguration{Blocking: true},
+	}
+	resp, err := handler.SendMessage(context.Background(), blockingReq)
+	if err != nil {
+		t.Fatalf("SendMessage blocking error: %v", err)
+	}
+	if resp.GetMsg() == nil || resp.GetTask() != nil {
+		t.Fatalf("expected message response for blocking call")
+	}
+
+	asyncReq := &a2av1.SendMessageRequest{
+		Request: &a2av1.Message{
+			MessageId: "msg-2",
+			Role:      a2av1.Role_ROLE_USER,
+			Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hi"}}},
+		},
+		Configuration: &a2av1.SendMessageConfiguration{Blocking: false},
+	}
+	resp, err = handler.SendMessage(context.Background(), asyncReq)
+	if err != nil {
+		t.Fatalf("SendMessage async error: %v", err)
+	}
+	if resp.GetTask() == nil || resp.GetMsg() != nil {
+		t.Fatalf("expected task response for async call")
+	}
+}
