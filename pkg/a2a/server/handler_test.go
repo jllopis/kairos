@@ -632,3 +632,43 @@ func TestSendMessage_BlockingAndAsync(t *testing.T) {
 		t.Fatalf("expected task response for async call")
 	}
 }
+
+func TestSendMessage_AppendsHistoryForExistingTask(t *testing.T) {
+	handler := &SimpleHandler{
+		Store:    NewMemoryTaskStore(),
+		Executor: &stubExecutor{Output: "ok"},
+	}
+
+	task, err := handler.Store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+
+	req := &a2av1.SendMessageRequest{
+		Request: &a2av1.Message{
+			MessageId: "msg-2",
+			TaskId:    task.Id,
+			Role:      a2av1.Role_ROLE_USER,
+			Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "follow-up"}}},
+		},
+		Configuration: &a2av1.SendMessageConfiguration{Blocking: true},
+	}
+	if _, err := handler.SendMessage(context.Background(), req); err != nil {
+		t.Fatalf("SendMessage error: %v", err)
+	}
+
+	updated, err := handler.Store.GetTask(context.Background(), task.Id, 0, true)
+	if err != nil {
+		t.Fatalf("GetTask error: %v", err)
+	}
+	if got := len(updated.GetHistory()); got < 2 {
+		t.Fatalf("expected history to grow, got %d", got)
+	}
+	if updated.GetHistory()[len(updated.GetHistory())-2].GetMessageId() != "msg-2" {
+		t.Fatalf("expected appended message in history")
+	}
+}
