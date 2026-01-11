@@ -2250,6 +2250,15 @@ func TestGetTask_HistoryLengthOne(t *testing.T) {
 	}
 }
 
+func TestGetTask_NotFound(t *testing.T) {
+	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
+
+	_, err := handler.GetTask(context.Background(), &a2av1.GetTaskRequest{Name: "tasks/missing"})
+	if status.Code(err) != codes.NotFound {
+		t.Fatalf("expected NotFound, got %v", status.Code(err))
+	}
+}
+
 func TestListTasks_NegativePageSizeRejected(t *testing.T) {
 	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
 
