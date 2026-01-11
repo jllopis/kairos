@@ -161,3 +161,33 @@ func TestClientSubscribeTimeout(t *testing.T) {
 		t.Fatalf("expected DeadlineExceeded, got %v", status.Code(err))
 	}
 }
+
+func TestClientStreamingSuccess(t *testing.T) {
+	server := &testServer{streamSleep: 10 * time.Millisecond}
+	conn, cleanup := newTestClient(t, server)
+	defer cleanup()
+
+	client := New(conn, WithTimeout(200*time.Millisecond))
+	stream, err := client.SendStreamingMessage(context.Background(), &a2av1.SendMessageRequest{})
+	if err != nil {
+		t.Fatalf("SendStreamingMessage error: %v", err)
+	}
+	if _, err := stream.Recv(); err != nil {
+		t.Fatalf("expected stream response, got %v", err)
+	}
+}
+
+func TestClientSubscribeSuccess(t *testing.T) {
+	server := &testServer{streamSleep: 10 * time.Millisecond}
+	conn, cleanup := newTestClient(t, server)
+	defer cleanup()
+
+	client := New(conn, WithTimeout(200*time.Millisecond))
+	stream, err := client.SubscribeToTask(context.Background(), &a2av1.SubscribeToTaskRequest{Name: "tasks/abc"})
+	if err != nil {
+		t.Fatalf("SubscribeToTask error: %v", err)
+	}
+	if _, err := stream.Recv(); err != nil {
+		t.Fatalf("expected stream response, got %v", err)
+	}
+}
