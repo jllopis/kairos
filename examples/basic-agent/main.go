@@ -1,3 +1,4 @@
+// Package main runs the basic agent example with config + telemetry wiring.
 package main
 
 import (

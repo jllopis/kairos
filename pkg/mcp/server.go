@@ -19,7 +19,8 @@ func NewServer(name, version string) *Server {
 	}
 }
 
-// RegisterTool registers a tool with the server.
+// RegisterTool registers a tool with the server and dispatches to handler.
+// The schema argument is reserved for future validation support.
 func (s *Server) RegisterTool(name, description string, schema interface{}, handler func(ctx context.Context, args map[string]interface{}) (*mcp.CallToolResult, error)) {
 	tool := mcp.NewTool(name, mcp.WithDescription(description))
 

@@ -1,3 +1,4 @@
+// Package main runs the MCP remote agent example.
 package main
 
 import (

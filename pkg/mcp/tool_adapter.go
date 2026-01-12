@@ -1,3 +1,4 @@
+// Package mcp provides adapters and helpers for Model Context Protocol tooling.
 package mcp
 
 import (

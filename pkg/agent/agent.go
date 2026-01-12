@@ -1,3 +1,4 @@
+// Package agent implements the LLM-driven agent loop and configuration options.
 package agent
 
 import (

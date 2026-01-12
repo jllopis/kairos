@@ -31,6 +31,7 @@ func NewMemoryPushConfigStore() *MemoryPushConfigStore {
 	}
 }
 
+// Set stores a push notification config for a task.
 func (s *MemoryPushConfigStore) Set(ctx context.Context, taskID, configID string, config *a2av1.TaskPushNotificationConfig) (*a2av1.TaskPushNotificationConfig, error) {
 	if taskID == "" || configID == "" {
 		return nil, fmt.Errorf("task id and config id are required")
@@ -47,6 +48,7 @@ func (s *MemoryPushConfigStore) Set(ctx context.Context, taskID, configID string
 	return cloneTaskPushNotificationConfig(config), nil
 }
 
+// Get returns a push notification config for a task.
 func (s *MemoryPushConfigStore) Get(ctx context.Context, taskID, configID string) (*a2av1.TaskPushNotificationConfig, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -61,6 +63,7 @@ func (s *MemoryPushConfigStore) Get(ctx context.Context, taskID, configID string
 	return cloneTaskPushNotificationConfig(config), nil
 }
 
+// List lists push notification configs for a task.
 func (s *MemoryPushConfigStore) List(ctx context.Context, taskID string, pageSize int32) ([]*a2av1.TaskPushNotificationConfig, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -88,6 +91,7 @@ func (s *MemoryPushConfigStore) List(ctx context.Context, taskID string, pageSiz
 	return out, nil
 }
 
+// Delete removes a push notification config from a task.
 func (s *MemoryPushConfigStore) Delete(ctx context.Context, taskID, configID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -42,6 +42,7 @@ type ollamaResponse struct {
 	PromptEvalCount int     `json:"prompt_eval_count"`
 }
 
+// Chat sends a chat request to Ollama and maps the response to ChatResponse.
 func (p *OllamaProvider) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
 	oReq := ollamaRequest{
 		Model:    req.Model,

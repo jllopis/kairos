@@ -12,6 +12,7 @@ type MockProvider struct {
 	ChatFunc func(ctx context.Context, req ChatRequest) (*ChatResponse, error)
 }
 
+// Chat returns the configured response or error, or delegates to ChatFunc.
 func (m *MockProvider) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
 	if m.ChatFunc != nil {
 		return m.ChatFunc(ctx, req)
@@ -34,6 +35,7 @@ type FailingMockProvider struct {
 	Err error
 }
 
+// Chat always returns an error for test scenarios.
 func (f *FailingMockProvider) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
 	if f.Err == nil {
 		return nil, fmt.Errorf("mock error")

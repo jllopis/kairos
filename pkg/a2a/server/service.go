@@ -38,6 +38,7 @@ func New(handler Handler) *Service {
 	}
 }
 
+// SendMessage handles the SendMessage RPC.
 func (s *Service) SendMessage(ctx context.Context, req *a2av1.SendMessageRequest) (*a2av1.SendMessageResponse, error) {
 	if s.handler == nil {
 		return nil, status.Error(codes.Unimplemented, "SendMessage handler not configured")
@@ -49,6 +50,7 @@ func (s *Service) SendMessage(ctx context.Context, req *a2av1.SendMessageRequest
 	return s.handler.SendMessage(ctx, req)
 }
 
+// SendStreamingMessage handles the streaming SendMessage RPC.
 func (s *Service) SendStreamingMessage(req *a2av1.SendMessageRequest, stream a2av1.A2AService_SendStreamingMessageServer) error {
 	if s.handler == nil {
 		return status.Error(codes.Unimplemented, "SendStreamingMessage handler not configured")
@@ -64,6 +66,7 @@ func (s *Service) SendStreamingMessage(req *a2av1.SendMessageRequest, stream a2a
 	return s.handler.SendStreamingMessage(req, wrapStreamContext(stream, ctx))
 }
 
+// GetTask handles the GetTask RPC.
 func (s *Service) GetTask(ctx context.Context, req *a2av1.GetTaskRequest) (*a2av1.Task, error) {
 	if s.handler == nil {
 		return nil, status.Error(codes.Unimplemented, "GetTask handler not configured")
@@ -76,6 +79,7 @@ func (s *Service) GetTask(ctx context.Context, req *a2av1.GetTaskRequest) (*a2av
 	return s.handler.GetTask(ctx, req)
 }
 
+// ListTasks handles the ListTasks RPC.
 func (s *Service) ListTasks(ctx context.Context, req *a2av1.ListTasksRequest) (*a2av1.ListTasksResponse, error) {
 	if s.handler == nil {
 		return nil, status.Error(codes.Unimplemented, "ListTasks handler not configured")
@@ -88,6 +92,7 @@ func (s *Service) ListTasks(ctx context.Context, req *a2av1.ListTasksRequest) (*
 	return s.handler.ListTasks(ctx, req)
 }
 
+// CancelTask handles the CancelTask RPC.
 func (s *Service) CancelTask(ctx context.Context, req *a2av1.CancelTaskRequest) (*a2av1.Task, error) {
 	if s.handler == nil {
 		return nil, status.Error(codes.Unimplemented, "CancelTask handler not configured")
@@ -100,6 +105,7 @@ func (s *Service) CancelTask(ctx context.Context, req *a2av1.CancelTaskRequest) 
 	return s.handler.CancelTask(ctx, req)
 }
 
+// SubscribeToTask handles the SubscribeToTask streaming RPC.
 func (s *Service) SubscribeToTask(req *a2av1.SubscribeToTaskRequest, stream a2av1.A2AService_SubscribeToTaskServer) error {
 	if s.handler == nil {
 		return status.Error(codes.Unimplemented, "SubscribeToTask handler not configured")
@@ -116,6 +122,7 @@ func (s *Service) SubscribeToTask(req *a2av1.SubscribeToTaskRequest, stream a2av
 	return s.handler.SubscribeToTask(req, wrapSubscribeContext(stream, ctx))
 }
 
+// GetExtendedAgentCard handles the GetExtendedAgentCard RPC.
 func (s *Service) GetExtendedAgentCard(ctx context.Context, req *a2av1.GetExtendedAgentCardRequest) (*a2av1.AgentCard, error) {
 	if s.handler == nil {
 		return nil, status.Error(codes.Unimplemented, "GetExtendedAgentCard handler not configured")
@@ -127,6 +134,7 @@ func (s *Service) GetExtendedAgentCard(ctx context.Context, req *a2av1.GetExtend
 	return s.handler.GetExtendedAgentCard(ctx, req)
 }
 
+// SetTaskPushNotificationConfig handles the SetTaskPushNotificationConfig RPC.
 func (s *Service) SetTaskPushNotificationConfig(ctx context.Context, req *a2av1.SetTaskPushNotificationConfigRequest) (*a2av1.TaskPushNotificationConfig, error) {
 	if !supportsPushNotifications(s.handler) {
 		return nil, status.Error(codes.Unimplemented, "push notifications not supported")
@@ -143,6 +151,7 @@ func (s *Service) SetTaskPushNotificationConfig(ctx context.Context, req *a2av1.
 	return handler.SetTaskPushNotificationConfig(ctx, req)
 }
 
+// GetTaskPushNotificationConfig handles the GetTaskPushNotificationConfig RPC.
 func (s *Service) GetTaskPushNotificationConfig(ctx context.Context, req *a2av1.GetTaskPushNotificationConfigRequest) (*a2av1.TaskPushNotificationConfig, error) {
 	if !supportsPushNotifications(s.handler) {
 		return nil, status.Error(codes.Unimplemented, "push notifications not supported")
@@ -159,6 +168,7 @@ func (s *Service) GetTaskPushNotificationConfig(ctx context.Context, req *a2av1.
 	return handler.GetTaskPushNotificationConfig(ctx, req)
 }
 
+// ListTaskPushNotificationConfig handles the ListTaskPushNotificationConfig RPC.
 func (s *Service) ListTaskPushNotificationConfig(ctx context.Context, req *a2av1.ListTaskPushNotificationConfigRequest) (*a2av1.ListTaskPushNotificationConfigResponse, error) {
 	if !supportsPushNotifications(s.handler) {
 		return nil, status.Error(codes.Unimplemented, "push notifications not supported")
@@ -175,6 +185,7 @@ func (s *Service) ListTaskPushNotificationConfig(ctx context.Context, req *a2av1
 	return handler.ListTaskPushNotificationConfig(ctx, req)
 }
 
+// DeleteTaskPushNotificationConfig handles the DeleteTaskPushNotificationConfig RPC.
 func (s *Service) DeleteTaskPushNotificationConfig(ctx context.Context, req *a2av1.DeleteTaskPushNotificationConfigRequest) (*emptypb.Empty, error) {
 	if !supportsPushNotifications(s.handler) {
 		return nil, status.Error(codes.Unimplemented, "push notifications not supported")

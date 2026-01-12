@@ -1,3 +1,4 @@
+// Package planner defines the explicit planning graph model and executor.
 package planner
 
 import "fmt"

@@ -1,3 +1,4 @@
+// Package main runs the hello-agent example.
 package main
 
 import (

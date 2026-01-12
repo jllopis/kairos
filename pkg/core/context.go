@@ -1,3 +1,4 @@
+// Package core defines shared interfaces and context helpers for Kairos.
 package core
 
 import (

@@ -1,3 +1,4 @@
+// Package telemetry configures OpenTelemetry exporters and propagators.
 package telemetry
 
 import (
@@ -17,10 +18,10 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
-// ShutdownFunc is a function that cleans up telemetry resources.
+// ShutdownFunc releases telemetry resources created by Init or InitWithConfig.
 type ShutdownFunc func(context.Context) error
 
-// Config controls telemetry exporter behavior.
+// Config controls telemetry exporter behavior and OTLP connection settings.
 type Config struct {
 	Exporter           string
 	OTLPEndpoint       string
@@ -28,12 +29,12 @@ type Config struct {
 	OTLPTimeoutSeconds int
 }
 
-// Init initializes the OpenTelemetry SDK with stdout exporters.
+// Init initializes OpenTelemetry with stdout exporters using default settings.
 func Init(serviceName, version string) (ShutdownFunc, error) {
 	return InitWithConfig(serviceName, version, Config{Exporter: "stdout"})
 }
 
-// InitWithConfig initializes the OpenTelemetry SDK with the specified exporter.
+// InitWithConfig initializes OpenTelemetry with the specified exporter config.
 func InitWithConfig(serviceName, version string, cfg Config) (ShutdownFunc, error) {
 	res, err := resource.New(
 		context.Background(),

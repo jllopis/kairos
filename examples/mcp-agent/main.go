@@ -1,3 +1,4 @@
+// Package main runs the MCP tool-enabled agent example.
 package main
 
 import (

@@ -1,3 +1,4 @@
+// Package qdrant provides a VectorStore implementation backed by Qdrant.
 package qdrant
 
 import (
@@ -10,11 +11,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// Store implements memory.VectorStore using Qdrant gRPC APIs.
 type Store struct {
 	client      pb.PointsClient
 	collections pb.CollectionsClient // Add collections client
 }
 
+// New connects to a Qdrant gRPC endpoint and returns a Store.
 func New(addr string) (*Store, error) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -27,6 +30,7 @@ func New(addr string) (*Store, error) {
 	}, nil
 }
 
+// CreateCollection ensures the collection exists with the given vector size.
 func (s *Store) CreateCollection(ctx context.Context, name string, vectorSize uint64) error {
 	_, err := s.collections.Create(ctx, &pb.CreateCollection{
 		CollectionName: name,
@@ -45,6 +49,7 @@ func (s *Store) CreateCollection(ctx context.Context, name string, vectorSize ui
 	return nil
 }
 
+// Upsert writes points into a collection.
 func (s *Store) Upsert(ctx context.Context, collection string, points []memory.Point) error {
 	qPoints := make([]*pb.PointStruct, len(points))
 	for i, p := range points {
@@ -89,6 +94,7 @@ func (s *Store) Upsert(ctx context.Context, collection string, points []memory.P
 	return nil
 }
 
+// Search performs a similarity search over a collection.
 func (s *Store) Search(ctx context.Context, collection string, vector []float32, limit int, scoreThreshold float32) ([]memory.SearchResult, error) {
 	resp, err := s.client.Search(ctx, &pb.SearchPoints{
 		CollectionName: collection,

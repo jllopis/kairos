@@ -1,3 +1,4 @@
+// Package ollama provides Ollama-based embedder implementations.
 package ollama
 
 import (

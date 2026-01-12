@@ -1,3 +1,4 @@
+// Package llm defines provider-agnostic LLM request/response types.
 package llm
 
 import "context"
@@ -6,16 +7,21 @@ import "context"
 type Role string
 
 const (
-	RoleSystem    Role = "system"
-	RoleUser      Role = "user"
+	// RoleSystem marks system-level instructions.
+	RoleSystem Role = "system"
+	// RoleUser marks user-provided messages.
+	RoleUser Role = "user"
+	// RoleAssistant marks assistant responses.
 	RoleAssistant Role = "assistant"
-	RoleTool      Role = "tool"
+	// RoleTool marks tool output messages.
+	RoleTool Role = "tool"
 )
 
 // ToolType represents the type of tool.
 type ToolType string
 
 const (
+	// ToolTypeFunction defines a function-call tool.
 	ToolTypeFunction ToolType = "function"
 )
 

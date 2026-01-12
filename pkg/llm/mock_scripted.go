@@ -16,6 +16,7 @@ type ScriptedMockProvider struct {
 	CallCount int
 }
 
+// Chat pops the next scripted response or returns the configured error.
 func (s *ScriptedMockProvider) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -44,14 +45,14 @@ func (s *ScriptedMockProvider) Chat(ctx context.Context, req ChatRequest) (*Chat
 	}, nil
 }
 
-// AddResponse adds a response to the queue
+// AddResponse appends a response to the queue.
 func (s *ScriptedMockProvider) AddResponse(response string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.Responses = append(s.Responses, response)
 }
 
-// LastResponse returns the last response that will be returned, or empty string
+// PeekNext returns the next response to be returned, or empty string.
 func (s *ScriptedMockProvider) PeekNext() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()

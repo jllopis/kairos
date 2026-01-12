@@ -1,3 +1,4 @@
+// Package memory provides memory backends and embedding helpers.
 package memory
 
 import (

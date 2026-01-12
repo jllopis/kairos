@@ -1,3 +1,4 @@
+// Package agentcard builds and publishes A2A AgentCards.
 package agentcard
 
 import a2av1 "github.com/jllopis/kairos/pkg/a2a/types"

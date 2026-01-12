@@ -1,3 +1,4 @@
+// Package main runs the memory-backed agent example.
 package main
 
 import (

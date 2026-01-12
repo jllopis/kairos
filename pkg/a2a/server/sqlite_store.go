@@ -83,6 +83,7 @@ func ensureSQLiteSchema(db *sql.DB) error {
 	return nil
 }
 
+// CreateTask persists a new task seeded from the incoming message.
 func (s *SQLiteTaskStore) CreateTask(ctx context.Context, message *a2av1.Message) (*a2av1.Task, error) {
 	if message == nil {
 		return nil, fmt.Errorf("message is nil")
@@ -127,6 +128,7 @@ func (s *SQLiteTaskStore) CreateTask(ctx context.Context, message *a2av1.Message
 	return cloneTask(task), nil
 }
 
+// AppendHistory appends a message to the task history.
 func (s *SQLiteTaskStore) AppendHistory(ctx context.Context, taskID string, message *a2av1.Message) error {
 	if message == nil {
 		return fmt.Errorf("message is nil")
@@ -139,6 +141,7 @@ func (s *SQLiteTaskStore) AppendHistory(ctx context.Context, taskID string, mess
 	return s.updateTask(ctx, task)
 }
 
+// UpdateStatus updates the persisted task status.
 func (s *SQLiteTaskStore) UpdateStatus(ctx context.Context, taskID string, status *a2av1.TaskStatus) error {
 	if status == nil {
 		return fmt.Errorf("status is nil")
@@ -151,6 +154,7 @@ func (s *SQLiteTaskStore) UpdateStatus(ctx context.Context, taskID string, statu
 	return s.updateTask(ctx, task)
 }
 
+// AddArtifacts appends artifacts to a persisted task.
 func (s *SQLiteTaskStore) AddArtifacts(ctx context.Context, taskID string, artifacts []*a2av1.Artifact) error {
 	if len(artifacts) == 0 {
 		return nil
@@ -168,6 +172,7 @@ func (s *SQLiteTaskStore) AddArtifacts(ctx context.Context, taskID string, artif
 	return s.updateTask(ctx, task)
 }
 
+// GetTask returns a task with optional history/artifact filtering.
 func (s *SQLiteTaskStore) GetTask(ctx context.Context, taskID string, historyLength int32, includeArtifacts bool) (*a2av1.Task, error) {
 	task, err := s.getTask(ctx, taskID)
 	if err != nil {
@@ -176,6 +181,7 @@ func (s *SQLiteTaskStore) GetTask(ctx context.Context, taskID string, historyLen
 	return filterTask(task, historyLength, includeArtifacts), nil
 }
 
+// ListTasks lists tasks using the provided filter and pagination settings.
 func (s *SQLiteTaskStore) ListTasks(ctx context.Context, filter TaskFilter) ([]*a2av1.Task, int, error) {
 	pageSize := int(filter.PageSize)
 	if pageSize <= 0 {
@@ -229,6 +235,7 @@ func (s *SQLiteTaskStore) ListTasks(ctx context.Context, filter TaskFilter) ([]*
 	return out, total, nil
 }
 
+// CancelTask updates the task state to cancelled when possible.
 func (s *SQLiteTaskStore) CancelTask(ctx context.Context, taskID string) (*a2av1.Task, error) {
 	task, err := s.getTask(ctx, taskID)
 	if err != nil {
@@ -271,6 +278,7 @@ func (s *SQLiteTaskStore) updateTask(ctx context.Context, task *a2av1.Task) erro
 	return err
 }
 
+// Set stores a push notification config for a task.
 func (s *SQLitePushConfigStore) Set(ctx context.Context, taskID, configID string, config *a2av1.TaskPushNotificationConfig) (*a2av1.TaskPushNotificationConfig, error) {
 	if taskID == "" || configID == "" {
 		return nil, fmt.Errorf("task id and config id are required")
@@ -292,6 +300,7 @@ func (s *SQLitePushConfigStore) Set(ctx context.Context, taskID, configID string
 	return cloneTaskPushNotificationConfig(config), nil
 }
 
+// Get returns a push notification config for a task.
 func (s *SQLitePushConfigStore) Get(ctx context.Context, taskID, configID string) (*a2av1.TaskPushNotificationConfig, error) {
 	var payload []byte
 	err := s.db.QueryRowContext(ctx,
@@ -310,6 +319,7 @@ func (s *SQLitePushConfigStore) Get(ctx context.Context, taskID, configID string
 	return &cfg, nil
 }
 
+// List lists push notification configs for a task.
 func (s *SQLitePushConfigStore) List(ctx context.Context, taskID string, pageSize int32) ([]*a2av1.TaskPushNotificationConfig, error) {
 	if pageSize <= 0 {
 		pageSize = 50
@@ -340,6 +350,7 @@ func (s *SQLitePushConfigStore) List(ctx context.Context, taskID string, pageSiz
 	return out, nil
 }
 
+// Delete removes a push notification config for a task.
 func (s *SQLitePushConfigStore) Delete(ctx context.Context, taskID, configID string) error {
 	result, err := s.db.ExecContext(ctx,
 		fmt.Sprintf("DELETE FROM %s WHERE task_id = ? AND config_id = ?", pushConfigTable),

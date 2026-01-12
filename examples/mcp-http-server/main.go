@@ -1,3 +1,4 @@
+// Package main runs the MCP HTTP server example.
 package main
 
 import (

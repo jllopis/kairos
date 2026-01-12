@@ -1,3 +1,4 @@
+// Package main runs the explicit planner example.
 package main
 
 import (

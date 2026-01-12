@@ -1,3 +1,4 @@
+// Package config loads and normalizes runtime configuration.
 package config
 
 import (
@@ -11,6 +12,7 @@ import (
 	"github.com/knadh/koanf/v2"
 )
 
+// Config is the root configuration for the Kairos runtime.
 type Config struct {
 	Log       LogConfig                      `koanf:"log"`
 	LLM       LLMConfig                      `koanf:"llm"`
@@ -21,11 +23,13 @@ type Config struct {
 	Telemetry TelemetryConfig                `koanf:"telemetry"`
 }
 
+// LogConfig controls logging output.
 type LogConfig struct {
 	Level  string `koanf:"level"`
 	Format string `koanf:"format"` // json, text
 }
 
+// LLMConfig selects the LLM provider and model settings.
 type LLMConfig struct {
 	Provider string `koanf:"provider"` // openai, anthropic, ollama
 	Model    string `koanf:"model"`
@@ -33,16 +37,19 @@ type LLMConfig struct {
 	APIKey   string `koanf:"api_key"`
 }
 
+// AgentConfig defines global defaults for agent behavior.
 type AgentConfig struct {
 	DisableActionFallback bool `koanf:"disable_action_fallback"`
 	WarnOnActionFallback  bool `koanf:"warn_on_action_fallback"`
 }
 
+// AgentOverrideConfig overrides per-agent settings.
 type AgentOverrideConfig struct {
 	DisableActionFallback *bool `koanf:"disable_action_fallback"`
 	WarnOnActionFallback  *bool `koanf:"warn_on_action_fallback"`
 }
 
+// MemoryConfig configures memory backends.
 type MemoryConfig struct {
 	Enabled          bool   `koanf:"enabled"`
 	Provider         string `koanf:"provider"` // vector, inmemory
@@ -52,10 +59,12 @@ type MemoryConfig struct {
 	EmbedderModel    string `koanf:"embedder_model"`
 }
 
+// MCPConfig defines MCP server connections.
 type MCPConfig struct {
 	Servers map[string]MCPServerConfig `koanf:"servers"`
 }
 
+// MCPServerConfig describes an MCP server endpoint and client settings.
 type MCPServerConfig struct {
 	Command         string   `koanf:"command"`
 	Args            []string `koanf:"args"`
@@ -68,6 +77,7 @@ type MCPServerConfig struct {
 	CacheTTLSeconds *int     `koanf:"cache_ttl_seconds"`
 }
 
+// TelemetryConfig configures OpenTelemetry exporters.
 type TelemetryConfig struct {
 	Exporter           string `koanf:"exporter"` // stdout, otlp
 	OTLPEndpoint       string `koanf:"otlp_endpoint"`
@@ -78,6 +88,7 @@ type TelemetryConfig struct {
 // Global k instance
 var k = koanf.New(".")
 
+// Load resolves configuration from defaults, files, and environment variables.
 func Load(path string) (*Config, error) {
 	// Defaults
 	k.Set("log.level", "info")

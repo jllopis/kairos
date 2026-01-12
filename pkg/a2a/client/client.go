@@ -1,3 +1,4 @@
+// Package client provides A2A gRPC client helpers and retry/timeout wrappers.
 package client
 
 import (

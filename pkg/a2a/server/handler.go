@@ -1,3 +1,4 @@
+// Package server implements the A2A gRPC server binding and core handlers.
 package server
 
 import (
@@ -32,6 +33,7 @@ func (h *SimpleHandler) AgentCard() *a2av1.AgentCard {
 	return h.Card
 }
 
+// SendMessage creates or updates a task and optionally executes it synchronously.
 func (h *SimpleHandler) SendMessage(ctx context.Context, req *a2av1.SendMessageRequest) (*a2av1.SendMessageResponse, error) {
 	if h.Store == nil || h.Executor == nil {
 		return nil, status.Error(codes.FailedPrecondition, "handler not configured")
@@ -64,6 +66,7 @@ func (h *SimpleHandler) SendMessage(ctx context.Context, req *a2av1.SendMessageR
 	return &a2av1.SendMessageResponse{Payload: &a2av1.SendMessageResponse_Task{Task: task}}, nil
 }
 
+// SendStreamingMessage executes a task and streams task/message/artifact updates.
 func (h *SimpleHandler) SendStreamingMessage(req *a2av1.SendMessageRequest, stream a2av1.A2AService_SendStreamingMessageServer) error {
 	if h.Store == nil || h.Executor == nil {
 		return status.Error(codes.FailedPrecondition, "handler not configured")
@@ -112,6 +115,7 @@ func (h *SimpleHandler) SendStreamingMessage(req *a2av1.SendMessageRequest, stre
 	return stream.Send(&a2av1.StreamResponse{Payload: &a2av1.StreamResponse_StatusUpdate{StatusUpdate: statusEvent}})
 }
 
+// GetTask retrieves a task by name.
 func (h *SimpleHandler) GetTask(ctx context.Context, req *a2av1.GetTaskRequest) (*a2av1.Task, error) {
 	if h.Store == nil {
 		return nil, status.Error(codes.FailedPrecondition, "task store not configured")
@@ -131,6 +135,7 @@ func (h *SimpleHandler) GetTask(ctx context.Context, req *a2av1.GetTaskRequest) 
 	return task, nil
 }
 
+// ListTasks lists tasks using request filters and pagination.
 func (h *SimpleHandler) ListTasks(ctx context.Context, req *a2av1.ListTasksRequest) (*a2av1.ListTasksResponse, error) {
 	if h.Store == nil {
 		return nil, status.Error(codes.FailedPrecondition, "task store not configured")
@@ -181,6 +186,7 @@ func (h *SimpleHandler) ListTasks(ctx context.Context, req *a2av1.ListTasksReque
 	}, nil
 }
 
+// CancelTask cancels a task if it is not terminal.
 func (h *SimpleHandler) CancelTask(ctx context.Context, req *a2av1.CancelTaskRequest) (*a2av1.Task, error) {
 	if h.Store == nil {
 		return nil, status.Error(codes.FailedPrecondition, "task store not configured")
@@ -204,6 +210,7 @@ func (h *SimpleHandler) CancelTask(ctx context.Context, req *a2av1.CancelTaskReq
 	return task, nil
 }
 
+// SubscribeToTask streams status and artifact updates for a task.
 func (h *SimpleHandler) SubscribeToTask(req *a2av1.SubscribeToTaskRequest, stream a2av1.A2AService_SubscribeToTaskServer) error {
 	if h.Store == nil {
 		return status.Error(codes.FailedPrecondition, "task store not configured")
@@ -273,6 +280,7 @@ func (h *SimpleHandler) SubscribeToTask(req *a2av1.SubscribeToTaskRequest, strea
 	}
 }
 
+// SetTaskPushNotificationConfig creates or updates a task push config.
 func (h *SimpleHandler) SetTaskPushNotificationConfig(ctx context.Context, req *a2av1.SetTaskPushNotificationConfigRequest) (*a2av1.TaskPushNotificationConfig, error) {
 	if h.Store == nil || h.PushCfgs == nil {
 		return nil, status.Error(codes.FailedPrecondition, "push config store not configured")
@@ -328,6 +336,7 @@ func (h *SimpleHandler) SetTaskPushNotificationConfig(ctx context.Context, req *
 	return stored, nil
 }
 
+// GetTaskPushNotificationConfig retrieves a task push config.
 func (h *SimpleHandler) GetTaskPushNotificationConfig(ctx context.Context, req *a2av1.GetTaskPushNotificationConfigRequest) (*a2av1.TaskPushNotificationConfig, error) {
 	if h.PushCfgs == nil {
 		return nil, status.Error(codes.FailedPrecondition, "push config store not configured")
@@ -343,6 +352,7 @@ func (h *SimpleHandler) GetTaskPushNotificationConfig(ctx context.Context, req *
 	return cfg, nil
 }
 
+// ListTaskPushNotificationConfig lists push configs for a task.
 func (h *SimpleHandler) ListTaskPushNotificationConfig(ctx context.Context, req *a2av1.ListTaskPushNotificationConfigRequest) (*a2av1.ListTaskPushNotificationConfigResponse, error) {
 	if h.PushCfgs == nil {
 		return nil, status.Error(codes.FailedPrecondition, "push config store not configured")
@@ -364,6 +374,7 @@ func (h *SimpleHandler) ListTaskPushNotificationConfig(ctx context.Context, req 
 	}, nil
 }
 
+// DeleteTaskPushNotificationConfig deletes a task push config.
 func (h *SimpleHandler) DeleteTaskPushNotificationConfig(ctx context.Context, req *a2av1.DeleteTaskPushNotificationConfigRequest) (*emptypb.Empty, error) {
 	if h.PushCfgs == nil {
 		return nil, status.Error(codes.FailedPrecondition, "push config store not configured")
@@ -388,6 +399,7 @@ func sendStatusUpdate(stream a2av1.A2AService_SubscribeToTaskServer, task *a2av1
 	return stream.Send(&a2av1.StreamResponse{Payload: &a2av1.StreamResponse_StatusUpdate{StatusUpdate: event}})
 }
 
+// GetExtendedAgentCard returns the extended AgentCard if available.
 func (h *SimpleHandler) GetExtendedAgentCard(ctx context.Context, req *a2av1.GetExtendedAgentCardRequest) (*a2av1.AgentCard, error) {
 	if h.Card == nil || !h.Card.GetSupportsExtendedAgentCard() {
 		return nil, status.Error(codes.Unimplemented, "extended agent card not supported")
