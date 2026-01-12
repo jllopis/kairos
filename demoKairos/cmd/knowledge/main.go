@@ -213,10 +213,12 @@ func (e *knowledgeExecutor) Run(ctx context.Context, message *a2av1.Message) (an
 	if query == "" {
 		return nil, nil, fmt.Errorf("query requerido")
 	}
+	log.Printf("knowledge agent query=%q", query)
 	results, err := demo.SearchDocs(ctx, e.store, e.embedder, e.collection, query, 4)
 	if err != nil {
 		return nil, nil, err
 	}
+	log.Printf("knowledge agent results=%d", len(results))
 	var b strings.Builder
 	for _, res := range results {
 		text, _ := res.Point.Payload["text"].(string)

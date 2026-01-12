@@ -40,10 +40,12 @@ func (e *spreadsheetExecutor) Run(ctx context.Context, message *a2av1.Message) (
 		if spec.Type == "" {
 			return nil, nil, fmt.Errorf("spreadsheet query missing type")
 		}
+		log.Printf("spreadsheet agent query type=%s quarter=%s month=%s limit=%d", spec.Type, spec.Quarter, spec.Month, spec.Limit)
 		result, err := e.store.Query(spec)
 		if err != nil {
 			return nil, nil, err
 		}
+		log.Printf("spreadsheet agent rows=%d", len(result.Rows))
 		payload := map[string]interface{}{
 			"headers": toInterfaceSlice(result.Headers),
 			"rows":    toInterfaceRows(result.Rows),
@@ -56,6 +58,7 @@ func (e *spreadsheetExecutor) Run(ctx context.Context, message *a2av1.Message) (
 	if input == "" {
 		input = "Genera la consulta adecuada usando query_spreadsheet y devuelve JSON con headers, rows, meta."
 	}
+	log.Printf("spreadsheet agent fallback to LLM")
 	for attempt := 0; attempt < 2; attempt++ {
 		output, err := e.agent.Run(ctx, input)
 		if err != nil {
