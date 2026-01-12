@@ -460,6 +460,20 @@ func TestPushConfig_InvalidNames(t *testing.T) {
 	}
 }
 
+func TestPushConfig_PlainNameRejected(t *testing.T) {
+	handler := &SimpleHandler{PushCfgs: NewMemoryPushConfigStore()}
+
+	_, err := handler.GetTaskPushNotificationConfig(context.Background(), &a2av1.GetTaskPushNotificationConfigRequest{Name: "config-1"})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for plain name, got %v", status.Code(err))
+	}
+
+	_, err = handler.DeleteTaskPushNotificationConfig(context.Background(), &a2av1.DeleteTaskPushNotificationConfigRequest{Name: "config-1"})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument for plain name, got %v", status.Code(err))
+	}
+}
+
 func TestTaskOps_InvalidNames(t *testing.T) {
 	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
 
