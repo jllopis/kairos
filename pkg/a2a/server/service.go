@@ -43,6 +43,7 @@ func (s *Service) SendMessage(ctx context.Context, req *a2av1.SendMessageRequest
 	if s.handler == nil {
 		return nil, status.Error(codes.Unimplemented, "SendMessage handler not configured")
 	}
+	ctx = extractTraceContext(ctx)
 	ctx, span := s.tracer.Start(ctx, "A2A.SendMessage", trace.WithAttributes(
 		attribute.String("a2a.method", "SendMessage"),
 	))
@@ -58,7 +59,8 @@ func (s *Service) SendStreamingMessage(req *a2av1.SendMessageRequest, stream a2a
 	if !supportsStreaming(s.handler) {
 		return status.Error(codes.Unimplemented, "streaming not supported")
 	}
-	ctx, span := s.tracer.Start(stream.Context(), "A2A.SendStreamingMessage", trace.WithAttributes(
+	ctx := extractTraceContext(stream.Context())
+	ctx, span := s.tracer.Start(ctx, "A2A.SendStreamingMessage", trace.WithAttributes(
 		attribute.String("a2a.method", "SendStreamingMessage"),
 		attribute.Bool("a2a.stream", true),
 	))
@@ -71,6 +73,7 @@ func (s *Service) GetTask(ctx context.Context, req *a2av1.GetTaskRequest) (*a2av
 	if s.handler == nil {
 		return nil, status.Error(codes.Unimplemented, "GetTask handler not configured")
 	}
+	ctx = extractTraceContext(ctx)
 	ctx, span := s.tracer.Start(ctx, "A2A.GetTask", trace.WithAttributes(
 		attribute.String("a2a.method", "GetTask"),
 		attribute.String("a2a.task_id", req.GetName()),
@@ -84,6 +87,7 @@ func (s *Service) ListTasks(ctx context.Context, req *a2av1.ListTasksRequest) (*
 	if s.handler == nil {
 		return nil, status.Error(codes.Unimplemented, "ListTasks handler not configured")
 	}
+	ctx = extractTraceContext(ctx)
 	ctx, span := s.tracer.Start(ctx, "A2A.ListTasks", trace.WithAttributes(
 		attribute.String("a2a.method", "ListTasks"),
 		attribute.String("a2a.context_id", req.GetContextId()),
@@ -97,6 +101,7 @@ func (s *Service) CancelTask(ctx context.Context, req *a2av1.CancelTaskRequest) 
 	if s.handler == nil {
 		return nil, status.Error(codes.Unimplemented, "CancelTask handler not configured")
 	}
+	ctx = extractTraceContext(ctx)
 	ctx, span := s.tracer.Start(ctx, "A2A.CancelTask", trace.WithAttributes(
 		attribute.String("a2a.method", "CancelTask"),
 		attribute.String("a2a.task_id", req.GetName()),
@@ -113,7 +118,8 @@ func (s *Service) SubscribeToTask(req *a2av1.SubscribeToTaskRequest, stream a2av
 	if !supportsStreaming(s.handler) {
 		return status.Error(codes.Unimplemented, "streaming not supported")
 	}
-	ctx, span := s.tracer.Start(stream.Context(), "A2A.SubscribeToTask", trace.WithAttributes(
+	ctx := extractTraceContext(stream.Context())
+	ctx, span := s.tracer.Start(ctx, "A2A.SubscribeToTask", trace.WithAttributes(
 		attribute.String("a2a.method", "SubscribeToTask"),
 		attribute.Bool("a2a.stream", true),
 		attribute.String("a2a.task_id", req.GetName()),
@@ -127,6 +133,7 @@ func (s *Service) GetExtendedAgentCard(ctx context.Context, req *a2av1.GetExtend
 	if s.handler == nil {
 		return nil, status.Error(codes.Unimplemented, "GetExtendedAgentCard handler not configured")
 	}
+	ctx = extractTraceContext(ctx)
 	ctx, span := s.tracer.Start(ctx, "A2A.GetExtendedAgentCard", trace.WithAttributes(
 		attribute.String("a2a.method", "GetExtendedAgentCard"),
 	))
@@ -143,6 +150,7 @@ func (s *Service) SetTaskPushNotificationConfig(ctx context.Context, req *a2av1.
 	if !ok {
 		return nil, status.Error(codes.Unimplemented, "SetTaskPushNotificationConfig handler not configured")
 	}
+	ctx = extractTraceContext(ctx)
 	ctx, span := s.tracer.Start(ctx, "A2A.SetTaskPushNotificationConfig", trace.WithAttributes(
 		attribute.String("a2a.method", "SetTaskPushNotificationConfig"),
 		attribute.String("a2a.task_id", req.GetParent()),
@@ -160,6 +168,7 @@ func (s *Service) GetTaskPushNotificationConfig(ctx context.Context, req *a2av1.
 	if !ok {
 		return nil, status.Error(codes.Unimplemented, "GetTaskPushNotificationConfig handler not configured")
 	}
+	ctx = extractTraceContext(ctx)
 	ctx, span := s.tracer.Start(ctx, "A2A.GetTaskPushNotificationConfig", trace.WithAttributes(
 		attribute.String("a2a.method", "GetTaskPushNotificationConfig"),
 		attribute.String("a2a.config_name", req.GetName()),
@@ -177,6 +186,7 @@ func (s *Service) ListTaskPushNotificationConfig(ctx context.Context, req *a2av1
 	if !ok {
 		return nil, status.Error(codes.Unimplemented, "ListTaskPushNotificationConfig handler not configured")
 	}
+	ctx = extractTraceContext(ctx)
 	ctx, span := s.tracer.Start(ctx, "A2A.ListTaskPushNotificationConfig", trace.WithAttributes(
 		attribute.String("a2a.method", "ListTaskPushNotificationConfig"),
 		attribute.String("a2a.task_id", req.GetParent()),
@@ -194,6 +204,7 @@ func (s *Service) DeleteTaskPushNotificationConfig(ctx context.Context, req *a2a
 	if !ok {
 		return nil, status.Error(codes.Unimplemented, "DeleteTaskPushNotificationConfig handler not configured")
 	}
+	ctx = extractTraceContext(ctx)
 	ctx, span := s.tracer.Start(ctx, "A2A.DeleteTaskPushNotificationConfig", trace.WithAttributes(
 		attribute.String("a2a.method", "DeleteTaskPushNotificationConfig"),
 		attribute.String("a2a.config_name", req.GetName()),

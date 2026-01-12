@@ -144,13 +144,13 @@ func (c *Client) SendMessage(ctx context.Context, req *a2av1.SendMessageRequest,
 	return withRetries(c.retries, func() (*a2av1.SendMessageResponse, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
-		return c.raw.SendMessage(ctx, req, opts...)
+		return c.raw.SendMessage(injectTraceContext(ctx), req, opts...)
 	})
 }
 
 // SendStreamingMessage forwards to the A2A SendStreamingMessage RPC.
 func (c *Client) SendStreamingMessage(ctx context.Context, req *a2av1.SendMessageRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[a2av1.StreamResponse], error) {
-	return c.raw.SendStreamingMessage(c.streamContext(ctx), req, opts...)
+	return c.raw.SendStreamingMessage(injectTraceContext(c.streamContext(ctx)), req, opts...)
 }
 
 // GetTask forwards to the A2A GetTask RPC.
@@ -158,7 +158,7 @@ func (c *Client) GetTask(ctx context.Context, req *a2av1.GetTaskRequest, opts ..
 	return withRetries(c.retries, func() (*a2av1.Task, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
-		return c.raw.GetTask(ctx, req, opts...)
+		return c.raw.GetTask(injectTraceContext(ctx), req, opts...)
 	})
 }
 
@@ -167,7 +167,7 @@ func (c *Client) ListTasks(ctx context.Context, req *a2av1.ListTasksRequest, opt
 	return withRetries(c.retries, func() (*a2av1.ListTasksResponse, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
-		return c.raw.ListTasks(ctx, req, opts...)
+		return c.raw.ListTasks(injectTraceContext(ctx), req, opts...)
 	})
 }
 
@@ -176,13 +176,13 @@ func (c *Client) CancelTask(ctx context.Context, req *a2av1.CancelTaskRequest, o
 	return withRetries(c.retries, func() (*a2av1.Task, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
-		return c.raw.CancelTask(ctx, req, opts...)
+		return c.raw.CancelTask(injectTraceContext(ctx), req, opts...)
 	})
 }
 
 // SubscribeToTask forwards to the A2A SubscribeToTask RPC.
 func (c *Client) SubscribeToTask(ctx context.Context, req *a2av1.SubscribeToTaskRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[a2av1.StreamResponse], error) {
-	return c.raw.SubscribeToTask(c.streamContext(ctx), req, opts...)
+	return c.raw.SubscribeToTask(injectTraceContext(c.streamContext(ctx)), req, opts...)
 }
 
 // GetExtendedAgentCard forwards to the A2A GetExtendedAgentCard RPC.
@@ -190,7 +190,7 @@ func (c *Client) GetExtendedAgentCard(ctx context.Context, req *a2av1.GetExtende
 	return withRetries(c.retries, func() (*a2av1.AgentCard, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
-		return c.raw.GetExtendedAgentCard(ctx, req, opts...)
+		return c.raw.GetExtendedAgentCard(injectTraceContext(ctx), req, opts...)
 	})
 }
 
@@ -199,7 +199,7 @@ func (c *Client) SetTaskPushNotificationConfig(ctx context.Context, req *a2av1.S
 	return withRetries(c.retries, func() (*a2av1.TaskPushNotificationConfig, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
-		return c.raw.SetTaskPushNotificationConfig(ctx, req, opts...)
+		return c.raw.SetTaskPushNotificationConfig(injectTraceContext(ctx), req, opts...)
 	})
 }
 
@@ -208,7 +208,7 @@ func (c *Client) GetTaskPushNotificationConfig(ctx context.Context, req *a2av1.G
 	return withRetries(c.retries, func() (*a2av1.TaskPushNotificationConfig, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
-		return c.raw.GetTaskPushNotificationConfig(ctx, req, opts...)
+		return c.raw.GetTaskPushNotificationConfig(injectTraceContext(ctx), req, opts...)
 	})
 }
 
@@ -217,7 +217,7 @@ func (c *Client) ListTaskPushNotificationConfig(ctx context.Context, req *a2av1.
 	return withRetries(c.retries, func() (*a2av1.ListTaskPushNotificationConfigResponse, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
-		return c.raw.ListTaskPushNotificationConfig(ctx, req, opts...)
+		return c.raw.ListTaskPushNotificationConfig(injectTraceContext(ctx), req, opts...)
 	})
 }
 
@@ -226,7 +226,7 @@ func (c *Client) DeleteTaskPushNotificationConfig(ctx context.Context, req *a2av
 	return withRetries(c.retries, func() (*emptypb.Empty, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
-		return c.raw.DeleteTaskPushNotificationConfig(ctx, req, opts...)
+		return c.raw.DeleteTaskPushNotificationConfig(injectTraceContext(ctx), req, opts...)
 	})
 }
 
