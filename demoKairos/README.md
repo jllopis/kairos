@@ -4,7 +4,7 @@ Demo multi-agente A2A con gRPC streaming, Qdrant y Ollama. Usa CSV locales como 
 
 ## Requisitos
 
-- Qdrant en ejecución (default `http://localhost:6333`)
+- Qdrant en ejecución (gRPC default `localhost:6334`)
 - Ollama en ejecución (default `http://localhost:11434`)
 - Modelo de embeddings disponible (`nomic-embed-text` por defecto)
 
@@ -14,7 +14,7 @@ Desde `demoKairos/`:
 
 ```bash
 # Agente Knowledge (RAG)
-go run ./cmd/knowledge --addr :9031 --qdrant http://localhost:6333 --embed-model nomic-embed-text
+go run ./cmd/knowledge --addr :9031 --qdrant localhost:6334 --embed-model nomic-embed-text
 
 # Agente Spreadsheet (CSV)
 go run ./cmd/spreadsheet --addr :9032 --data ./data
@@ -22,7 +22,7 @@ go run ./cmd/spreadsheet --addr :9032 --data ./data
 # Orchestrator
 
 go run ./cmd/orchestrator --addr :9030 --knowledge localhost:9031 --spreadsheet localhost:9032 \
-  --qdrant http://localhost:6333 --embed-model nomic-embed-text
+  --qdrant localhost:6334 --embed-model nomic-embed-text
 ```
 
 ## Probar con cliente gRPC
@@ -50,6 +50,8 @@ go run ./cmd/client --addr localhost:9030 --q "Que anomalias hay en la hoja Gast
 # Healthcheck rapido de puertos gRPC
 ./scripts/healthcheck.sh
 ```
+
+El script de arranque incluye comprobaciones basicas para Qdrant (gRPC) y Ollama (HTTP) y mostrara avisos si no estan disponibles.
 
 ## Streaming semantico
 
