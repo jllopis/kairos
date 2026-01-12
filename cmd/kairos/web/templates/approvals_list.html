@@ -1,0 +1,53 @@
+{{define "approvals_list"}}
+<table class="table">
+    <thead>
+        <tr>
+            <th>Aprobacion ID</th>
+            <th>Estado</th>
+            <th>Expira</th>
+            <th>Motivo</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Approvals}}
+        <tr>
+            <td>{{.ID}}</td>
+            <td><span class="chip status-{{.Status}}">{{.Status}}</span></td>
+            <td>{{.ExpiresAt}}</td>
+            <td>{{.Reason}}</td>
+            <td>
+                {{if .Pending}}
+                <button
+                    class="btn"
+                    hx-post="/ui/approvals/{{.ID}}:approve"
+                    hx-target="#approvals-list"
+                    hx-swap="outerHTML"
+                >
+                    Aprobar
+                </button>
+                <button
+                    class="btn secondary"
+                    hx-post="/ui/approvals/{{.ID}}:reject"
+                    hx-target="#approvals-list"
+                    hx-swap="outerHTML"
+                >
+                    Rechazar
+                </button>
+                {{else}}
+                <span class="muted">-</span>
+                {{end}}
+            </td>
+        </tr>
+        {{end}} {{if .Error}}
+        <tr>
+            <td colspan="5" class="error">{{.Error}}</td>
+        </tr>
+        {{end}} {{if .Empty}}
+        <tr>
+            <td colspan="5" class="empty">No se encontraron aprobaciones.</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{end}}

@@ -1,0 +1,30 @@
+{{define "agents_list"}}
+<table class="table">
+    <thead>
+        <tr>
+            <th>Nombre</th>
+            <th>Version</th>
+            <th>URL</th>
+            <th>Descripcion</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Agents}}
+        <tr>
+            <td>{{.Name}}</td>
+            <td><span class="chip">{{.Version}}</span></td>
+            <td>{{.URL}}</td>
+            <td>{{.Description}}</td>
+        </tr>
+        {{end}} {{if .Error}}
+        <tr>
+            <td colspan="4" class="error">{{.Error}}</td>
+        </tr>
+        {{end}} {{if .Empty}}
+        <tr>
+            <td colspan="4" class="empty">Sin agentes disponibles.</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{end}}

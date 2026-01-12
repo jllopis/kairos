@@ -1,0 +1,27 @@
+{{define "content"}}
+<section class="page-header">
+    <h1>Tarea {{.TaskID}}</h1>
+    <p>Estado: {{.Status}}</p>
+</section>
+<section class="panel">
+    <h2>Historial</h2>
+    {{if .History}}
+    <ul class="history">
+        {{range .History}}
+        <li>
+            <div class="history-meta">{{.Role}} · {{.Timestamp}}</div>
+            <div class="history-body">{{.Text}}</div>
+        </li>
+        {{end}}
+    </ul>
+    {{else}}
+    <div class="empty">Sin historial disponible.</div>
+    {{end}}
+</section>
+<section class="panel">
+    <h2>Stream</h2>
+    <p class="hint">
+        Usa <code>kairos tasks follow {{.TaskID}}</code> para ver streaming.
+    </p>
+</section>
+{{end}}

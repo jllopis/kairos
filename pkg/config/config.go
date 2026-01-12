@@ -23,6 +23,7 @@ type Config struct {
 	Agents     map[string]AgentOverrideConfig `koanf:"agents"`
 	Memory     MemoryConfig                   `koanf:"memory"`
 	MCP        MCPConfig                      `koanf:"mcp"`
+	Discovery  DiscoveryConfig                `koanf:"discovery"`
 	Telemetry  TelemetryConfig                `koanf:"telemetry"`
 	Runtime    RuntimeConfig                  `koanf:"runtime"`
 	Governance GovernanceConfig               `koanf:"governance"`
@@ -50,8 +51,12 @@ type AgentConfig struct {
 
 // AgentOverrideConfig overrides per-agent settings.
 type AgentOverrideConfig struct {
-	DisableActionFallback *bool `koanf:"disable_action_fallback"`
-	WarnOnActionFallback  *bool `koanf:"warn_on_action_fallback"`
+	DisableActionFallback *bool             `koanf:"disable_action_fallback"`
+	WarnOnActionFallback  *bool             `koanf:"warn_on_action_fallback"`
+	AgentCardURL          string            `koanf:"agent_card_url"`
+	GRPCAddr              string            `koanf:"grpc_addr"`
+	HTTPURL               string            `koanf:"http_url"`
+	Labels                map[string]string `koanf:"labels"`
 }
 
 // MemoryConfig configures memory backends.
@@ -67,6 +72,13 @@ type MemoryConfig struct {
 // MCPConfig defines MCP server connections.
 type MCPConfig struct {
 	Servers map[string]MCPServerConfig `koanf:"servers"`
+}
+
+// DiscoveryConfig defines agent discovery options.
+type DiscoveryConfig struct {
+	Order         []string `koanf:"order"`
+	RegistryURL   string   `koanf:"registry_url"`
+	RegistryToken string   `koanf:"registry_token"`
 }
 
 // MCPServerConfig describes an MCP server endpoint and client settings.
@@ -158,6 +170,7 @@ func loadWithOverrides(path string, overrides map[string]any) (*Config, error) {
 
 	k.Set("governance.policies", []PolicyRuleConfig{})
 	k.Set("governance.approval_timeout_seconds", 0)
+	k.Set("discovery.order", []string{})
 
 	// 1. Load from file
 	if path != "" {

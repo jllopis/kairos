@@ -109,6 +109,7 @@ Tasks:
 - [x] Implement ListTasks pagination with page tokens.
 - [x] SQLite-backed TaskStore/PushConfigStore (no CGO) for persistence.
 - [x] Planner-driven multi-agent demo (demoKairos) with A2A + MCP + OTLP.
+- [ ] Agent discovery patterns (Config / WellKnown / Registry) with configurable order.
 Acceptance: US-02 (MVP) complete with trace continuity.
 Notes:
 - MVP binding is gRPC-first for streaming stability; HTTP+JSON/JSON-RPC server bindings are implemented.
@@ -158,6 +159,8 @@ Acceptance: US-09 complete.
 Notes:
 - Phase 8.1 CLI MVP started (entrypoint in `cmd/kairos`).
 - Phase 8.2 CLI advanced started (traces/tasks/approvals extensions).
+- Phase 8.3 UI skeleton defined in `docs/UI_SKELETON.md`.
+- Phase 8.3 base UI layout added to `cmd/kairos` (`--web`).
 
 ## Core UX Track (Library + Demo)
 Goals: make Kairos approachable to developers from Python agent frameworks while keeping standards.

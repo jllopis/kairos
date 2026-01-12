@@ -1,0 +1,36 @@
+{{define "content"}}
+<section class="page-header">
+    <h1>Tareas</h1>
+    <p>Lista e inspecciona el estado de tareas.</p>
+</section>
+<section class="panel">
+    <form
+        class="filter"
+        hx-get="/ui/tasks/list"
+        hx-target="#tasks-list"
+        hx-push-url="true"
+    >
+        <label>
+            Estado
+            <select name="status">
+                <option value="">cualquiera</option>
+                <option value="submitted">submitted</option>
+                <option value="working">working</option>
+                <option value="completed">completed</option>
+                <option value="failed">failed</option>
+                <option value="cancelled">cancelled</option>
+                <option value="input_required">input_required</option>
+                <option value="rejected">rejected</option>
+            </select>
+        </label>
+        <label>
+            Contexto
+            <input type="text" name="context" placeholder="context id" />
+        </label>
+        <button type="submit">Actualizar</button>
+    </form>
+    <div id="tasks-list" hx-get="/ui/tasks/list" hx-trigger="load">
+        <div class="loading">Cargando tareas...</div>
+    </div>
+</section>
+{{end}}

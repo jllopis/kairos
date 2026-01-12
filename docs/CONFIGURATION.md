@@ -34,6 +34,11 @@ Example:
   "governance": {
     "approval_timeout_seconds": 300
   },
+  "discovery": {
+    "order": ["config", "well_known", "registry"],
+    "registry_url": "http://localhost:9900",
+    "registry_token": "token-if-needed"
+  },
   "mcp": {
     "servers": {
       "fetch": {
@@ -41,6 +46,14 @@ Example:
         "command": "docker",
         "args": ["run", "-i", "--rm", "mcp/fetch"]
       }
+    }
+  },
+  "agents": {
+    "orchestrator": {
+      "agent_card_url": "http://127.0.0.1:9140",
+      "grpc_addr": "127.0.0.1:9030",
+      "http_url": "http://127.0.0.1:8080",
+      "labels": {"env": "local", "tier": "core"}
     }
   }
 }
@@ -92,6 +105,10 @@ go run ./examples/mcp-agent \
 - `agent.disable_action_fallback`, `agent.warn_on_action_fallback`
 - `memory.enabled`, `memory.provider`, `memory.qdrant_addr`
 - `mcp.servers.<name>.transport`, `mcp.servers.<name>.url`
+- `agents.<agent_id>.agent_card_url`, `agents.<agent_id>.grpc_addr`, `agents.<agent_id>.http_url`, `agents.<agent_id>.labels`
 - `telemetry.exporter`, `telemetry.otlp_endpoint`, `telemetry.otlp_insecure`
 - `runtime.approval_sweep_interval_seconds`, `runtime.approval_sweep_timeout_seconds`
 - `governance.approval_timeout_seconds`
+- `discovery.order` (opcional; default: `config, well_known, registry`)
+- `discovery.registry_url` (opcional; habilita RegistryProvider)
+- `discovery.registry_token` (opcional; bearer token)

@@ -23,6 +23,7 @@ import (
 	"github.com/jllopis/kairos/pkg/a2a/server"
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
 	"github.com/jllopis/kairos/pkg/config"
+	"github.com/jllopis/kairos/pkg/discovery"
 	kairosmcp "github.com/jllopis/kairos/pkg/mcp"
 	mcptypes "github.com/mark3labs/mcp-go/mcp"
 	"google.golang.org/grpc"
@@ -45,6 +46,8 @@ type globalFlags struct {
 	Timeout    time.Duration
 	JSON       bool
 	Help       bool
+	Web        bool
+	WebAddr    string
 }
 
 type statusResult struct {
@@ -76,20 +79,34 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	if global.Help || len(args) == 0 {
-		printUsage()
-		return
-	}
 
 	cfg, err := config.LoadWithCLI(global.ConfigArgs)
 	if err != nil {
 		fatal(err)
 	}
 
+	if global.Help || len(args) == 0 {
+		if global.Help {
+			printUsage()
+			return
+		}
+		if global.Web {
+			runWeb(ctx, global, cfg)
+			return
+		}
+		printUsage()
+		return
+	}
+
 	cmd := args[0]
 	sub := ""
 	if len(args) > 1 {
 		sub = args[1]
+	}
+
+	if global.Web {
+		runWeb(ctx, global, cfg)
+		return
 	}
 
 	switch cmd {
@@ -106,6 +123,8 @@ func main() {
 		runApprovals(ctx, global, args[1:])
 	case "mcp":
 		runMCP(ctx, global, cfg, args[1:])
+	case "registry":
+		runRegistry(ctx, global, cfg, args[1:])
 	case "help":
 		printUsage()
 	case "version":
@@ -123,6 +142,7 @@ func parseGlobalFlags(args []string) (globalFlags, []string, error) {
 		GRPCAddr: getenv("KAIROS_GRPC_ADDR", defaultGRPCAddr),
 		HTTPURL:  getenv("KAIROS_HTTP_URL", defaultHTTPURL),
 		Timeout:  30 * time.Second,
+		WebAddr:  defaultWebAddr,
 	}
 
 	for i := 0; i < len(args); i++ {
@@ -139,6 +159,16 @@ func parseGlobalFlags(args []string) (globalFlags, []string, error) {
 			return flags, nil, nil
 		case arg == "--json":
 			flags.JSON = true
+		case arg == "--web":
+			flags.Web = true
+		case arg == "--web-addr":
+			if i+1 >= len(args) {
+				return flags, nil, fmt.Errorf("missing value for --web-addr")
+			}
+			flags.WebAddr = args[i+1]
+			i++
+		case strings.HasPrefix(arg, "--web-addr="):
+			flags.WebAddr = strings.TrimPrefix(arg, "--web-addr=")
 		case arg == "--config":
 			if i+1 >= len(args) {
 				return flags, nil, fmt.Errorf("missing value for --config")
@@ -227,17 +257,41 @@ func runAgents(ctx context.Context, flags globalFlags, args []string) {
 	urls := append([]string{}, cardURLs...)
 	urls = append(urls, splitList(getenv("KAIROS_AGENT_CARD_URLS", ""))...)
 	urls = uniqueStrings(urls)
-	if len(urls) == 0 {
-		fatal(fmt.Errorf("no agent cards provided; use --agent-card or KAIROS_AGENT_CARD_URLS"))
-	}
 
+	cfg, err := config.LoadWithCLI(flags.ConfigArgs)
+	if err != nil {
+		fatal(err)
+	}
+	providers := discovery.BuildProviders(cfg, urls)
+	resolver, err := discovery.NewResolver(providers...)
+	if err != nil {
+		fatal(err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, flags.Timeout)
 	defer cancel()
 
-	results := make([]agentResult, 0, len(urls))
-	for _, baseURL := range urls {
-		card, err := agentcard.Fetch(ctx, baseURL)
-		res := agentResult{URL: baseURL, Card: card}
+	entries, err := resolver.Resolve(ctx)
+	if err != nil {
+		fatal(err)
+	}
+	discovery.SortByName(entries)
+	results := make([]agentResult, 0, len(entries))
+	for _, entry := range entries {
+		url := entry.AgentCardURL
+		if url == "" && entry.Name != "" {
+			url = entry.Name
+		}
+		if entry.AgentCardURL == "" && entry.Name == "" {
+			continue
+		}
+		res := agentResult{URL: url, Card: &a2av1.AgentCard{Name: entry.Name, Version: ""}}
+		if entry.AgentCardURL == "" {
+			results = append(results, res)
+			continue
+		}
+		card, err := agentcard.Fetch(ctx, entry.AgentCardURL)
+		res.URL = entry.AgentCardURL
+		res.Card = card
 		if err != nil {
 			res.Err = err.Error()
 			res.Card = nil
@@ -666,6 +720,28 @@ func runMCP(ctx context.Context, flags globalFlags, cfg *config.Config, args []s
 	_ = writer.Flush()
 }
 
+func runRegistry(ctx context.Context, flags globalFlags, cfg *config.Config, args []string) {
+	if len(args) == 0 || args[0] != "serve" {
+		fatal(errors.New("usage: kairos registry serve [--addr :9900] [--ttl 30s]"))
+	}
+	cmd := flag.NewFlagSet("registry serve", flag.ContinueOnError)
+	addr := cmd.String("addr", ":9900", "Registry bind address")
+	ttl := cmd.Duration("ttl", 30*time.Second, "Registry TTL")
+	if err := cmd.Parse(args[1:]); err != nil {
+		fatal(err)
+	}
+	if strings.TrimSpace(*addr) == "" {
+		fatal(errors.New("missing --addr"))
+	}
+	_ = cfg
+	server := discovery.NewRegistryServer(*addr, *ttl)
+	fmt.Printf("Registry listening on http://localhost%s\n", *addr)
+	if err := server.Serve(); err != nil {
+		fatal(err)
+	}
+	_ = ctx
+}
+
 func newMCPClient(name string, cfg config.MCPServerConfig) (*kairosmcp.Client, error) {
 	opts := []kairosmcp.ClientOption{kairosmcp.WithServerName(name)}
 	if cfg.TimeoutSeconds != nil {
@@ -973,6 +1049,8 @@ Global flags:
   --http <url>         A2A HTTP+JSON base URL (default http://localhost:8080)
   --timeout <dur>      Request timeout (default 30s)
   --json               JSON output
+  --web                Start the minimal web UI
+  --web-addr <addr>    Web UI bind address (default :8088)
 
 Commands:
   status
@@ -987,6 +1065,7 @@ Commands:
   approvals reject <id> [--reason <text>]
   approvals tail [--status <status>] [--interval 5s] [--out <path>]
   mcp list
+  registry serve [--addr :9900] [--ttl 30s]
 `)
 }
 

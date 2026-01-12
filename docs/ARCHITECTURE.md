@@ -130,6 +130,9 @@ See `docs/CONFIGURATION.md` for the full guide.
 ## Tasks
 - Task core API and lifecycle: `docs/TASKS.md`.
 
+## Discovery
+- Agent discovery patterns and order: `docs/adr/0004-agent-discovery-patterns.md`.
+
 ## Agent loop options
 - `agent.WithDisableActionFallback(true)` disables legacy "Action:" parsing in the ReAct loop when tool calls are supported.
 - `agent.WithActionFallbackWarning(true)` emits a warning log when legacy Action parsing is used.

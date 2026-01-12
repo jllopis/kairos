@@ -1,0 +1,11 @@
+{{define "content"}}
+<section class="page-header">
+    <h1>Agentes</h1>
+    <p>Descubrimiento de AgentCards desde URLs configuradas.</p>
+</section>
+<section class="panel">
+    <div id="agents-list" hx-get="/ui/agents/list" hx-trigger="load">
+        <div class="loading">Cargando agentes...</div>
+    </div>
+</section>
+{{end}}

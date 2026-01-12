@@ -1,0 +1,30 @@
+{{define "tasks_list"}}
+<table class="table">
+    <thead>
+        <tr>
+            <th>Task ID</th>
+            <th>Estado</th>
+            <th>Actualizado</th>
+            <th>Mensaje</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Tasks}}
+        <tr>
+            <td><a href="/tasks/{{.ID}}">{{.ID}}</a></td>
+            <td><span class="chip status-{{.Status}}">{{.Status}}</span></td>
+            <td>{{.UpdatedAt}}</td>
+            <td>{{.Message}}</td>
+        </tr>
+        {{end}} {{if .Error}}
+        <tr>
+            <td colspan="4" class="error">{{.Error}}</td>
+        </tr>
+        {{end}} {{if .Empty}}
+        <tr>
+            <td colspan="4" class="empty">No se encontraron tareas.</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{end}}
