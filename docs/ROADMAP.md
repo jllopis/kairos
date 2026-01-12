@@ -144,7 +144,7 @@ Follow-ups (post-milestone):
 - [x] Policy enforcement for A2A/MCP calls (beyond tool gating).
 - [x] Server-side policy enforcement for A2A handlers.
 - [x] Human-in-the-loop policy flow (approvals + endpoints).
-Acceptance: US-07 complete; US-08 in progress.
+Acceptance: US-07 complete; US-08 complete.
 
 ## Phase 8: UI/CLI (Estimate: L)
 Goals: operator visibility and control.
