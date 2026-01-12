@@ -506,6 +506,25 @@ func TestPushConfig_InvalidParentFormat(t *testing.T) {
 	}
 }
 
+func TestPushConfig_TaskNotFound(t *testing.T) {
+	handler := &SimpleHandler{
+		Store:    NewMemoryTaskStore(),
+		PushCfgs: NewMemoryPushConfigStore(),
+	}
+
+	req := &a2av1.SetTaskPushNotificationConfigRequest{
+		Parent: "tasks/missing",
+		Config: &a2av1.TaskPushNotificationConfig{
+			PushNotificationConfig: &a2av1.PushNotificationConfig{
+				Url: "https://example.com/hook",
+			},
+		},
+	}
+	if _, err := handler.SetTaskPushNotificationConfig(context.Background(), req); status.Code(err) != codes.NotFound {
+		t.Fatalf("expected NotFound, got %v", status.Code(err))
+	}
+}
+
 func TestSubscribeToTask_UpdatesAndArtifacts(t *testing.T) {
 	store := NewMemoryTaskStore()
 	task, err := store.CreateTask(context.Background(), &a2av1.Message{
