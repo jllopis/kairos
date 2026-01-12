@@ -28,6 +28,19 @@ go run ./cmd/orchestrator --addr :9030 --knowledge localhost:9031 --spreadsheet 
 
 Si quieres ver las trazas en consola, anade `--verbose` a cada comando.
 
+## Entrypoint unificado
+
+Puedes levantar toda la demo con un solo comando (usa defaults y el builder fluido):
+
+```bash
+go run ./cmd/demo
+```
+
+Variables de entorno soportadas (opcional): `QDRANT_URL`, `OLLAMA_URL`, `EMBED_MODEL`,
+`KAIROS_LLM_MODEL`, `KAIROS_LLM_PROVIDER`, `CONFIG_PATH`, `DEMO_VERBOSE`.
+
+Si prefieres script, `./scripts/run-demo.sh` ejecuta el entrypoint anterior.
+
 ## Probar con cliente gRPC
 
 ```bash
@@ -75,12 +88,14 @@ El script de arranque incluye comprobaciones basicas para Qdrant (gRPC) y Ollama
 
 ## Streaming semantico
 
-El orchestrator emite eventos con `metadata.event_type` en `TaskStatusUpdateEvent`:
+El orchestrator emite eventos con `metadata.event_type` en `TaskStatusUpdateEvent` usando la
+taxonomia estable de `docs/EVENT_TAXONOMY.md`:
 
-- `thinking`
-- `retrieval.started` / `retrieval.done`
-- `tool.started` / `tool.done`
-- `response.final` (fin de stream)
+- `agent.thinking`
+- `agent.task.started`
+- `agent.task.completed`
+- `agent.delegation`
+- `agent.error`
 
 Los mensajes incrementales se envian como `StreamResponse_Msg`.
 

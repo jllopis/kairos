@@ -42,6 +42,7 @@ Que un developer vea la demo y piense:
 3) Narrativa y docs
    - Aclarar “lo que NO es / lo que SI es”.
    - Comparativa directa con frameworks Python.
+   - Implementado en `docs/NARRATIVE_GUIDE.md`.
 
 ## Fase 2: Task como entidad de primer nivel (libreria)
 
@@ -63,10 +64,12 @@ Que un developer vea la demo y piense:
      ```
    - Solo en demo: no altera runtime core.
    - Revisitaremos moverlo a core cuando Task/Role/Event esten fijados.
+   - Implementado en `demoKairos/internal/demo/system.go` y usado desde `demoKairos/cmd/demo`.
 
 6) Script/entrypoint unificado
    - Un comando para levantar demo con defaults.
    - Logs formateados para seguir el flujo.
+   - Implementado en `demoKairos/cmd/demo` y expuesto via `demoKairos/scripts/run-demo.sh`.
 
 ## Entregables esperados
 

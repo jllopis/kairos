@@ -255,6 +255,16 @@ func (a *Agent) Run(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("agent currently only supports string input")
 	}
 
+	if task, ok := core.TaskFromContext(ctx); ok && task != nil {
+		if task.Goal == "" {
+			task.Goal = inputStr
+		}
+		if task.AssignedTo == "" {
+			task.AssignedTo = a.id
+		}
+		task.Start()
+	}
+
 	initAgentMetrics()
 	agentRunCounter.Add(ctx, 1)
 	start := time.Now()
@@ -357,6 +367,9 @@ Final Answer: the final answer to the original input question
 				"stage":  "llm",
 				"error":  err.Error(),
 			})
+			if task, ok := core.TaskFromContext(ctx); ok && task != nil {
+				task.Fail(err.Error())
+			}
 			return nil, fmt.Errorf("llm chat failed: %w", err)
 		}
 
@@ -408,6 +421,9 @@ Final Answer: the final answer to the original input question
 					"run_id": runID,
 					"result": finalAnswer,
 				})
+				if task, ok := core.TaskFromContext(ctx); ok && task != nil {
+					task.Complete(finalAnswer)
+				}
 				return finalAnswer, nil
 			}
 			logDecision(log, decisionPayload{
@@ -434,6 +450,9 @@ Final Answer: the final answer to the original input question
 				"run_id": runID,
 				"result": content,
 			})
+			if task, ok := core.TaskFromContext(ctx); ok && task != nil {
+				task.Complete(content)
+			}
 			return content, nil
 		}
 
@@ -538,6 +557,9 @@ Final Answer: the final answer to the original input question
 							"tool":   action,
 							"error":  err.Error(),
 						})
+						if task, ok := core.TaskFromContext(ctx); ok && task != nil {
+							task.Fail(err.Error())
+						}
 					} else {
 						observation = fmt.Sprintf("%v", res)
 						log.Info("agent.tool.complete",
@@ -583,6 +605,9 @@ Final Answer: the final answer to the original input question
 				"run_id": runID,
 				"result": content,
 			})
+			if task, ok := core.TaskFromContext(ctx); ok && task != nil {
+				task.Complete(content)
+			}
 			return content, nil
 		}
 	}
@@ -600,6 +625,9 @@ Final Answer: the final answer to the original input question
 		"stage":  "timeout",
 		"error":  "max iterations exceeded",
 	})
+	if task, ok := core.TaskFromContext(ctx); ok && task != nil {
+		task.Fail("max iterations exceeded")
+	}
 	return nil, fmt.Errorf("agent exceeded max iterations (%d) without final answer", a.maxIterations)
 }
 
@@ -912,6 +940,9 @@ func (a *Agent) handleToolCalls(ctx context.Context, log *slog.Logger, runID, tr
 					"tool":   toolName,
 					"error":  err.Error(),
 				})
+				if task, ok := core.TaskFromContext(ctx); ok && task != nil {
+					task.Fail(err.Error())
+				}
 			} else {
 				observation = fmt.Sprintf("%v", res)
 				logDecisionOutcome(log, decisionPayload{
@@ -1078,6 +1109,11 @@ func (a *Agent) emitEvent(ctx context.Context, eventType core.EventType, payload
 	taskID := ""
 	if task, ok := core.TaskFromContext(ctx); ok && task != nil {
 		taskID = task.ID
+		if task.Goal != "" && payload != nil {
+			if _, ok := payload["task_goal"]; !ok {
+				payload["task_goal"] = task.Goal
+			}
+		}
 	}
 	a.eventEmitter.Emit(ctx, core.NewEvent(eventType, a.id, taskID, payload))
 }

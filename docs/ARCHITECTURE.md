@@ -124,6 +124,12 @@ See `docs/CONFIGURATION.md` for the full guide.
 ## Event taxonomy
 - Stable semantic events for streaming/logs: `docs/EVENT_TAXONOMY.md`.
 
+## Narrative guide
+- Demo positioning and messaging: `docs/NARRATIVE_GUIDE.md`.
+
+## Tasks
+- Task core API and lifecycle: `docs/TASKS.md`.
+
 ## Agent loop options
 - `agent.WithDisableActionFallback(true)` disables legacy "Action:" parsing in the ReAct loop when tool calls are supported.
 - `agent.WithActionFallbackWarning(true)` emits a warning log when legacy Action parsing is used.

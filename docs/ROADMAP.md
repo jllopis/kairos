@@ -142,7 +142,7 @@ Follow-ups (post-milestone):
 - [x] Config-driven policy rule loading.
 - [x] Policy enforcement for A2A/MCP calls (beyond tool gating).
 - [x] Server-side policy enforcement for A2A handlers.
-- [~] Human-in-the-loop policy flow (approvals + endpoints).
+- [x] Human-in-the-loop policy flow (approvals + endpoints).
 Acceptance: US-07 complete; US-08 in progress.
 
 ## Phase 8: UI/CLI (Estimate: L)
@@ -158,14 +158,14 @@ Acceptance: US-09 complete.
 Goals: make Kairos approachable to developers from Python agent frameworks while keeping standards.
 Dependencies: Phase 5, Phase 7.
 Core tasks (library):
-- [ ] Role/manifest metadata API (coexists with AgentCard).
-- [ ] Task entity in core with traceable IDs/status/result (no proto/store changes).
-- [ ] Event taxonomy for semantic streaming/logs (stable types + minimal fields).
+- [x] Role/manifest metadata API (coexists with AgentCard).
+- [x] Task entity in core with traceable IDs/status/result (no proto/store changes).
+- [x] Event taxonomy for semantic streaming/logs (stable types + minimal fields).
 Demo tasks:
-- [ ] Role YAML files to feed core role metadata (`demoKairos/docs/role-*.yaml`).
-- [ ] Narrative guide: “what it is / what it is not”.
-- [ ] Demo builder facade (`NewSystem` + `WithAgent` + `WithFlow`), revisit for core after Task/Role/Event stabilize.
-- [ ] Single entrypoint script for running demo.
+- [x] Role YAML files to feed core role metadata (`demoKairos/docs/role-*.yaml`).
+- [x] Narrative guide: “what it is / what it is not” (`docs/NARRATIVE_GUIDE.md`).
+- [x] Demo builder facade (`NewSystem` + `WithAgent` + `WithFlow`), revisit for core after Task/Role/Event stabilize.
+- [x] Single entrypoint script for running demo.
 Notes:
 - No changes to A2A proto or stores in this track.
 - See `docs/walkthrough-demo-improvements.md` for the detailed plan.

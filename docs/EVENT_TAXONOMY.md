@@ -23,7 +23,8 @@ Each event carries the following fields:
   "timestamp": "2025-01-01T12:00:00Z",
   "payload": {
     "run_id": "run-abc",
-    "stage": "detect_intent"
+    "stage": "detect_intent",
+    "task_goal": "Detect user intent"
   }
 }
 ```

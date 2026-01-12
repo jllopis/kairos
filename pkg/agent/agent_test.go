@@ -179,6 +179,30 @@ func TestAgent_EmitsSemanticEvents(t *testing.T) {
 	}
 }
 
+func TestAgent_UpdatesTaskFromContext(t *testing.T) {
+	ctx := context.Background()
+	task := core.NewTask("ping", "")
+	ctx = core.WithTask(ctx, task)
+	llmProvider := &llm.MockProvider{Response: "Final Answer: ok"}
+
+	a, err := agent.New("task-agent", llmProvider)
+	if err != nil {
+		t.Fatalf("Failed to create agent: %v", err)
+	}
+	if _, err := a.Run(ctx, "ping"); err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if task.Status != core.TaskStatusCompleted {
+		t.Fatalf("expected task completed, got %s", task.Status)
+	}
+	if task.AssignedTo != "task-agent" {
+		t.Fatalf("expected assigned_to set")
+	}
+	if task.Result == nil {
+		t.Fatalf("expected task result")
+	}
+}
+
 func TestAgent_SingleTurn(t *testing.T) {
 	ctx := context.Background()
 	mockLLM := &llm.ScriptedMockProvider{}

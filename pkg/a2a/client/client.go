@@ -349,9 +349,17 @@ func (c *Client) emitDelegation(ctx context.Context, method string, req *a2av1.S
 		taskID = req.Request.TaskId
 		contextID = req.Request.ContextId
 	}
+	if task, ok := core.TaskFromContext(ctx); ok && task != nil {
+		if task.ID != "" {
+			taskID = task.ID
+		}
+	}
 	payload := map[string]any{
 		"method":     method,
 		"context_id": contextID,
+	}
+	if task, ok := core.TaskFromContext(ctx); ok && task != nil && task.Goal != "" {
+		payload["task_goal"] = task.Goal
 	}
 	agent := strings.TrimSpace(c.agentName)
 	c.eventEmitter.Emit(ctx, core.NewEvent(core.EventAgentDelegation, agent, taskID, payload))
