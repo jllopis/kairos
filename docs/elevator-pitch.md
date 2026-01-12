@@ -104,18 +104,34 @@ import (
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
 	"github.com/jllopis/kairos/pkg/agent"
 	"github.com/jllopis/kairos/pkg/llm"
+	"github.com/jllopis/kairos/pkg/mcp"
+	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
+	// 0) MCP: tool local via Streamable HTTP
+	mcpServer := mcp.NewServer("demo-mcp", "0.1.0")
+	mcpServer.RegisterTool("hello", "Devuelve un saludo", nil, func(ctx context.Context, args map[string]interface{}) (*mcpgo.CallToolResult, error) {
+		name, _ := args["name"].(string)
+		if name == "" {
+			name = "mundo"
+		}
+		return &mcpgo.CallToolResult{StructuredContent: map[string]interface{}{"text": "hola " + name}}, nil
+	})
+	httpSrv := mcpServer.StreamableHTTPServer()
+	go func() { _ = httpSrv.Start("127.0.0.1:9901") }()
+	mcpClient, _ := mcp.NewClientWithStreamableHTTP("http://127.0.0.1:9901/mcp")
+
 	// 1) LLM + agente
 	provider := llm.NewOllama("http://localhost:11434")
 	a, _ := agent.New(
 		"hello-agent",
 		provider,
-		agent.WithRole("Responde de forma corta y clara."),
+		agent.WithRole("Usa la tool hello para responder de forma corta y clara."),
 		agent.WithModel("qwen2.5-coder:7b-instruct-q5_K_M"),
+		agent.WithMCPClients(mcpClient),
 	)
 
 	// 2) AgentCard para discovery
