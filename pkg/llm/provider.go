@@ -6,6 +6,7 @@ import "context"
 // Role represents the role of a message sender.
 type Role string
 
+// Role values map to chat message authors.
 const (
 	// RoleSystem marks system-level instructions.
 	RoleSystem Role = "system"
@@ -20,6 +21,7 @@ const (
 // ToolType represents the type of tool.
 type ToolType string
 
+// ToolType values describe tool invocation styles.
 const (
 	// ToolTypeFunction defines a function-call tool.
 	ToolTypeFunction ToolType = "function"

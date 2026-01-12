@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
+// Discovery constants for AgentCard HTTP endpoints.
 const (
 	// WellKnownPath is the standardized location for AgentCard discovery.
 	WellKnownPath = "/.well-known/agent-card.json"

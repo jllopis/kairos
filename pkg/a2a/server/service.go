@@ -241,6 +241,7 @@ type sendMessageStreamWrapper struct {
 	ctx context.Context
 }
 
+// Context returns the wrapped stream context with tracing span.
 func (s sendMessageStreamWrapper) Context() context.Context {
 	return s.ctx
 }
@@ -254,6 +255,7 @@ type subscribeStreamWrapper struct {
 	ctx context.Context
 }
 
+// Context returns the wrapped stream context with tracing span.
 func (s subscribeStreamWrapper) Context() context.Context {
 	return s.ctx
 }

@@ -84,46 +84,57 @@ type authClient struct {
 	creds credentials.PerRPCCredentials
 }
 
+// SendMessage forwards SendMessage with per-RPC credentials.
 func (a *authClient) SendMessage(ctx context.Context, in *a2av1.SendMessageRequest, opts ...grpc.CallOption) (*a2av1.SendMessageResponse, error) {
 	return a.inner.SendMessage(ctx, in, append(opts, grpc.PerRPCCredentials(a.creds))...)
 }
 
+// SendStreamingMessage forwards SendStreamingMessage with per-RPC credentials.
 func (a *authClient) SendStreamingMessage(ctx context.Context, in *a2av1.SendMessageRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[a2av1.StreamResponse], error) {
 	return a.inner.SendStreamingMessage(ctx, in, append(opts, grpc.PerRPCCredentials(a.creds))...)
 }
 
+// GetTask forwards GetTask with per-RPC credentials.
 func (a *authClient) GetTask(ctx context.Context, in *a2av1.GetTaskRequest, opts ...grpc.CallOption) (*a2av1.Task, error) {
 	return a.inner.GetTask(ctx, in, append(opts, grpc.PerRPCCredentials(a.creds))...)
 }
 
+// ListTasks forwards ListTasks with per-RPC credentials.
 func (a *authClient) ListTasks(ctx context.Context, in *a2av1.ListTasksRequest, opts ...grpc.CallOption) (*a2av1.ListTasksResponse, error) {
 	return a.inner.ListTasks(ctx, in, append(opts, grpc.PerRPCCredentials(a.creds))...)
 }
 
+// CancelTask forwards CancelTask with per-RPC credentials.
 func (a *authClient) CancelTask(ctx context.Context, in *a2av1.CancelTaskRequest, opts ...grpc.CallOption) (*a2av1.Task, error) {
 	return a.inner.CancelTask(ctx, in, append(opts, grpc.PerRPCCredentials(a.creds))...)
 }
 
+// SubscribeToTask forwards SubscribeToTask with per-RPC credentials.
 func (a *authClient) SubscribeToTask(ctx context.Context, in *a2av1.SubscribeToTaskRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[a2av1.StreamResponse], error) {
 	return a.inner.SubscribeToTask(ctx, in, append(opts, grpc.PerRPCCredentials(a.creds))...)
 }
 
+// SetTaskPushNotificationConfig forwards SetTaskPushNotificationConfig with per-RPC credentials.
 func (a *authClient) SetTaskPushNotificationConfig(ctx context.Context, in *a2av1.SetTaskPushNotificationConfigRequest, opts ...grpc.CallOption) (*a2av1.TaskPushNotificationConfig, error) {
 	return a.inner.SetTaskPushNotificationConfig(ctx, in, append(opts, grpc.PerRPCCredentials(a.creds))...)
 }
 
+// GetTaskPushNotificationConfig forwards GetTaskPushNotificationConfig with per-RPC credentials.
 func (a *authClient) GetTaskPushNotificationConfig(ctx context.Context, in *a2av1.GetTaskPushNotificationConfigRequest, opts ...grpc.CallOption) (*a2av1.TaskPushNotificationConfig, error) {
 	return a.inner.GetTaskPushNotificationConfig(ctx, in, append(opts, grpc.PerRPCCredentials(a.creds))...)
 }
 
+// ListTaskPushNotificationConfig forwards ListTaskPushNotificationConfig with per-RPC credentials.
 func (a *authClient) ListTaskPushNotificationConfig(ctx context.Context, in *a2av1.ListTaskPushNotificationConfigRequest, opts ...grpc.CallOption) (*a2av1.ListTaskPushNotificationConfigResponse, error) {
 	return a.inner.ListTaskPushNotificationConfig(ctx, in, append(opts, grpc.PerRPCCredentials(a.creds))...)
 }
 
+// GetExtendedAgentCard forwards GetExtendedAgentCard with per-RPC credentials.
 func (a *authClient) GetExtendedAgentCard(ctx context.Context, in *a2av1.GetExtendedAgentCardRequest, opts ...grpc.CallOption) (*a2av1.AgentCard, error) {
 	return a.inner.GetExtendedAgentCard(ctx, in, append(opts, grpc.PerRPCCredentials(a.creds))...)
 }
 
+// DeleteTaskPushNotificationConfig forwards DeleteTaskPushNotificationConfig with per-RPC credentials.
 func (a *authClient) DeleteTaskPushNotificationConfig(ctx context.Context, in *a2av1.DeleteTaskPushNotificationConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return a.inner.DeleteTaskPushNotificationConfig(ctx, in, append(opts, grpc.PerRPCCredentials(a.creds))...)
 }
