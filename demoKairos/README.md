@@ -26,6 +26,8 @@ go run ./cmd/orchestrator --addr :9030 --knowledge localhost:9031 --spreadsheet 
   --knowledge-card-url http://127.0.0.1:9141 --spreadsheet-card-url http://127.0.0.1:9142 --card-addr 127.0.0.1:9140
 ```
 
+Si quieres ver las trazas en consola, anade `--verbose` a cada comando.
+
 ## Probar con cliente gRPC
 
 ```bash
@@ -47,6 +49,9 @@ go run ./cmd/client --addr localhost:9030 --q "Que anomalias hay en la hoja Gast
 ```bash
 # Levantar todos los agentes
 ./scripts/run-demo.sh
+
+# Levantar todos los agentes con trazas
+DEMO_VERBOSE=1 ./scripts/run-demo.sh
 
 # Healthcheck rapido de puertos gRPC
 ./scripts/healthcheck.sh

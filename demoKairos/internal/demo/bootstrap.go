@@ -19,13 +19,17 @@ func LoadConfig(path string) (*config.Config, error) {
 	return cfg, nil
 }
 
-// InitTelemetry initializes OTLP telemetry using config settings.
-func InitTelemetry(service string, cfg *config.Config) (telemetry.ShutdownFunc, error) {
+// InitTelemetry initializes telemetry using config settings and verbosity.
+func InitTelemetry(service string, cfg *config.Config, verbose bool) (telemetry.ShutdownFunc, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is nil")
 	}
+	exporter := strings.TrimSpace(cfg.Telemetry.Exporter)
+	if !verbose && (exporter == "" || strings.EqualFold(exporter, "stdout")) {
+		exporter = "none"
+	}
 	return telemetry.InitWithConfig(service, "demo", telemetry.Config{
-		Exporter:           cfg.Telemetry.Exporter,
+		Exporter:           exporter,
 		OTLPEndpoint:       cfg.Telemetry.OTLPEndpoint,
 		OTLPInsecure:       cfg.Telemetry.OTLPInsecure,
 		OTLPTimeoutSeconds: cfg.Telemetry.OTLPTimeoutSeconds,

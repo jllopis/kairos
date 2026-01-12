@@ -78,6 +78,8 @@ func initProviders(res *resource.Resource, cfg Config) (*trace.TracerProvider, *
 	switch cfg.Exporter {
 	case "", "stdout":
 		return initStdout(res)
+	case "none":
+		return initNoop(res)
 	case "otlp":
 		if cfg.OTLPEndpoint == "" {
 			return nil, nil, fmt.Errorf("otlp endpoint is required")
@@ -107,6 +109,14 @@ func initStdout(res *resource.Resource) (*trace.TracerProvider, *metric.MeterPro
 		metric.WithReader(metric.NewPeriodicReader(metricExporter, metric.WithInterval(time.Minute))),
 		metric.WithResource(res),
 	)
+	otel.SetMeterProvider(mp)
+	return tp, mp, nil
+}
+
+func initNoop(res *resource.Resource) (*trace.TracerProvider, *metric.MeterProvider, error) {
+	tp := trace.NewTracerProvider(trace.WithResource(res))
+	otel.SetTracerProvider(tp)
+	mp := metric.NewMeterProvider(metric.WithResource(res))
 	otel.SetMeterProvider(mp)
 	return tp, mp, nil
 }

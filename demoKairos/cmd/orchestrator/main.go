@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -231,7 +233,10 @@ func (h *orchestratorHandler) handleKnowledge(ctx context.Context, state *planne
 	}
 	sendStatus(stream, taskID, contextID, demo.EventRetrievalStart, "Buscando definiciones y reglas...")
 	msg := demo.NewTextMessage(a2av1.Role_ROLE_USER, fmt.Sprintf("Consulta: %s\nIntencion: %s", query, intent), contextID, "")
-	resp, err := h.knowledgeClient.SendMessage(ctx, &a2av1.SendMessageRequest{Request: msg})
+	resp, err := h.knowledgeClient.SendMessage(ctx, &a2av1.SendMessageRequest{
+		Request:       msg,
+		Configuration: &a2av1.SendMessageConfiguration{Blocking: true},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -244,14 +249,19 @@ func (h *orchestratorHandler) handleKnowledge(ctx context.Context, state *planne
 func (h *orchestratorHandler) handleSpreadsheet(ctx context.Context, state *planner.State) (any, error) {
 	stream := streamFromState(state)
 	intent, _ := state.Outputs["intent"].(string)
+	query, _ := state.Outputs["user_query"].(string)
 	taskID, _ := state.Outputs["task_id"].(string)
 	contextID, _ := state.Outputs["context_id"].(string)
 	if err := h.ensureAgentCard(ctx, h.spreadsheetCard, "spreadsheet"); err != nil {
 		return nil, err
 	}
 	sendStatus(stream, taskID, contextID, demo.EventToolStart, "Consultando hoja de calculo...")
-	msg := demo.NewTextMessage(a2av1.Role_ROLE_USER, fmt.Sprintf("Genera la consulta para %s en formato JSON.", intent), contextID, "")
-	resp, err := h.spreadClient.SendMessage(ctx, &a2av1.SendMessageRequest{Request: msg})
+	spec := querySpecForIntent(intent, query)
+	msg := demo.NewDataMessage(a2av1.Role_ROLE_USER, spec, contextID, "")
+	resp, err := h.spreadClient.SendMessage(ctx, &a2av1.SendMessageRequest{
+		Request:       msg,
+		Configuration: &a2av1.SendMessageConfiguration{Blocking: true},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -357,6 +367,49 @@ func parseIntent(value string) string {
 	}
 }
 
+func querySpecForIntent(intent, query string) map[string]interface{} {
+	spec := map[string]interface{}{
+		"type": intent,
+	}
+	if quarter := extractQuarter(query); quarter != "" {
+		spec["quarter"] = quarter
+	}
+	if limit := extractLimit(query); limit > 0 {
+		spec["limit"] = limit
+	}
+	if month := extractMonth(query); month != "" {
+		spec["month"] = month
+	}
+	return spec
+}
+
+func extractQuarter(query string) string {
+	re := regexp.MustCompile(`(?i)\bq([1-4])\b`)
+	match := re.FindStringSubmatch(query)
+	if len(match) != 2 {
+		return ""
+	}
+	return "Q" + match[1]
+}
+
+func extractLimit(query string) int {
+	re := regexp.MustCompile(`(?i)\btop\s+(\d+)\b`)
+	match := re.FindStringSubmatch(query)
+	if len(match) != 2 {
+		return 0
+	}
+	value, err := strconv.Atoi(match[1])
+	if err != nil {
+		return 0
+	}
+	return value
+}
+
+func extractMonth(query string) string {
+	re := regexp.MustCompile(`\b20\d{2}-(0[1-9]|1[0-2])\b`)
+	return re.FindString(query)
+}
+
 func buildSynthesisPrompt(query, intent, knowledge string, headers []string, rows [][]string, data map[string]interface{}) string {
 	var b strings.Builder
 	b.WriteString("Eres un agente que responde preguntas sobre datos. Responde en espanol y con trazabilidad.\n")
@@ -448,6 +501,7 @@ func main() {
 		embedModel         = flag.String("embed-model", "nomic-embed-text", "Ollama embed model")
 		planPath           = flag.String("plan", "", "Planner YAML path")
 		cardAddr           = flag.String("card-addr", "127.0.0.1:9140", "AgentCard HTTP address")
+		verbose            = flag.Bool("verbose", false, "Enable verbose telemetry output")
 	)
 	flag.Parse()
 
@@ -455,7 +509,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
-	shutdown, err := demo.InitTelemetry("orchestrator", cfg)
+	shutdown, err := demo.InitTelemetry("orchestrator", cfg, *verbose)
 	if err != nil {
 		log.Fatalf("telemetry: %v", err)
 	}

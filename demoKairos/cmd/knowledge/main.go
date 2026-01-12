@@ -32,6 +32,7 @@ func main() {
 		mcpAddr    = flag.String("mcp-addr", "127.0.0.1:9041", "MCP streamable HTTP address")
 		embedModel = flag.String("embed-model", "nomic-embed-text", "Ollama embed model")
 		cardAddr   = flag.String("card-addr", "127.0.0.1:9141", "AgentCard HTTP address")
+		verbose    = flag.Bool("verbose", false, "Enable verbose telemetry output")
 	)
 	flag.Parse()
 
@@ -44,7 +45,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
-	shutdown, err := demo.InitTelemetry("knowledge-agent", cfg)
+	shutdown, err := demo.InitTelemetry("knowledge-agent", cfg, *verbose)
 	if err != nil {
 		log.Fatalf("telemetry: %v", err)
 	}

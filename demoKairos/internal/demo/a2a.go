@@ -2,6 +2,7 @@ package demo
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
@@ -33,7 +34,15 @@ func NewTextMessage(role a2av1.Role, text, contextID, taskID string) *a2av1.Mess
 
 // NewDataMessage builds a message with a JSON-compatible data payload.
 func NewDataMessage(role a2av1.Role, data map[string]interface{}, contextID, taskID string) *a2av1.Message {
-	payload, _ := structpb.NewStruct(data)
+	payload, err := structpb.NewStruct(normalizeStructMap(data))
+	if err != nil {
+		payload, _ = structpb.NewStruct(map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+	if payload == nil {
+		payload = &structpb.Struct{}
+	}
 	return &a2av1.Message{
 		MessageId: uuid.NewString(),
 		ContextId: contextID,
@@ -96,4 +105,74 @@ func join(parts []string, sep string) string {
 		out += sep + parts[i]
 	}
 	return out
+}
+
+func normalizeStructMap(values map[string]interface{}) map[string]interface{} {
+	if values == nil {
+		return map[string]interface{}{}
+	}
+	out := make(map[string]interface{}, len(values))
+	for key, value := range values {
+		out[key] = normalizeStructValue(value)
+	}
+	return out
+}
+
+func normalizeStructValue(value interface{}) interface{} {
+	switch typed := value.(type) {
+	case nil:
+		return nil
+	case string:
+		return typed
+	case bool:
+		return typed
+	case int:
+		return float64(typed)
+	case int8:
+		return float64(typed)
+	case int16:
+		return float64(typed)
+	case int32:
+		return float64(typed)
+	case int64:
+		return float64(typed)
+	case uint:
+		return float64(typed)
+	case uint8:
+		return float64(typed)
+	case uint16:
+		return float64(typed)
+	case uint32:
+		return float64(typed)
+	case uint64:
+		return float64(typed)
+	case float32:
+		return float64(typed)
+	case float64:
+		return typed
+	case time.Time:
+		return typed.Format(time.RFC3339Nano)
+	case []string:
+		out := make([]interface{}, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, item)
+		}
+		return out
+	case []interface{}:
+		out := make([]interface{}, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, normalizeStructValue(item))
+		}
+		return out
+	case map[string]interface{}:
+		return normalizeStructMap(typed)
+	case map[string]string:
+		out := make(map[string]interface{}, len(typed))
+		for key, item := range typed {
+			out[key] = item
+		}
+		return out
+	default:
+		return fmt.Sprint(value)
+	}
 }

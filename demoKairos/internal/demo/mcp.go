@@ -3,6 +3,8 @@ package demo
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/jllopis/kairos/pkg/mcp"
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
@@ -39,5 +41,21 @@ func (s *MCPServer) BaseURL() string {
 
 // NewMCPClient creates a client connected to the server base URL.
 func NewMCPClient(baseURL string) (*mcp.Client, error) {
+	if err := waitForMCPServer(baseURL, 2*time.Second); err != nil {
+		return nil, err
+	}
 	return mcp.NewClientWithStreamableHTTP(baseURL)
+}
+
+func waitForMCPServer(baseURL string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		resp, err := http.Get(baseURL)
+		if err == nil {
+			_ = resp.Body.Close()
+			return nil
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return fmt.Errorf("mcp server not ready at %s", baseURL)
 }

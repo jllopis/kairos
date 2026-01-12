@@ -25,11 +25,32 @@ import (
 
 type spreadsheetExecutor struct {
 	agent *agent.Agent
+	store *demo.SpreadsheetStore
 }
 
 func (e *spreadsheetExecutor) Run(ctx context.Context, message *a2av1.Message) (any, []*a2av1.Artifact, error) {
 	if e.agent == nil {
 		return nil, nil, fmt.Errorf("spreadsheet agent not configured")
+	}
+	if e.store == nil {
+		return nil, nil, fmt.Errorf("spreadsheet store not configured")
+	}
+	if data := server.ExtractData(message); data != nil {
+		spec := decodeQuerySpec(data)
+		if spec.Type == "" {
+			return nil, nil, fmt.Errorf("spreadsheet query missing type")
+		}
+		result, err := e.store.Query(spec)
+		if err != nil {
+			return nil, nil, err
+		}
+		payload := map[string]interface{}{
+			"headers": toInterfaceSlice(result.Headers),
+			"rows":    toInterfaceRows(result.Rows),
+			"meta":    result.Meta,
+		}
+		resp := demo.NewDataMessage(a2av1.Role_ROLE_AGENT, payload, message.ContextId, message.TaskId)
+		return resp, nil, nil
 	}
 	input := server.ExtractText(message)
 	if input == "" {
@@ -60,6 +81,7 @@ func main() {
 		embedModel = flag.String("embed-model", "nomic-embed-text", "Ollama embed model")
 		qdrantURL  = flag.String("qdrant", "localhost:6334", "Qdrant gRPC address")
 		memColl    = flag.String("memory-collection", "kairos_demo_sheet_memory", "Qdrant memory collection")
+		verbose    = flag.Bool("verbose", false, "Enable verbose telemetry output")
 	)
 	flag.Parse()
 
@@ -72,7 +94,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
-	shutdown, err := demo.InitTelemetry("spreadsheet-agent", cfg)
+	shutdown, err := demo.InitTelemetry("spreadsheet-agent", cfg, *verbose)
 	if err != nil {
 		log.Fatalf("telemetry: %v", err)
 	}
@@ -148,7 +170,7 @@ func main() {
 		log.Fatalf("agent: %v", err)
 	}
 
-	exec := &spreadsheetExecutor{agent: sheetAgent}
+	exec := &spreadsheetExecutor{agent: sheetAgent, store: storeCSV}
 	card := agentcard.Build(agentcard.Config{
 		ProtocolVersion: "v1",
 		Name:            "Kairos Spreadsheet Agent",
@@ -226,4 +248,20 @@ func extractJSON(output any) map[string]interface{} {
 		return nil
 	}
 	return payload
+}
+
+func toInterfaceSlice(values []string) []interface{} {
+	out := make([]interface{}, 0, len(values))
+	for _, value := range values {
+		out = append(out, value)
+	}
+	return out
+}
+
+func toInterfaceRows(rows [][]string) []interface{} {
+	out := make([]interface{}, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, toInterfaceSlice(row))
+	}
+	return out
 }
