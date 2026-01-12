@@ -524,6 +524,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("llm: %v", err)
 	}
+	policyEngine, err := demo.NewPolicyEngine(cfg)
+	if err != nil {
+		log.Fatalf("policy: %v", err)
+	}
 
 	store, err := demo.NewQdrantStore(demo.QdrantConfig{URL: *qdrantURL, Collection: *memColl})
 	if err != nil {
@@ -541,8 +545,17 @@ func main() {
 	classifierRole := "Eres un clasificador de intencion. Responde solo con uno de estos ids: sales_by_region, top_products_margin_compare, gastos_anomalies."
 	synthRole := "Eres un agente que sintetiza respuestas con datos y contexto."
 
-	classifierOpts := []agent.Option{agent.WithRole(classifierRole), agent.WithModel(cfg.LLM.Model)}
-	synthOpts := []agent.Option{agent.WithRole(synthRole), agent.WithModel(cfg.LLM.Model), agent.WithMemory(memStore)}
+	classifierOpts := []agent.Option{
+		agent.WithRole(classifierRole),
+		agent.WithModel(cfg.LLM.Model),
+		agent.WithPolicyEngine(policyEngine),
+	}
+	synthOpts := []agent.Option{
+		agent.WithRole(synthRole),
+		agent.WithModel(cfg.LLM.Model),
+		agent.WithMemory(memStore),
+		agent.WithPolicyEngine(policyEngine),
+	}
 	if len(cfg.MCP.Servers) > 0 {
 		classifierOpts = append(classifierOpts, agent.WithMCPServerConfigs(cfg.MCP.Servers))
 		synthOpts = append(synthOpts, agent.WithMCPServerConfigs(cfg.MCP.Servers))
@@ -580,8 +593,14 @@ func main() {
 		log.Fatalf("spreadsheet dial: %v", err)
 	}
 
-	knowledgeClient := client.New(knowledgeConn)
-	spreadClient := client.New(spreadConn)
+	knowledgeClient := client.New(knowledgeConn,
+		client.WithPolicyEngine(policyEngine),
+		client.WithAgentName("knowledge-agent"),
+	)
+	spreadClient := client.New(spreadConn,
+		client.WithPolicyEngine(policyEngine),
+		client.WithAgentName("spreadsheet-agent"),
+	)
 
 	handler := &orchestratorHandler{
 		store:           server.NewMemoryTaskStore(),

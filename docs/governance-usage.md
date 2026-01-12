@@ -110,6 +110,54 @@ func buildPolicyFromConfig(path string) (*governance.RuleSet, error) {
 }
 ```
 
+## Demo integration (demoKairos)
+
+The demo agents load policy rules from the same config file used for LLM/telemetry.
+Pass `--config` (or set `CONFIG_PATH` in `scripts/run-demo.sh`) and the policies
+apply to:
+
+- Agent tool calls (`agent.WithPolicyEngine`).
+- MCP client calls (`WithPolicyEngine` + `WithServerName`).
+- A2A client calls (`WithPolicyEngine` + `WithAgentName`).
+
+Example config fragment:
+
+```json
+{
+  "governance": {
+    "policies": [
+      {
+        "id": "deny-spreadsheet-tool",
+        "effect": "deny",
+        "type": "tool",
+        "name": "query_spreadsheet",
+        "reason": "demo block"
+      },
+      {
+        "id": "deny-knowledge-agent",
+        "effect": "deny",
+        "type": "agent",
+        "name": "knowledge-agent",
+        "reason": "demo block"
+      },
+      {
+        "id": "deny-mcp",
+        "effect": "deny",
+        "type": "mcp",
+        "name": "spreadsheet-mcp",
+        "reason": "demo block"
+      }
+    ]
+  }
+}
+```
+
+Expected behavior:
+
+- Denied tool calls are skipped with a policy observation.
+- A2A calls return a permission denied error.
+- MCP calls fail fast before sending a request.
+
 ## Rule notes
 
 - Rules are evaluated in order.

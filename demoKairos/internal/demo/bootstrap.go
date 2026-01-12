@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/jllopis/kairos/pkg/config"
+	"github.com/jllopis/kairos/pkg/governance"
 	"github.com/jllopis/kairos/pkg/llm"
 	"github.com/jllopis/kairos/pkg/telemetry"
 )
@@ -49,4 +50,12 @@ func NewLLMProvider(cfg *config.Config) (llm.Provider, error) {
 	default:
 		return nil, fmt.Errorf("unsupported llm provider %q", cfg.LLM.Provider)
 	}
+}
+
+// NewPolicyEngine builds a policy engine from config rules.
+func NewPolicyEngine(cfg *config.Config) (*governance.RuleSet, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("config is nil")
+	}
+	return governance.RuleSetFromConfig(cfg.Governance), nil
 }

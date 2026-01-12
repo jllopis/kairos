@@ -1,0 +1,43 @@
+{
+  "llm": {
+    "provider": "ollama",
+    "model": "qwen2.5-coder:7b-instruct-q5_K_M"
+  },
+  "telemetry": {
+    "exporter": "otlp",
+    "otlp_endpoint": "localhost:4317",
+    "otlp_insecure": true
+  },
+  "governance": {
+    "policies": [
+      {
+        "id": "allow-tools",
+        "effect": "allow",
+        "type": "tool",
+        "name": "*",
+        "reason": "default allow"
+      },
+      {
+        "id": "deny-sensitive-tools",
+        "effect": "deny",
+        "type": "tool",
+        "name": "secrets.*",
+        "reason": "blocked by demo policy"
+      },
+      {
+        "id": "deny-remote-agent",
+        "effect": "deny",
+        "type": "agent",
+        "name": "external-*",
+        "reason": "blocked by demo policy"
+      },
+      {
+        "id": "deny-mcp",
+        "effect": "deny",
+        "type": "mcp",
+        "name": "external-mcp",
+        "reason": "blocked by demo policy"
+      }
+    ]
+  }
+}
