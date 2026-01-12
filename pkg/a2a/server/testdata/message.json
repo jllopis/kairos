@@ -1,0 +1,11 @@
+{
+  "messageId": "msg-1",
+  "contextId": "ctx-1",
+  "taskId": "task-1",
+  "role": "ROLE_AGENT",
+  "parts": [
+    {
+      "text": "hola"
+    }
+  ]
+}

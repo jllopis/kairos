@@ -1,0 +1,19 @@
+{
+  "id": "task-1",
+  "contextId": "ctx-1",
+  "status": {
+    "state": "TASK_STATE_COMPLETED",
+    "message": {
+      "messageId": "msg-1",
+      "contextId": "ctx-1",
+      "taskId": "task-1",
+      "role": "ROLE_AGENT",
+      "parts": [
+        {
+          "text": "ok"
+        }
+      ]
+    },
+    "timestamp": "2026-01-12T00:00:00Z"
+  }
+}
