@@ -358,6 +358,42 @@ func TestPushConfig_ConfigIDFromPayload(t *testing.T) {
 	}
 }
 
+func TestPushConfig_GeneratesConfigID(t *testing.T) {
+	store := NewMemoryTaskStore()
+	task, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+
+	handler := &SimpleHandler{
+		Store:    store,
+		PushCfgs: NewMemoryPushConfigStore(),
+	}
+
+	req := &a2av1.SetTaskPushNotificationConfigRequest{
+		Parent: "tasks/" + task.Id,
+		Config: &a2av1.TaskPushNotificationConfig{
+			PushNotificationConfig: &a2av1.PushNotificationConfig{
+				Url: "https://example.com/hook",
+			},
+		},
+	}
+	cfg, err := handler.SetTaskPushNotificationConfig(context.Background(), req)
+	if err != nil {
+		t.Fatalf("SetTaskPushNotificationConfig error: %v", err)
+	}
+	if cfg.GetPushNotificationConfig().GetId() == "" {
+		t.Fatalf("expected generated config id")
+	}
+	if cfg.GetName() == "" {
+		t.Fatalf("expected generated config name")
+	}
+}
+
 func TestSubscribeToTask_UpdatesAndArtifacts(t *testing.T) {
 	store := NewMemoryTaskStore()
 	task, err := store.CreateTask(context.Background(), &a2av1.Message{
