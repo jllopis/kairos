@@ -25,7 +25,7 @@ Acceptance criteria:
 
 ## US-02: A2A discovery and delegation
 As an architect, I want an agent to delegate tasks to another agent via A2A.
-Status: [~] In progress
+Status: [x] Done
 Current implementation (MVP, gRPC binding):
 - Types generated from `pkg/a2a/proto/a2a.proto`.
 - A2AService server with SendMessage + SendStreamingMessage + Get/List/Cancel Task.
@@ -33,9 +33,7 @@ Current implementation (MVP, gRPC binding):
 - Task/Message/Artifact mapping + streaming responses.
 - Demo multi-agent flow (demoKairos) with orchestrator delegating to knowledge/spreadsheet agents.
 Gaps to close:
-- Trace context propagation over A2A boundaries (metadata/propagators).
-- AuthN/AuthZ middleware (OIDC/mTLS) and multi-tenant routing.
-- Conformance tests across bindings (JSON-RPC/HTTP+JSON).
+- Optional HTTP+JSON/JSON-RPC client helpers (server bindings exist).
 Acceptance criteria:
 - Remote agent registers and is discoverable.
 - Agent A calls Agent B and receives a response.
@@ -50,7 +48,7 @@ Current implementation:
 - Executor with per-node tracing, branching conditions, and audit hooks.
 - Walkthrough and example usage in `docs/walkthrough-explicit-planner.md` and `examples/explicit-planner`.
 Follow-ups:
-- Richer audit events (persisted store) and advanced condition types.
+- Optional policy evaluation per planner node.
 Acceptance criteria:
 - Graph defined in YAML/JSON executes correctly.
 - Each node is traced with OpenTelemetry spans.
@@ -102,14 +100,22 @@ Acceptance criteria:
 
 ## US-07: AGENTS.md auto-loading
 As an operator, I want AGENTS.md to load automatically on startup.
-Status: [ ] Planned
+Status: [x] Done
+Current implementation:
+- AGENTS.md loader that walks upward to find repo instructions.
+- Documentation for loader usage in `docs/walkthrough-governance-agentsmd.md`.
 Acceptance criteria:
 - AGENTS.md is detected and parsed at startup.
 - Rules are applied to agent base context.
 
 ## US-08: Governance and policies
 As a security owner, I want policies per agent and full auditing.
-Status: [ ] Planned
+Status: [~] In progress
+Current implementation:
+- Policy engine with ordered allow/deny rules and glob matching.
+- Agent hook to block tool calls using `agent.WithPolicyEngine`.
+Follow-ups:
+- Config-driven policy rule loading and A2A/MCP enforcement.
 Acceptance criteria:
 - Scopes can be defined per tool/skill.
 - All executions are audited with metadata.

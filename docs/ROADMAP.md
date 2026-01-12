@@ -11,9 +11,9 @@
 - M2: OTel traces visible in backend (Phase 2) [x]
 - M3: YAML/JSON graph executes end-to-end (Phase 3) [x]
 - M4: Emergent flow runs with decision logs (Phase 4) [x]
-- M5: Two agents delegate with distributed traces (Phase 5) [~]
+- M5: Two agents delegate with distributed traces (Phase 5) [x]
 - M6: Per-agent memory with short/long backends (Phase 6) [x]
-- M7: AGENTS.md and policies enforced with audit trail (Phase 7) [ ]
+- M7: AGENTS.md and policies enforced with audit trail (Phase 7) [~]
 - M8: Operator UI with agents, flows, and traces (Phase 8) [ ]
 
 ## Phase 0: Core foundations (Estimate: M)
@@ -102,9 +102,10 @@ Tasks:
 - [x] Implement gRPC binding with streaming (SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask).
 - [x] AgentCard publishing (well-known) + discovery client.
 - [x] Remote agent invocation (call/response) and task lifecycle mapping.
-- [ ] Trace context propagation over A2A (end-to-end).
-- [ ] Minimal auth middleware hooks (OIDC/mTLS stubs; config-driven).
-- [ ] Conformance tests (golden proto/JSON payloads, streaming order, cancel).
+- [x] Trace context propagation over A2A (end-to-end).
+- [x] Minimal auth middleware hooks (OIDC/mTLS stubs; config-driven).
+- [x] Conformance tests (golden proto/JSON payloads, streaming order, cancel).
+- [x] HTTP+JSON and JSON-RPC bindings.
 - [x] Implement ListTasks pagination with page tokens.
 - [x] SQLite-backed TaskStore/PushConfigStore (no CGO) for persistence.
 - [x] Planner-driven multi-agent demo (demoKairos) with A2A + MCP + OTLP.
@@ -133,9 +134,12 @@ Goals: policy enforcement and AGENTS.md loading.
 Dependencies: Phase 0, Phase 1.
 Milestone: policy and AGENTS.md rules enforced.
 Tasks:
-- [ ] AGENTS.md loader and parser.
-- [ ] Policy engine (scopes, allow/deny).
-- [ ] Audit event store.
+- [x] AGENTS.md loader and parser.
+- [x] Policy engine (scopes, allow/deny).
+- [x] Audit event store.
+Follow-ups (post-milestone):
+- [ ] Config-driven policy rule loading.
+- [ ] Policy enforcement for A2A/MCP calls (beyond tool gating).
 Acceptance: US-07, US-08 complete.
 
 ## Phase 8: UI/CLI (Estimate: L)

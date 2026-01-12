@@ -190,3 +190,6 @@ Example config (full, with telemetry):
 
 ## Governance walkthrough
 - `docs/walkthrough-governance-agentsmd.md`
+
+## Governance usage
+- `docs/governance-usage.md`
