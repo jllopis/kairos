@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,8 +16,10 @@ import (
 	"github.com/jllopis/kairos/pkg/a2a/client"
 	"github.com/jllopis/kairos/pkg/a2a/server"
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
+	"github.com/jllopis/kairos/pkg/agent"
 	"github.com/jllopis/kairos/pkg/memory"
 	"github.com/jllopis/kairos/pkg/memory/ollama"
+	"github.com/jllopis/kairos/pkg/planner"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -23,9 +27,11 @@ import (
 
 type orchestratorHandler struct {
 	store           server.TaskStore
+	plan            *planner.Graph
+	classifier      *agent.Agent
+	synthesizer     *agent.Agent
 	knowledgeClient *client.Client
 	spreadClient    *client.Client
-	memory          *memory.VectorMemory
 	card            *a2av1.AgentCard
 }
 
@@ -144,99 +150,153 @@ func (h *orchestratorHandler) runOrchestration(ctx context.Context, task *a2av1.
 		return resp, nil
 	}
 
-	h.store.UpdateStatus(ctx, task.Id, &a2av1.TaskStatus{
+	_ = h.store.UpdateStatus(ctx, task.Id, &a2av1.TaskStatus{
 		State:     a2av1.TaskState_TASK_STATE_WORKING,
 		Message:   message,
 		Timestamp: timestamppb.Now(),
 	})
 
-	sendStatus(stream, task, demo.EventThinking, "Analizando la peticion...")
+	state := planner.NewState()
+	state.Outputs["user_query"] = query
+	state.Outputs["task_id"] = task.Id
+	state.Outputs["context_id"] = task.ContextId
+	state.Outputs["stream"] = stream
 
-	intent := detectIntent(query)
-	if intent == "" {
-		resp := demo.NewTextMessage(a2av1.Role_ROLE_AGENT, "No pude determinar la intencion de la pregunta.", task.ContextId, task.Id)
-		sendFinal(stream, task, resp)
-		return resp, nil
-	}
+	executor := planner.NewExecutor(map[string]planner.Handler{
+		"detect_intent": func(ctx context.Context, node planner.Node, state *planner.State) (any, error) {
+			return h.handleDetectIntent(ctx, state)
+		},
+		"knowledge": func(ctx context.Context, node planner.Node, state *planner.State) (any, error) {
+			return h.handleKnowledge(ctx, state)
+		},
+		"spreadsheet": func(ctx context.Context, node planner.Node, state *planner.State) (any, error) {
+			return h.handleSpreadsheet(ctx, state)
+		},
+		"synthesize": func(ctx context.Context, node planner.Node, state *planner.State) (any, error) {
+			return h.handleSynthesize(ctx, state)
+		},
+	})
 
-	knowledge := ""
-	sendStatus(stream, task, demo.EventRetrievalStart, "Buscando definiciones y reglas...")
-	knowledge, err := h.askKnowledge(ctx, task, query)
+	_, err := executor.Execute(ctx, h.plan, state)
 	if err != nil {
-		h.failWithStatus(ctx, stream, task, fmt.Sprintf("Fallo en knowledge agent: %v", err))
+		h.failWithStatus(ctx, stream, task, fmt.Sprintf("Fallo ejecutando plan: %v", err))
 		return nil, err
 	}
-	sendStatus(stream, task, demo.EventRetrievalDone, "Contexto obtenido.")
-
-	sendStatus(stream, task, demo.EventToolStart, "Consultando hoja de calculo...")
-	dataMsg, err := h.askSpreadsheet(ctx, task, intent)
-	if err != nil {
-		h.failWithStatus(ctx, stream, task, fmt.Sprintf("Fallo consultando hoja: %v", err))
-		return nil, err
-	}
-	sendStatus(stream, task, demo.EventToolDone, "Datos listos.")
-
-	payload := server.ExtractData(dataMsg)
-	response := composeResponse(intent, knowledge, payload)
-	respMsg := demo.NewTextMessage(a2av1.Role_ROLE_AGENT, response, task.ContextId, task.Id)
-
-	if h.memory != nil {
-		h.memory.Store(ctx, fmt.Sprintf("User: %s\nAgent: %s", query, response))
-	}
-
+	finalText, _ := state.Outputs["final"].(string)
+	respMsg := demo.NewTextMessage(a2av1.Role_ROLE_AGENT, finalText, task.ContextId, task.Id)
 	_ = h.store.AppendHistory(ctx, task.Id, respMsg)
-	h.store.UpdateStatus(ctx, task.Id, &a2av1.TaskStatus{
+	_ = h.store.UpdateStatus(ctx, task.Id, &a2av1.TaskStatus{
 		State:     a2av1.TaskState_TASK_STATE_COMPLETED,
 		Message:   respMsg,
 		Timestamp: timestamppb.Now(),
 	})
 
-	sendResponseDelta(stream, task, response)
+	sendResponseDelta(stream, task, finalText)
 	sendFinal(stream, task, respMsg)
 	return respMsg, nil
 }
 
-func (h *orchestratorHandler) askKnowledge(ctx context.Context, task *a2av1.Task, query string) (string, error) {
-	if h.knowledgeClient == nil {
-		return "", nil
-	}
-	msg := demo.NewTextMessage(a2av1.Role_ROLE_USER, query, task.ContextId, task.Id)
-	resp, err := h.knowledgeClient.SendMessage(ctx, &a2av1.SendMessageRequest{Request: msg})
+func (h *orchestratorHandler) handleDetectIntent(ctx context.Context, state *planner.State) (any, error) {
+	query, _ := state.Outputs["user_query"].(string)
+	stream := streamFromState(state)
+	taskID, _ := state.Outputs["task_id"].(string)
+	contextID, _ := state.Outputs["context_id"].(string)
+
+	sendStatus(stream, taskID, contextID, demo.EventThinking, "Analizando la peticion...")
+	prompt := fmt.Sprintf("Clasifica la intencion de la consulta en uno de estos ids: sales_by_region, top_products_margin_compare, gastos_anomalies. Responde solo con el id. Consulta: %s", query)
+	output, err := h.classifier.Run(ctx, prompt)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return server.ExtractText(resp.GetMsg()), nil
+	intent := parseIntent(fmt.Sprint(output))
+	if intent == "" {
+		return nil, fmt.Errorf("intent not recognized")
+	}
+	state.Outputs["intent"] = intent
+	return intent, nil
 }
 
-func (h *orchestratorHandler) askSpreadsheet(ctx context.Context, task *a2av1.Task, intent string) (*a2av1.Message, error) {
-	if h.spreadClient == nil {
-		return nil, fmt.Errorf("spreadsheet client not configured")
+func (h *orchestratorHandler) handleKnowledge(ctx context.Context, state *planner.State) (any, error) {
+	stream := streamFromState(state)
+	query, _ := state.Outputs["user_query"].(string)
+	intent, _ := state.Outputs["intent"].(string)
+	taskID, _ := state.Outputs["task_id"].(string)
+	contextID, _ := state.Outputs["context_id"].(string)
+
+	_ = stream.Send(demo.StatusEvent(taskID, contextID, demo.EventRetrievalStart, "Buscando definiciones y reglas...", false))
+	msg := demo.NewTextMessage(a2av1.Role_ROLE_USER, fmt.Sprintf("Consulta: %s\nIntencion: %s", query, intent), contextID, taskID)
+	resp, err := h.knowledgeClient.SendMessage(ctx, &a2av1.SendMessageRequest{Request: msg})
+	if err != nil {
+		return nil, err
 	}
-	query := spreadsheetQuery(intent)
-	msg := demo.NewDataMessage(a2av1.Role_ROLE_USER, query, task.ContextId, task.Id)
+	knowledge := server.ExtractText(resp.GetMsg())
+	_ = stream.Send(demo.StatusEvent(taskID, contextID, demo.EventRetrievalDone, "Contexto obtenido.", false))
+	state.Outputs["knowledge"] = knowledge
+	return knowledge, nil
+}
+
+func (h *orchestratorHandler) handleSpreadsheet(ctx context.Context, state *planner.State) (any, error) {
+	stream := streamFromState(state)
+	intent, _ := state.Outputs["intent"].(string)
+	taskID, _ := state.Outputs["task_id"].(string)
+	contextID, _ := state.Outputs["context_id"].(string)
+	sendStatus(stream, taskID, contextID, demo.EventToolStart, "Consultando hoja de calculo...")
+	msg := demo.NewTextMessage(a2av1.Role_ROLE_USER, fmt.Sprintf("Genera la consulta para %s en formato JSON.", intent), contextID, taskID)
 	resp, err := h.spreadClient.SendMessage(ctx, &a2av1.SendMessageRequest{Request: msg})
 	if err != nil {
 		return nil, err
 	}
-	return resp.GetMsg(), nil
+	data := server.ExtractData(resp.GetMsg())
+	if data == nil {
+		return nil, fmt.Errorf("spreadsheet response missing data")
+	}
+	data["intent"] = intent
+	sendStatus(stream, taskID, contextID, demo.EventToolDone, "Datos listos.")
+	state.Outputs["data"] = data
+	return data, nil
 }
 
-func sendStatus(stream a2av1.A2AService_SendStreamingMessageServer, task *a2av1.Task, eventType, message string) {
-	if stream == nil {
-		return
+func (h *orchestratorHandler) handleSynthesize(ctx context.Context, state *planner.State) (any, error) {
+	knowledge, _ := state.Outputs["knowledge"].(string)
+	data, _ := state.Outputs["data"].(map[string]interface{})
+	intent, _ := state.Outputs["intent"].(string)
+	query, _ := state.Outputs["user_query"].(string)
+
+	headers, rows := extractTable(data)
+	prompt := buildSynthesisPrompt(query, intent, knowledge, headers, rows, data)
+	output, err := h.synthesizer.Run(ctx, prompt)
+	if err != nil {
+		return nil, err
 	}
-	_ = stream.Send(demo.StatusEvent(task.Id, task.ContextId, eventType, message, false))
+	final := strings.TrimSpace(fmt.Sprint(output))
+	state.Outputs["final"] = final
+	return final, nil
+}
+
+func streamFromState(state *planner.State) a2av1.A2AService_SendStreamingMessageServer {
+	if state == nil {
+		return nil
+	}
+	stream, _ := state.Outputs["stream"].(a2av1.A2AService_SendStreamingMessageServer)
+	return stream
 }
 
 func sendResponseDelta(stream a2av1.A2AService_SendStreamingMessageServer, task *a2av1.Task, text string) {
 	if stream == nil {
 		return
 	}
-	chunks := chunkText(text, 120)
+	chunks := chunkText(text, 160)
 	for _, chunk := range chunks {
 		msg := demo.NewTextMessage(a2av1.Role_ROLE_AGENT, chunk, task.ContextId, task.Id)
 		_ = stream.Send(&a2av1.StreamResponse{Payload: &a2av1.StreamResponse_Msg{Msg: msg}})
 	}
+}
+
+func sendStatus(stream a2av1.A2AService_SendStreamingMessageServer, taskID, contextID, eventType, message string) {
+	if stream == nil {
+		return
+	}
+	_ = stream.Send(demo.StatusEvent(taskID, contextID, eventType, message, false))
 }
 
 func sendFinal(stream a2av1.A2AService_SendStreamingMessageServer, task *a2av1.Task, msg *a2av1.Message) {
@@ -260,66 +320,38 @@ func (h *orchestratorHandler) failWithStatus(ctx context.Context, stream a2av1.A
 	})
 }
 
-func detectIntent(text string) string {
-	lower := strings.ToLower(text)
-	if strings.Contains(lower, "ventas") && strings.Contains(lower, "q4") && strings.Contains(lower, "region") {
+func parseIntent(value string) string {
+	lower := strings.ToLower(value)
+	switch {
+	case strings.Contains(lower, "sales_by_region"):
 		return "sales_by_region"
-	}
-	if strings.Contains(lower, "top") && strings.Contains(lower, "margen") {
+	case strings.Contains(lower, "top_products_margin_compare"):
 		return "top_products_margin_compare"
-	}
-	if strings.Contains(lower, "gastos") && strings.Contains(lower, "anomal") {
+	case strings.Contains(lower, "gastos_anomalies"):
 		return "gastos_anomalies"
-	}
-	return ""
-}
-
-func spreadsheetQuery(intent string) map[string]interface{} {
-	switch intent {
-	case "sales_by_region":
-		return map[string]interface{}{
-			"type":    "sales_by_region",
-			"quarter": "Q4",
-		}
-	case "top_products_margin_compare":
-		return map[string]interface{}{
-			"type":    "top_products_margin_compare",
-			"quarter": "Q4",
-			"limit":   10,
-		}
-	case "gastos_anomalies":
-		return map[string]interface{}{
-			"type": "gastos_anomalies",
-		}
 	default:
-		return map[string]interface{}{"type": ""}
+		return ""
 	}
 }
 
-func composeResponse(intent, knowledge string, data map[string]interface{}) string {
+func buildSynthesisPrompt(query, intent, knowledge string, headers []string, rows [][]string, data map[string]interface{}) string {
 	var b strings.Builder
-	if knowledge != "" {
-		b.WriteString("Contexto:\n")
-		b.WriteString(knowledge)
-		b.WriteString("\n")
-	}
-	b.WriteString("Resultado:\n")
-	headers, rows := extractTable(data)
+	b.WriteString("Eres un agente que responde preguntas sobre datos. Responde en espanol y con trazabilidad.\n")
+	b.WriteString("Consulta del usuario: ")
+	b.WriteString(query)
+	b.WriteString("\nIntencion: ")
+	b.WriteString(intent)
+	b.WriteString("\nContexto del conocimiento:\n")
+	b.WriteString(knowledge)
+	b.WriteString("\nDatos:\n")
 	b.WriteString(demo.FormatTable(headers, rows))
 	if meta, ok := data["meta"].(map[string]interface{}); ok {
-		b.WriteString("\nTrazabilidad:\n")
+		b.WriteString("\nTrazabilidad (meta):\n")
 		for key, value := range meta {
 			b.WriteString(fmt.Sprintf("- %s: %v\n", key, value))
 		}
 	}
-	switch intent {
-	case "sales_by_region":
-		b.WriteString("\nFuente: hoja Ventas, filtro Q4, agregacion por region.\n")
-	case "top_products_margin_compare":
-		b.WriteString("\nFuente: hoja Ventas, comparado con trimestre anterior.\n")
-	case "gastos_anomalies":
-		b.WriteString("\nFuente: hoja Gastos, deteccion por desviacion estandar.\n")
-	}
+	b.WriteString("\nResponde con un resumen claro y la tabla si aplica.")
 	return b.String()
 }
 
@@ -386,27 +418,74 @@ func main() {
 		knowledge   = flag.String("knowledge", "localhost:9031", "Knowledge agent gRPC endpoint")
 		spreadsheet = flag.String("spreadsheet", "localhost:9032", "Spreadsheet agent gRPC endpoint")
 		qdrantURL   = flag.String("qdrant", "localhost:6334", "Qdrant gRPC address")
-		memColl     = flag.String("memory-collection", "kairos_demo_memory", "Qdrant memory collection")
-		ollamaURL   = flag.String("ollama", "http://localhost:11434", "Ollama base URL")
+		memColl     = flag.String("memory-collection", "kairos_demo_orch_memory", "Qdrant memory collection")
+		configPath  = flag.String("config", "", "Config file path")
 		embedModel  = flag.String("embed-model", "nomic-embed-text", "Ollama embed model")
+		planPath    = flag.String("plan", "", "Planner YAML path")
 	)
 	flag.Parse()
 
-	ctx := context.Background()
+	cfg, err := demo.LoadConfig(*configPath)
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
+	shutdown, err := demo.InitTelemetry("orchestrator", cfg)
+	if err != nil {
+		log.Fatalf("telemetry: %v", err)
+	}
+	defer func() {
+		_ = shutdown(context.Background())
+	}()
+
+	llmProvider, err := demo.NewLLMProvider(cfg)
+	if err != nil {
+		log.Fatalf("llm: %v", err)
+	}
+
 	store, err := demo.NewQdrantStore(demo.QdrantConfig{URL: *qdrantURL, Collection: *memColl})
 	if err != nil {
 		log.Fatalf("qdrant: %v", err)
 	}
-	embedder := ollama.NewEmbedder(*ollamaURL, *embedModel)
-	if err := demo.EnsureCollection(ctx, store, embedder, *memColl); err != nil {
-		log.Fatalf("ensure memory collection: %v", err)
-	}
-	memoryStore, err := memory.NewVectorMemory(ctx, store, embedder, *memColl)
+	embedder := ollama.NewEmbedder(os.Getenv("OLLAMA_URL"), *embedModel)
+	memStore, err := memory.NewVectorMemory(context.Background(), store, embedder, *memColl)
 	if err != nil {
 		log.Fatalf("memory: %v", err)
 	}
-	if err := memoryStore.Initialize(ctx); err != nil {
+	if err := memStore.Initialize(context.Background()); err != nil {
 		log.Fatalf("memory init: %v", err)
+	}
+
+	classifierRole := "Eres un clasificador de intencion. Responde solo con uno de estos ids: sales_by_region, top_products_margin_compare, gastos_anomalies."
+	synthRole := "Eres un agente que sintetiza respuestas con datos y contexto."
+
+	classifierOpts := []agent.Option{agent.WithRole(classifierRole), agent.WithModel(cfg.LLM.Model)}
+	synthOpts := []agent.Option{agent.WithRole(synthRole), agent.WithModel(cfg.LLM.Model), agent.WithMemory(memStore)}
+	if len(cfg.MCP.Servers) > 0 {
+		classifierOpts = append(classifierOpts, agent.WithMCPServerConfigs(cfg.MCP.Servers))
+		synthOpts = append(synthOpts, agent.WithMCPServerConfigs(cfg.MCP.Servers))
+	}
+
+	classifier, err := agent.New("orchestrator-classifier", llmProvider, classifierOpts...)
+	if err != nil {
+		log.Fatalf("classifier: %v", err)
+	}
+	synthesizer, err := agent.New("orchestrator-synth", llmProvider, synthOpts...)
+	if err != nil {
+		log.Fatalf("synthesizer: %v", err)
+	}
+
+	planFile := *planPath
+	if planFile == "" {
+		cwd, _ := os.Getwd()
+		planFile = filepath.Join(cwd, "data", "orchestrator_plan.yaml")
+	}
+	payload, err := os.ReadFile(planFile)
+	if err != nil {
+		log.Fatalf("plan: %v", err)
+	}
+	graph, err := planner.ParseYAML(payload)
+	if err != nil {
+		log.Fatalf("plan parse: %v", err)
 	}
 
 	knowledgeConn, err := grpc.Dial(*knowledge, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -423,14 +502,16 @@ func main() {
 
 	handler := &orchestratorHandler{
 		store:           server.NewMemoryTaskStore(),
+		plan:            graph,
+		classifier:      classifier,
+		synthesizer:     synthesizer,
 		knowledgeClient: knowledgeClient,
 		spreadClient:    spreadClient,
-		memory:          memoryStore,
 		card: agentcard.Build(agentcard.Config{
 			ProtocolVersion: "v1",
 			Name:            "Kairos Orchestrator",
 			Description:     "Routes user questions to knowledge + spreadsheet agents.",
-			Version:         "0.1.0",
+			Version:         "0.2.0",
 			Capabilities: func() *a2av1.AgentCapabilities {
 				streaming := true
 				return &a2av1.AgentCapabilities{Streaming: &streaming}

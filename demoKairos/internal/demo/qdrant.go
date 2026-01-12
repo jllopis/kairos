@@ -19,7 +19,7 @@ type QdrantConfig struct {
 // NewQdrantStore creates a Qdrant store client.
 func NewQdrantStore(cfg QdrantConfig) (*qdrant.Store, error) {
 	if cfg.URL == "" {
-		cfg.URL = "http://localhost:6333"
+		cfg.URL = "localhost:6334"
 	}
 	return qdrant.New(cfg.URL)
 }

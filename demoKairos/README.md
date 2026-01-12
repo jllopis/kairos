@@ -1,28 +1,28 @@
 # demoKairos
 
-Demo multi-agente A2A con gRPC streaming, Qdrant y Ollama. Usa CSV locales como fuente de datos.
+Demo multi-agente A2A con gRPC streaming, Qdrant y Ollama. Usa CSV locales como fuente de datos y ejecuta un plan con `planner` + `agent`.
 
 ## Requisitos
 
 - Qdrant en ejecución (gRPC default `localhost:6334`)
 - Ollama en ejecución (default `http://localhost:11434`)
 - Modelo de embeddings disponible (`nomic-embed-text` por defecto)
+- Modelo LLM disponible (controlado por `KAIROS_LLM_MODEL`)
 
 ## Ejecutar agentes
 
 Desde `demoKairos/`:
 
 ```bash
-# Agente Knowledge (RAG)
-go run ./cmd/knowledge --addr :9031 --qdrant localhost:6334 --embed-model nomic-embed-text
+# Agente Knowledge (RAG) - usa MCP + LLM
+go run ./cmd/knowledge --addr :9031 --qdrant localhost:6334 --embed-model nomic-embed-text --mcp-addr 127.0.0.1:9041
 
-# Agente Spreadsheet (CSV)
-go run ./cmd/spreadsheet --addr :9032 --data ./data
+# Agente Spreadsheet (CSV) - usa MCP + LLM
+go run ./cmd/spreadsheet --addr :9032 --data ./data --qdrant localhost:6334 --embed-model nomic-embed-text --mcp-addr 127.0.0.1:9042
 
-# Orchestrator
-
+# Orchestrator (planner + LLM)
 go run ./cmd/orchestrator --addr :9030 --knowledge localhost:9031 --spreadsheet localhost:9032 \
-  --qdrant localhost:6334 --embed-model nomic-embed-text
+  --qdrant localhost:6334 --embed-model nomic-embed-text --plan ./data/orchestrator_plan.yaml
 ```
 
 ## Probar con cliente gRPC
@@ -71,3 +71,7 @@ El orchestrator emite eventos con `metadata.event_type` en `TaskStatusUpdateEven
 - `response.final` (fin de stream)
 
 Los mensajes incrementales se envian como `StreamResponse_Msg`.
+
+## Planner
+
+El plan que orquesta los agentes esta en `data/orchestrator_plan.yaml`.

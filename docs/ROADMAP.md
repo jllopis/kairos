@@ -111,6 +111,10 @@ Tasks:
 Acceptance: US-02 complete, US-05 complete.
 Notes:
 - MVP binding is gRPC-first for streaming stability; HTTP+JSON/JSON-RPC follow later.
+- Demo feedback:
+  - Add a bootstrap helper for agents (config + telemetry + llm + mcp) to reduce boilerplate.
+  - Provide a lightweight in-process MCP server helper for tool-only agents.
+  - Ship a planner-driven multi-agent demo template (A2A + MCP + OTLP) as reference.
 
 ## Phase 6: Multi-level memory (Estimate: M)
 Goals: short and long-term memory backends.

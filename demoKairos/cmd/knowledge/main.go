@@ -14,46 +14,12 @@ import (
 	"github.com/jllopis/kairos/pkg/a2a/agentcard"
 	"github.com/jllopis/kairos/pkg/a2a/server"
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
+	"github.com/jllopis/kairos/pkg/agent"
 	"github.com/jllopis/kairos/pkg/memory"
 	"github.com/jllopis/kairos/pkg/memory/ollama"
+	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"google.golang.org/grpc"
 )
-
-type knowledgeExecutor struct {
-	store      memory.VectorStore
-	embedder   *ollama.Embedder
-	collection string
-}
-
-func (e *knowledgeExecutor) Run(ctx context.Context, message *a2av1.Message) (any, []*a2av1.Artifact, error) {
-	query := server.ExtractText(message)
-	if query == "" {
-		return demo.NewTextMessage(a2av1.Role_ROLE_AGENT, "No query provided.", message.ContextId, message.TaskId), nil, nil
-	}
-
-	results, err := demo.SearchDocs(ctx, e.store, e.embedder, e.collection, query, 4)
-	if err != nil {
-		return nil, nil, err
-	}
-	var b strings.Builder
-	b.WriteString("Context for dataset questions:\n")
-	for _, res := range results {
-		text, _ := res.Point.Payload["text"].(string)
-		source, _ := res.Point.Payload["source"].(string)
-		if text == "" {
-			continue
-		}
-		b.WriteString("- ")
-		b.WriteString(text)
-		if source != "" {
-			b.WriteString(" (source: ")
-			b.WriteString(source)
-			b.WriteString(")")
-		}
-		b.WriteString("\n")
-	}
-	return demo.NewTextMessage(a2av1.Role_ROLE_AGENT, b.String(), message.ContextId, message.TaskId), nil, nil
-}
 
 func main() {
 	var (
@@ -61,7 +27,8 @@ func main() {
 		qdrantURL  = flag.String("qdrant", "localhost:6334", "Qdrant gRPC address")
 		collection = flag.String("collection", "kairos_demo_docs", "Qdrant collection")
 		docsDir    = flag.String("docs", "", "Docs directory")
-		ollamaURL  = flag.String("ollama", "http://localhost:11434", "Ollama base URL")
+		configPath = flag.String("config", "", "Config file path")
+		mcpAddr    = flag.String("mcp-addr", "127.0.0.1:9041", "MCP streamable HTTP address")
 		embedModel = flag.String("embed-model", "nomic-embed-text", "Ollama embed model")
 	)
 	flag.Parse()
@@ -71,13 +38,29 @@ func main() {
 		*docsDir = filepath.Join(cwd, "data")
 	}
 
-	ctx := context.Background()
+	cfg, err := demo.LoadConfig(*configPath)
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
+	shutdown, err := demo.InitTelemetry("knowledge-agent", cfg)
+	if err != nil {
+		log.Fatalf("telemetry: %v", err)
+	}
+	defer func() {
+		_ = shutdown(context.Background())
+	}()
+
+	llmProvider, err := demo.NewLLMProvider(cfg)
+	if err != nil {
+		log.Fatalf("llm: %v", err)
+	}
+
 	store, err := demo.NewQdrantStore(demo.QdrantConfig{URL: *qdrantURL, Collection: *collection})
 	if err != nil {
 		log.Fatalf("qdrant: %v", err)
 	}
-	embedder := ollama.NewEmbedder(*ollamaURL, *embedModel)
-	if err := demo.EnsureCollection(ctx, store, embedder, *collection); err != nil {
+	embedder := ollama.NewEmbedder(os.Getenv("OLLAMA_URL"), *embedModel)
+	if err := demo.EnsureCollection(context.Background(), store, embedder, *collection); err != nil {
 		log.Fatalf("ensure collection: %v", err)
 	}
 
@@ -85,15 +68,79 @@ func main() {
 	if err != nil {
 		log.Fatalf("load docs: %v", err)
 	}
-	if err := demo.IngestDocs(ctx, store, embedder, *collection, docs); err != nil {
+	if err := demo.IngestDocs(context.Background(), store, embedder, *collection, docs); err != nil {
 		log.Fatalf("ingest docs: %v", err)
+	}
+
+	mcpServer, err := demo.StartMCPServer("knowledge-mcp", "0.1.0", *mcpAddr)
+	if err != nil {
+		log.Fatalf("mcp server: %v", err)
+	}
+	mcpServer.RegisterTool("retrieve_domain_knowledge", "Buscar definiciones del dataset", func(ctx context.Context, args map[string]interface{}) (*mcpgo.CallToolResult, error) {
+		query, _ := args["query"].(string)
+		if query == "" {
+			query, _ = args["text"].(string)
+		}
+		if query == "" {
+			return &mcpgo.CallToolResult{IsError: true, Content: []mcpgo.Content{mcpgo.TextContent{Type: "text", Text: "query requerido"}}}, nil
+		}
+		results, err := demo.SearchDocs(ctx, store, embedder, *collection, query, 4)
+		if err != nil {
+			return nil, err
+		}
+		var b strings.Builder
+		for _, res := range results {
+			text, _ := res.Point.Payload["text"].(string)
+			source, _ := res.Point.Payload["source"].(string)
+			if text == "" {
+				continue
+			}
+			b.WriteString("- ")
+			b.WriteString(text)
+			if source != "" {
+				b.WriteString(" (source: ")
+				b.WriteString(source)
+				b.WriteString(")")
+			}
+			b.WriteString("\n")
+		}
+		return &mcpgo.CallToolResult{Content: []mcpgo.Content{mcpgo.TextContent{Type: "text", Text: b.String()}}}, nil
+	})
+
+	mcpClient, err := demo.NewMCPClient(mcpServer.BaseURL())
+	if err != nil {
+		log.Fatalf("mcp client: %v", err)
+	}
+
+	memStore, err := memory.NewVectorMemory(context.Background(), store, embedder, "kairos_demo_knowledge_memory")
+	if err != nil {
+		log.Fatalf("memory: %v", err)
+	}
+	if err := memStore.Initialize(context.Background()); err != nil {
+		log.Fatalf("memory init: %v", err)
+	}
+
+	role := "Eres un agente de conocimiento. Usa la herramienta retrieve_domain_knowledge para responder preguntas sobre el dataset. Responde en espanol con definiciones concisas."
+
+	agentOpts := []agent.Option{
+		agent.WithRole(role),
+		agent.WithModel(cfg.LLM.Model),
+		agent.WithMCPClients(mcpClient),
+		agent.WithMemory(memStore),
+	}
+	if len(cfg.MCP.Servers) > 0 {
+		agentOpts = append(agentOpts, agent.WithMCPServerConfigs(cfg.MCP.Servers))
+	}
+	knowledgeAgent, err := agent.New("knowledge-agent", llmProvider, agentOpts...)
+	if err != nil {
+		log.Fatalf("agent: %v", err)
 	}
 
 	card := agentcard.Build(agentcard.Config{
 		ProtocolVersion: "v1",
 		Name:            "Kairos Knowledge Agent",
 		Description:     "Answers dataset definition questions using vector search.",
-		Version:         "0.1.0",
+		Version:         "0.2.0",
 		Capabilities: func() *a2av1.AgentCapabilities {
 			streaming := true
 			return &a2av1.AgentCapabilities{Streaming: &streaming}
@@ -106,13 +153,7 @@ func main() {
 		},
 	})
 
-	exec := &knowledgeExecutor{store: store, embedder: embedder, collection: *collection}
-	handler := &server.SimpleHandler{
-		Store:    server.NewMemoryTaskStore(),
-		Executor: exec,
-		Card:     card,
-		PushCfgs: server.NewMemoryPushConfigStore(),
-	}
+	handler := server.NewAgentHandler(knowledgeAgent, server.WithAgentCard(card))
 	service := server.New(handler)
 
 	listener, err := net.Listen("tcp", *addr)
@@ -150,3 +191,5 @@ func loadDocs(dir string) ([]demo.Doc, error) {
 	}
 	return docs, nil
 }
+
+func init() {}

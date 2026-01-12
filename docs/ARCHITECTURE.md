@@ -179,3 +179,6 @@ Example config (full, with telemetry):
 
 ## Explicit planner walkthrough
 - `docs/walkthrough-explicit-planner.md`
+
+## Demo A2A agents walkthrough
+- `docs/walkthrough-demo-a2a-agents.md`

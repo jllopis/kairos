@@ -1,0 +1,22 @@
+id: demo-orchestrator
+start: detect_intent
+nodes:
+  detect_intent:
+    id: detect_intent
+    type: detect_intent
+  knowledge:
+    id: knowledge
+    type: knowledge
+  spreadsheet:
+    id: spreadsheet
+    type: spreadsheet
+  synthesize:
+    id: synthesize
+    type: synthesize
+edges:
+  - from: detect_intent
+    to: knowledge
+  - from: knowledge
+    to: spreadsheet
+  - from: spreadsheet
+    to: synthesize
