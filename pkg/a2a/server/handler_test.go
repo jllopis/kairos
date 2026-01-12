@@ -525,6 +525,18 @@ func TestPushConfig_TaskNotFound(t *testing.T) {
 	}
 }
 
+func TestListTaskPushNotificationConfig_PageTokenRejected(t *testing.T) {
+	handler := &SimpleHandler{PushCfgs: NewMemoryPushConfigStore()}
+
+	_, err := handler.ListTaskPushNotificationConfig(context.Background(), &a2av1.ListTaskPushNotificationConfigRequest{
+		Parent:    "tasks/any",
+		PageToken: "next",
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
+	}
+}
+
 func TestSubscribeToTask_UpdatesAndArtifacts(t *testing.T) {
 	store := NewMemoryTaskStore()
 	task, err := store.CreateTask(context.Background(), &a2av1.Message{
