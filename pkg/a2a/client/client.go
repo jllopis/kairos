@@ -3,11 +3,15 @@ package client
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
+	"github.com/jllopis/kairos/pkg/governance"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -16,9 +20,11 @@ type Option func(*Client)
 
 // Client wraps the generated A2A gRPC client.
 type Client struct {
-	raw     a2av1.A2AServiceClient
-	timeout time.Duration
-	retries int
+	raw          a2av1.A2AServiceClient
+	timeout      time.Duration
+	retries      int
+	policyEngine governance.PolicyEngine
+	agentName    string
 }
 
 // New creates a client from an existing gRPC connection.
@@ -51,6 +57,20 @@ func WithRetries(retries int) Option {
 		if retries >= 0 {
 			c.retries = retries
 		}
+	}
+}
+
+// WithPolicyEngine enables policy evaluation for A2A calls.
+func WithPolicyEngine(engine governance.PolicyEngine) Option {
+	return func(c *Client) {
+		c.policyEngine = engine
+	}
+}
+
+// WithAgentName sets a logical agent name for policy decisions.
+func WithAgentName(name string) Option {
+	return func(c *Client) {
+		c.agentName = name
 	}
 }
 
@@ -141,6 +161,9 @@ func (a *authClient) DeleteTaskPushNotificationConfig(ctx context.Context, in *a
 
 // SendMessage forwards to the A2A SendMessage RPC.
 func (c *Client) SendMessage(ctx context.Context, req *a2av1.SendMessageRequest, opts ...grpc.CallOption) (*a2av1.SendMessageResponse, error) {
+	if err := c.ensureAllowed(ctx, "SendMessage"); err != nil {
+		return nil, err
+	}
 	return withRetries(c.retries, func() (*a2av1.SendMessageResponse, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
@@ -150,11 +173,17 @@ func (c *Client) SendMessage(ctx context.Context, req *a2av1.SendMessageRequest,
 
 // SendStreamingMessage forwards to the A2A SendStreamingMessage RPC.
 func (c *Client) SendStreamingMessage(ctx context.Context, req *a2av1.SendMessageRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[a2av1.StreamResponse], error) {
+	if err := c.ensureAllowed(ctx, "SendStreamingMessage"); err != nil {
+		return nil, err
+	}
 	return c.raw.SendStreamingMessage(injectTraceContext(c.streamContext(ctx)), req, opts...)
 }
 
 // GetTask forwards to the A2A GetTask RPC.
 func (c *Client) GetTask(ctx context.Context, req *a2av1.GetTaskRequest, opts ...grpc.CallOption) (*a2av1.Task, error) {
+	if err := c.ensureAllowed(ctx, "GetTask"); err != nil {
+		return nil, err
+	}
 	return withRetries(c.retries, func() (*a2av1.Task, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
@@ -164,6 +193,9 @@ func (c *Client) GetTask(ctx context.Context, req *a2av1.GetTaskRequest, opts ..
 
 // ListTasks forwards to the A2A ListTasks RPC.
 func (c *Client) ListTasks(ctx context.Context, req *a2av1.ListTasksRequest, opts ...grpc.CallOption) (*a2av1.ListTasksResponse, error) {
+	if err := c.ensureAllowed(ctx, "ListTasks"); err != nil {
+		return nil, err
+	}
 	return withRetries(c.retries, func() (*a2av1.ListTasksResponse, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
@@ -173,6 +205,9 @@ func (c *Client) ListTasks(ctx context.Context, req *a2av1.ListTasksRequest, opt
 
 // CancelTask forwards to the A2A CancelTask RPC.
 func (c *Client) CancelTask(ctx context.Context, req *a2av1.CancelTaskRequest, opts ...grpc.CallOption) (*a2av1.Task, error) {
+	if err := c.ensureAllowed(ctx, "CancelTask"); err != nil {
+		return nil, err
+	}
 	return withRetries(c.retries, func() (*a2av1.Task, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
@@ -182,11 +217,17 @@ func (c *Client) CancelTask(ctx context.Context, req *a2av1.CancelTaskRequest, o
 
 // SubscribeToTask forwards to the A2A SubscribeToTask RPC.
 func (c *Client) SubscribeToTask(ctx context.Context, req *a2av1.SubscribeToTaskRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[a2av1.StreamResponse], error) {
+	if err := c.ensureAllowed(ctx, "SubscribeToTask"); err != nil {
+		return nil, err
+	}
 	return c.raw.SubscribeToTask(injectTraceContext(c.streamContext(ctx)), req, opts...)
 }
 
 // GetExtendedAgentCard forwards to the A2A GetExtendedAgentCard RPC.
 func (c *Client) GetExtendedAgentCard(ctx context.Context, req *a2av1.GetExtendedAgentCardRequest, opts ...grpc.CallOption) (*a2av1.AgentCard, error) {
+	if err := c.ensureAllowed(ctx, "GetExtendedAgentCard"); err != nil {
+		return nil, err
+	}
 	return withRetries(c.retries, func() (*a2av1.AgentCard, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
@@ -196,6 +237,9 @@ func (c *Client) GetExtendedAgentCard(ctx context.Context, req *a2av1.GetExtende
 
 // SetTaskPushNotificationConfig forwards to the A2A SetTaskPushNotificationConfig RPC.
 func (c *Client) SetTaskPushNotificationConfig(ctx context.Context, req *a2av1.SetTaskPushNotificationConfigRequest, opts ...grpc.CallOption) (*a2av1.TaskPushNotificationConfig, error) {
+	if err := c.ensureAllowed(ctx, "SetTaskPushNotificationConfig"); err != nil {
+		return nil, err
+	}
 	return withRetries(c.retries, func() (*a2av1.TaskPushNotificationConfig, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
@@ -205,6 +249,9 @@ func (c *Client) SetTaskPushNotificationConfig(ctx context.Context, req *a2av1.S
 
 // GetTaskPushNotificationConfig forwards to the A2A GetTaskPushNotificationConfig RPC.
 func (c *Client) GetTaskPushNotificationConfig(ctx context.Context, req *a2av1.GetTaskPushNotificationConfigRequest, opts ...grpc.CallOption) (*a2av1.TaskPushNotificationConfig, error) {
+	if err := c.ensureAllowed(ctx, "GetTaskPushNotificationConfig"); err != nil {
+		return nil, err
+	}
 	return withRetries(c.retries, func() (*a2av1.TaskPushNotificationConfig, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
@@ -214,6 +261,9 @@ func (c *Client) GetTaskPushNotificationConfig(ctx context.Context, req *a2av1.G
 
 // ListTaskPushNotificationConfig forwards to the A2A ListTaskPushNotificationConfig RPC.
 func (c *Client) ListTaskPushNotificationConfig(ctx context.Context, req *a2av1.ListTaskPushNotificationConfigRequest, opts ...grpc.CallOption) (*a2av1.ListTaskPushNotificationConfigResponse, error) {
+	if err := c.ensureAllowed(ctx, "ListTaskPushNotificationConfig"); err != nil {
+		return nil, err
+	}
 	return withRetries(c.retries, func() (*a2av1.ListTaskPushNotificationConfigResponse, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
@@ -223,6 +273,9 @@ func (c *Client) ListTaskPushNotificationConfig(ctx context.Context, req *a2av1.
 
 // DeleteTaskPushNotificationConfig forwards to the A2A DeleteTaskPushNotificationConfig RPC.
 func (c *Client) DeleteTaskPushNotificationConfig(ctx context.Context, req *a2av1.DeleteTaskPushNotificationConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	if err := c.ensureAllowed(ctx, "DeleteTaskPushNotificationConfig"); err != nil {
+		return nil, err
+	}
 	return withRetries(c.retries, func() (*emptypb.Empty, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
@@ -240,4 +293,29 @@ func withRetries[T any](retries int, fn func() (*T, error)) (*T, error) {
 		lastErr = err
 	}
 	return nil, lastErr
+}
+
+func (c *Client) ensureAllowed(ctx context.Context, method string) error {
+	if c.policyEngine == nil {
+		return nil
+	}
+	name := strings.TrimSpace(c.agentName)
+	if name == "" {
+		name = method
+	}
+	decision := c.policyEngine.Evaluate(ctx, governance.Action{
+		Type: governance.ActionAgent,
+		Name: name,
+		Metadata: map[string]string{
+			"method": method,
+		},
+	})
+	if decision.Allowed {
+		return nil
+	}
+	reason := strings.TrimSpace(decision.Reason)
+	if reason == "" {
+		reason = "blocked by policy"
+	}
+	return status.Error(codes.PermissionDenied, reason)
 }

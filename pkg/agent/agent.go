@@ -119,7 +119,7 @@ func WithMCPServerConfigs(servers map[string]config.MCPServerConfig) Option {
 				transport = "stdio"
 			}
 
-			opts := mcpClientOptions(server)
+			opts := mcpClientOptions(server, a.policyEngine, name)
 			switch transport {
 			case "stdio":
 				if strings.TrimSpace(server.Command) == "" {
@@ -1007,7 +1007,7 @@ func spanIDFromContext(ctx context.Context) string {
 	return sc.SpanID().String()
 }
 
-func mcpClientOptions(server config.MCPServerConfig) []kmcp.ClientOption {
+func mcpClientOptions(server config.MCPServerConfig, policyEngine governance.PolicyEngine, serverName string) []kmcp.ClientOption {
 	var opts []kmcp.ClientOption
 	if server.TimeoutSeconds != nil && *server.TimeoutSeconds > 0 {
 		opts = append(opts, kmcp.WithTimeout(time.Duration(*server.TimeoutSeconds)*time.Second))
@@ -1027,6 +1027,12 @@ func mcpClientOptions(server config.MCPServerConfig) []kmcp.ClientOption {
 
 	if server.CacheTTLSeconds != nil && *server.CacheTTLSeconds >= 0 {
 		opts = append(opts, kmcp.WithToolCacheTTL(time.Duration(*server.CacheTTLSeconds)*time.Second))
+	}
+	if policyEngine != nil {
+		opts = append(opts, kmcp.WithPolicyEngine(policyEngine))
+	}
+	if strings.TrimSpace(serverName) != "" {
+		opts = append(opts, kmcp.WithServerName(serverName))
 	}
 
 	return opts

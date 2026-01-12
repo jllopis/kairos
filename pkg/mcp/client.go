@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jllopis/kairos/pkg/governance"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -54,6 +55,20 @@ func WithToolCacheTTL(ttl time.Duration) ClientOption {
 	}
 }
 
+// WithPolicyEngine enables policy evaluation on MCP calls.
+func WithPolicyEngine(engine governance.PolicyEngine) ClientOption {
+	return func(c *Client) {
+		c.policyEngine = engine
+	}
+}
+
+// WithServerName assigns a logical server name for policy decisions.
+func WithServerName(name string) ClientOption {
+	return func(c *Client) {
+		c.serverName = name
+	}
+}
+
 // Client wraps the mcp-go client to provide Kairos-specific functionality.
 type Client struct {
 	mcpClient  client.MCPClient
@@ -65,6 +80,9 @@ type Client struct {
 	mu          sync.Mutex
 	toolsCache  []mcp.Tool
 	cacheExpiry time.Time
+
+	policyEngine governance.PolicyEngine
+	serverName   string
 }
 
 // NewClient creates a new Client with the given MCP client implementation.
@@ -165,6 +183,9 @@ func NewClientWithStreamableHTTPProtocol(baseURL, protocolVersion string, opts .
 
 // ListTools retrieves the list of tools available on the server.
 func (c *Client) ListTools(ctx context.Context) ([]mcp.Tool, error) {
+	if err := c.evaluatePolicy(ctx, governance.ActionMCP, c.serverName); err != nil {
+		return nil, err
+	}
 	if cached := c.cachedTools(); cached != nil {
 		return cached, nil
 	}
@@ -179,6 +200,12 @@ func (c *Client) ListTools(ctx context.Context) ([]mcp.Tool, error) {
 
 // CallTool executes a tool on the server.
 func (c *Client) CallTool(ctx context.Context, name string, args map[string]interface{}) (*mcp.CallToolResult, error) {
+	if err := c.evaluatePolicy(ctx, governance.ActionMCP, c.serverName); err != nil {
+		return nil, err
+	}
+	if err := c.evaluatePolicy(ctx, governance.ActionTool, name); err != nil {
+		return nil, err
+	}
 	req := mcp.CallToolRequest{}
 	req.Params.Name = name
 	req.Params.Arguments = args
@@ -189,6 +216,27 @@ func (c *Client) CallTool(ctx context.Context, name string, args map[string]inte
 // Close closes the client connection.
 func (c *Client) Close() error {
 	return c.mcpClient.Close()
+}
+
+func (c *Client) evaluatePolicy(ctx context.Context, actionType governance.ActionType, name string) error {
+	if c.policyEngine == nil {
+		return nil
+	}
+	if strings.TrimSpace(name) == "" {
+		return nil
+	}
+	decision := c.policyEngine.Evaluate(ctx, governance.Action{
+		Type: actionType,
+		Name: name,
+	})
+	if decision.Allowed {
+		return nil
+	}
+	reason := strings.TrimSpace(decision.Reason)
+	if reason == "" {
+		reason = "blocked by policy"
+	}
+	return errors.New(reason)
 }
 
 func (c *Client) cachedTools() []mcp.Tool {

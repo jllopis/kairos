@@ -4,6 +4,8 @@ import (
 	"context"
 	"path"
 	"strings"
+
+	"github.com/jllopis/kairos/pkg/config"
 )
 
 // ActionType describes the type of action to evaluate.
@@ -88,4 +90,25 @@ func matchPattern(pattern, value string) bool {
 		return true
 	}
 	return pattern == value
+}
+
+// RuleSetFromConfig builds a rule set from config rules.
+func RuleSetFromConfig(cfg config.GovernanceConfig) *RuleSet {
+	if len(cfg.Policies) == 0 {
+		return NewRuleSet(nil)
+	}
+	rules := make([]Rule, 0, len(cfg.Policies))
+	for _, rule := range cfg.Policies {
+		if strings.TrimSpace(rule.ID) == "" {
+			rule.ID = "rule"
+		}
+		rules = append(rules, Rule{
+			ID:     rule.ID,
+			Effect: rule.Effect,
+			Type:   ActionType(strings.ToLower(rule.Type)),
+			Name:   rule.Name,
+			Reason: rule.Reason,
+		})
+	}
+	return NewRuleSet(rules)
 }

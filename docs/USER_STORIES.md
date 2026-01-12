@@ -113,9 +113,11 @@ As a security owner, I want policies per agent and full auditing.
 Status: [~] In progress
 Current implementation:
 - Policy engine with ordered allow/deny rules and glob matching.
+- Config-driven policy rule loading.
 - Agent hook to block tool calls using `agent.WithPolicyEngine`.
+- A2A and MCP client policy enforcement hooks.
 Follow-ups:
-- Config-driven policy rule loading and A2A/MCP enforcement.
+- Optional policy enforcement for server-side A2A handlers.
 Acceptance criteria:
 - Scopes can be defined per tool/skill.
 - All executions are audited with metadata.

@@ -138,8 +138,8 @@ Tasks:
 - [x] Policy engine (scopes, allow/deny).
 - [x] Audit event store.
 Follow-ups (post-milestone):
-- [ ] Config-driven policy rule loading.
-- [ ] Policy enforcement for A2A/MCP calls (beyond tool gating).
+- [x] Config-driven policy rule loading.
+- [x] Policy enforcement for A2A/MCP calls (beyond tool gating).
 Acceptance: US-07, US-08 complete.
 
 ## Phase 8: UI/CLI (Estimate: L)

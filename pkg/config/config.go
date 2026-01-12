@@ -14,13 +14,14 @@ import (
 
 // Config is the root configuration for the Kairos runtime.
 type Config struct {
-	Log       LogConfig                      `koanf:"log"`
-	LLM       LLMConfig                      `koanf:"llm"`
-	Agent     AgentConfig                    `koanf:"agent"`
-	Agents    map[string]AgentOverrideConfig `koanf:"agents"`
-	Memory    MemoryConfig                   `koanf:"memory"`
-	MCP       MCPConfig                      `koanf:"mcp"`
-	Telemetry TelemetryConfig                `koanf:"telemetry"`
+	Log        LogConfig                      `koanf:"log"`
+	LLM        LLMConfig                      `koanf:"llm"`
+	Agent      AgentConfig                    `koanf:"agent"`
+	Agents     map[string]AgentOverrideConfig `koanf:"agents"`
+	Memory     MemoryConfig                   `koanf:"memory"`
+	MCP        MCPConfig                      `koanf:"mcp"`
+	Telemetry  TelemetryConfig                `koanf:"telemetry"`
+	Governance GovernanceConfig               `koanf:"governance"`
 }
 
 // LogConfig controls logging output.
@@ -85,6 +86,20 @@ type TelemetryConfig struct {
 	OTLPTimeoutSeconds int    `koanf:"otlp_timeout_seconds"`
 }
 
+// GovernanceConfig defines policy and instruction loading options.
+type GovernanceConfig struct {
+	Policies []PolicyRuleConfig `koanf:"policies"`
+}
+
+// PolicyRuleConfig defines a single policy rule.
+type PolicyRuleConfig struct {
+	ID     string `koanf:"id"`
+	Effect string `koanf:"effect"`
+	Type   string `koanf:"type"`
+	Name   string `koanf:"name"`
+	Reason string `koanf:"reason"`
+}
+
 // Global k instance
 var k = koanf.New(".")
 
@@ -110,6 +125,8 @@ func Load(path string) (*Config, error) {
 	k.Set("telemetry.otlp_endpoint", "")
 	k.Set("telemetry.otlp_insecure", true)
 	k.Set("telemetry.otlp_timeout_seconds", 10)
+
+	k.Set("governance.policies", []PolicyRuleConfig{})
 
 	// 1. Load from file
 	if path != "" {

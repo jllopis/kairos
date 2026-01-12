@@ -66,6 +66,50 @@ func main() {
 }
 ```
 
+## Configure policies via config
+
+```json
+{
+  "governance": {
+    "policies": [
+      {
+        "id": "deny-secrets",
+        "effect": "deny",
+        "type": "tool",
+        "name": "secrets.*",
+        "reason": "restricted tool"
+      },
+      {
+        "id": "deny-remote",
+        "effect": "deny",
+        "type": "agent",
+        "name": "external-*",
+        "reason": "blocked agent"
+      }
+    ]
+  }
+}
+```
+
+Then load them:
+
+```go
+package main
+
+import (
+	"github.com/jllopis/kairos/pkg/config"
+	"github.com/jllopis/kairos/pkg/governance"
+)
+
+func buildPolicyFromConfig(path string) (*governance.RuleSet, error) {
+	cfg, err := config.Load(path)
+	if err != nil {
+		return nil, err
+	}
+	return governance.RuleSetFromConfig(cfg.Governance), nil
+}
+```
+
 ## Rule notes
 
 - Rules are evaluated in order.
