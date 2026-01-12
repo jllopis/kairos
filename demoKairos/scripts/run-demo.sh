@@ -9,10 +9,6 @@ EMBED_MODEL="${EMBED_MODEL:-nomic-embed-text}"
 KAIROS_LLM_MODEL="${KAIROS_LLM_MODEL:-qwen2.5-coder:7b-instruct-q5_K_M}"
 KAIROS_LLM_PROVIDER="${KAIROS_LLM_PROVIDER:-ollama}"
 CONFIG_PATH="${CONFIG_PATH:-}"
-config_args=()
-if [[ -n "$CONFIG_PATH" ]]; then
-  config_args=(--config "$CONFIG_PATH")
-fi
 
 KNOWLEDGE_ADDR="${KNOWLEDGE_ADDR:-:9031}"
 SPREADSHEET_ADDR="${SPREADSHEET_ADDR:-:9032}"
@@ -60,21 +56,21 @@ log "Starting knowledge agent..."
 ( cd "$ROOT_DIR" && \
   OLLAMA_URL="$OLLAMA_URL" KAIROS_LLM_PROVIDER="$KAIROS_LLM_PROVIDER" KAIROS_LLM_MODEL="$KAIROS_LLM_MODEL" \
   go run ./cmd/knowledge --addr "$KNOWLEDGE_ADDR" --qdrant "$QDRANT_URL" --embed-model "$EMBED_MODEL" \
-  "${config_args[@]}" --mcp-addr "$KNOWLEDGE_MCP_ADDR" --card-addr "$KNOWLEDGE_CARD_ADDR" ) &
+  ${CONFIG_PATH:+--config "$CONFIG_PATH"} --mcp-addr "$KNOWLEDGE_MCP_ADDR" --card-addr "$KNOWLEDGE_CARD_ADDR" ) &
 KNOWLEDGE_PID=$!
 
 log "Starting spreadsheet agent..."
 ( cd "$ROOT_DIR" && \
   OLLAMA_URL="$OLLAMA_URL" KAIROS_LLM_PROVIDER="$KAIROS_LLM_PROVIDER" KAIROS_LLM_MODEL="$KAIROS_LLM_MODEL" \
   go run ./cmd/spreadsheet --addr "$SPREADSHEET_ADDR" --data "$ROOT_DIR/data" --qdrant "$QDRANT_URL" \
-  --embed-model "$EMBED_MODEL" "${config_args[@]}" --mcp-addr "$SPREADSHEET_MCP_ADDR" --card-addr "$SPREADSHEET_CARD_ADDR" ) &
+  --embed-model "$EMBED_MODEL" ${CONFIG_PATH:+--config "$CONFIG_PATH"} --mcp-addr "$SPREADSHEET_MCP_ADDR" --card-addr "$SPREADSHEET_CARD_ADDR" ) &
 SPREADSHEET_PID=$!
 
 log "Starting orchestrator..."
 ( cd "$ROOT_DIR" && \
   OLLAMA_URL="$OLLAMA_URL" KAIROS_LLM_PROVIDER="$KAIROS_LLM_PROVIDER" KAIROS_LLM_MODEL="$KAIROS_LLM_MODEL" \
   go run ./cmd/orchestrator --addr "$ORCH_ADDR" --knowledge "localhost${KNOWLEDGE_ADDR}" --spreadsheet "localhost${SPREADSHEET_ADDR}" \
-  --qdrant "$QDRANT_URL" --embed-model "$EMBED_MODEL" "${config_args[@]}" \
+  --qdrant "$QDRANT_URL" --embed-model "$EMBED_MODEL" ${CONFIG_PATH:+--config "$CONFIG_PATH"} \
   --knowledge-card-url "http://${KNOWLEDGE_CARD_ADDR}" --spreadsheet-card-url "http://${SPREADSHEET_CARD_ADDR}" \
   --card-addr "$ORCH_CARD_ADDR" ) &
 ORCH_PID=$!
