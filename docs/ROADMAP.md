@@ -150,9 +150,14 @@ Goals: operator visibility and control.
 Dependencies: Phase 2, Phase 5.
 Milestone: dashboard with agents and traces.
 Tasks:
-- [ ] CLI for agent status and traces.
-- [ ] Web UI for flows, traces, memory state.
+- [ ] Phase 8.1 CLI MVP: status, agents, tasks, approvals, mcp list, streaming follow, JSON output.
+- [ ] Phase 8.2 CLI advanced: traces tail, retry/cancel tasks, approvals tail, export events.
+- [ ] Phase 8.3 UI skeleton: Agents/Tasks/Approvals/Traces screens and endpoint wiring.
+- [ ] Phase 8.4 UI operational: streaming, filters, history, audit trail.
 Acceptance: US-09 complete.
+Notes:
+- Phase 8.1 CLI MVP started (entrypoint in `cmd/kairos`).
+- Phase 8.2 CLI advanced started (traces/tasks/approvals extensions).
 
 ## Core UX Track (Library + Demo)
 Goals: make Kairos approachable to developers from Python agent frameworks while keeping standards.
