@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/jllopis/kairos/pkg/a2a/agentcard"
 	"github.com/jllopis/kairos/pkg/config"
 )
 
@@ -19,9 +20,10 @@ func NewConfigProvider(cfg *config.Config) *ConfigProvider {
 		return provider
 	}
 	for name, agentCfg := range cfg.Agents {
+		cardURL := normalizeAgentCardURL(agentCfg.AgentCardURL)
 		endpoint := AgentEndpoint{
 			Name:         strings.TrimSpace(name),
-			AgentCardURL: strings.TrimSpace(agentCfg.AgentCardURL),
+			AgentCardURL: cardURL,
 			GRPCAddr:     strings.TrimSpace(agentCfg.GRPCAddr),
 			HTTPURL:      strings.TrimSpace(agentCfg.HTTPURL),
 			Labels:       cloneLabels(agentCfg.Labels),
@@ -37,6 +39,18 @@ func (p *ConfigProvider) List(_ context.Context) ([]AgentEndpoint, error) {
 		return nil, nil
 	}
 	return append([]AgentEndpoint(nil), p.Entries...), nil
+}
+
+func normalizeAgentCardURL(url string) string {
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return ""
+	}
+	trimmed := strings.TrimSuffix(url, "/")
+	if strings.HasSuffix(trimmed, agentcard.WellKnownPath) {
+		return strings.TrimSuffix(trimmed, agentcard.WellKnownPath)
+	}
+	return url
 }
 
 func cloneLabels(labels map[string]string) map[string]string {

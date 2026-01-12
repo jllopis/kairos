@@ -460,11 +460,11 @@ func (s *webServer) handleTaskStream(w http.ResponseWriter, r *http.Request, tas
 			if err != nil {
 				return err
 			}
-			line := formatStreamLine(resp)
+			line, class := formatStreamLine(resp)
 			if line == "" {
 				continue
 			}
-			if _, err := fmt.Fprintf(w, "data: %s\n\n", line); err != nil {
+			if _, err := fmt.Fprintf(w, "data: %s||%s\n\n", class, line); err != nil {
 				return err
 			}
 			flusher.Flush()
@@ -476,9 +476,9 @@ func (s *webServer) handleTaskStream(w http.ResponseWriter, r *http.Request, tas
 	}
 }
 
-func formatStreamLine(resp *a2av1.StreamResponse) string {
+func formatStreamLine(resp *a2av1.StreamResponse) (string, string) {
 	if resp == nil {
-		return ""
+		return "", ""
 	}
 	switch payload := resp.Payload.(type) {
 	case *a2av1.StreamResponse_StatusUpdate:
@@ -486,19 +486,34 @@ func formatStreamLine(resp *a2av1.StreamResponse) string {
 		state := strings.ToLower(strings.TrimPrefix(update.GetStatus().GetState().String(), "TASK_STATE_"))
 		msg := normalizeCell(server.ExtractText(update.GetStatus().GetMessage()))
 		eventType, _ := extractEventMetadataFromStruct(update.GetMetadata())
+		class := "stream-status"
 		if eventType != "" {
-			return fmt.Sprintf("[%s] %s (%s)", state, msg, eventType)
+			switch eventType {
+			case "agent.thinking":
+				class = "stream-thinking"
+			case "agent.task.started":
+				class = "stream-started"
+			case "agent.task.completed":
+				class = "stream-completed"
+			case "agent.delegation":
+				class = "stream-delegation"
+			case "agent.error":
+				class = "stream-error"
+			}
 		}
-		return fmt.Sprintf("[%s] %s", state, msg)
+		if eventType != "" {
+			return fmt.Sprintf("[%s] %s (%s)", state, msg, eventType), class
+		}
+		return fmt.Sprintf("[%s] %s", state, msg), class
 	case *a2av1.StreamResponse_Msg:
 		text := normalizeCell(server.ExtractText(payload.Msg))
 		if text != "" {
-			return fmt.Sprintf("[msg] %s", text)
+			return fmt.Sprintf("[msg] %s", text), "stream-msg"
 		}
 	case *a2av1.StreamResponse_Task:
-		return fmt.Sprintf("[task] %s", payload.Task.GetId())
+		return fmt.Sprintf("[task] %s", payload.Task.GetId()), "stream-task"
 	}
-	return ""
+	return "", ""
 }
 
 func extractEventMetadataFromStruct(meta *structpb.Struct) (string, string) {

@@ -154,7 +154,7 @@ Tasks:
 - [x] Phase 8.1 CLI MVP: status, agents, tasks, approvals, mcp list, streaming follow, JSON output.
 - [x] Phase 8.2 CLI advanced: traces tail, retry/cancel tasks, approvals tail, export events.
 - [x] Phase 8.3 UI skeleton: Agents/Tasks/Approvals/Traces screens and endpoint wiring.
-- [ ] Phase 8.4 UI operational: streaming, filters, history, audit trail.
+- [x] Phase 8.4 UI operational: streaming, filters, history, audit trail.
 Acceptance: US-09 complete.
 Notes:
 - Phase 8.1 CLI MVP completed (`cmd/kairos`).

@@ -56,7 +56,13 @@
         source.onmessage = (event) => {
             const row = document.createElement("div");
             row.className = "stream-line";
-            row.textContent = event.data;
+            const parts = event.data.split("||");
+            const className = parts[0] || "";
+            const text = parts.slice(1).join("||");
+            if (className) {
+                row.classList.add(className);
+            }
+            row.textContent = text || event.data;
             container.appendChild(row);
             if (autoScroll) {
                 container.scrollTop = container.scrollHeight;

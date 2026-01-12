@@ -295,6 +295,34 @@ button.secondary {
     border-bottom: none;
 }
 
+.stream-thinking {
+    color: #365f73;
+}
+
+.stream-started {
+    color: #7c4a00;
+}
+
+.stream-completed {
+    color: #1b5b2b;
+}
+
+.stream-delegation {
+    color: #4b2c7b;
+}
+
+.stream-error {
+    color: #8a1f1a;
+}
+
+.stream-msg {
+    color: #3a3128;
+}
+
+.stream-task {
+    color: #6c655c;
+}
+
 .site-footer {
     padding: 24px;
     text-align: center;

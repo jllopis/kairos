@@ -1,0 +1,25 @@
+{
+  "discovery": {
+    "order": ["config", "well_known", "registry"]
+  },
+  "agents": {
+    "orchestrator": {
+      "agent_card_url": "http://127.0.0.1:9140",
+      "grpc_addr": "127.0.0.1:9030",
+      "http_url": "http://127.0.0.1:9030",
+      "labels": { "env": "demo", "role": "orchestrator" }
+    },
+    "knowledge": {
+      "agent_card_url": "http://127.0.0.1:9141",
+      "grpc_addr": "127.0.0.1:9031",
+      "http_url": "http://127.0.0.1:9031",
+      "labels": { "env": "demo", "role": "knowledge" }
+    },
+    "spreadsheet": {
+      "agent_card_url": "http://127.0.0.1:9142",
+      "grpc_addr": "127.0.0.1:9032",
+      "http_url": "http://127.0.0.1:9032",
+      "labels": { "env": "demo", "role": "spreadsheet" }
+    }
+  }
+}

@@ -58,13 +58,13 @@ Variables de entorno sugeridas:
 Ejecuta la interfaz web con:
 
 ```
-kairos --web
+kairos --web --config docs/demo-settings.json
 ```
 
 Opcional:
 
 ```
-kairos --web --web-addr :8090
+kairos --web --web-addr :8090 --config docs/demo-settings.json
 ```
 
 La UI usa HTMX y reutiliza los endpoints A2A y approvals.
