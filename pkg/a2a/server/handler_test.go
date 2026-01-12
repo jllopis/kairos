@@ -2289,6 +2289,48 @@ func TestListTasks_NegativeHistoryLength(t *testing.T) {
 	}
 }
 
+func TestListTasks_PageSizeAndHistoryLength(t *testing.T) {
+	store := NewMemoryTaskStore()
+	handler := &SimpleHandler{Store: store}
+
+	taskA, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "alpha"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	if _, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-2",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "beta"}}},
+	}); err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	if err := store.AppendHistory(context.Background(), taskA.Id, &a2av1.Message{
+		MessageId: "msg-3",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "follow-up"}}},
+	}); err != nil {
+		t.Fatalf("AppendHistory error: %v", err)
+	}
+
+	resp, err := handler.ListTasks(context.Background(), &a2av1.ListTasksRequest{
+		PageSize:      int32Ptr(1),
+		HistoryLength: int32Ptr(1),
+	})
+	if err != nil {
+		t.Fatalf("ListTasks error: %v", err)
+	}
+	if len(resp.GetTasks()) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(resp.GetTasks()))
+	}
+	if got := len(resp.GetTasks()[0].GetHistory()); got != 1 {
+		t.Fatalf("expected history length 1, got %d", got)
+	}
+}
+
 func TestListTasks_NegativePageSizeRejected(t *testing.T) {
 	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
 
