@@ -7,6 +7,7 @@ import (
 	"time"
 
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
+	"github.com/jllopis/kairos/pkg/core"
 	"github.com/jllopis/kairos/pkg/governance"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -25,6 +26,7 @@ type Client struct {
 	retries      int
 	policyEngine governance.PolicyEngine
 	agentName    string
+	eventEmitter core.EventEmitter
 }
 
 // New creates a client from an existing gRPC connection.
@@ -71,6 +73,15 @@ func WithPolicyEngine(engine governance.PolicyEngine) Option {
 func WithAgentName(name string) Option {
 	return func(c *Client) {
 		c.agentName = name
+	}
+}
+
+// WithEventEmitter attaches a semantic event emitter for delegation events.
+func WithEventEmitter(emitter core.EventEmitter) Option {
+	return func(c *Client) {
+		if emitter != nil {
+			c.eventEmitter = emitter
+		}
 	}
 }
 
@@ -164,6 +175,7 @@ func (c *Client) SendMessage(ctx context.Context, req *a2av1.SendMessageRequest,
 	if err := c.ensureAllowed(ctx, "SendMessage"); err != nil {
 		return nil, err
 	}
+	c.emitDelegation(ctx, "SendMessage", req)
 	return withRetries(c.retries, func() (*a2av1.SendMessageResponse, error) {
 		ctx, cancel := c.withTimeout(ctx)
 		defer cancel()
@@ -176,6 +188,7 @@ func (c *Client) SendStreamingMessage(ctx context.Context, req *a2av1.SendMessag
 	if err := c.ensureAllowed(ctx, "SendStreamingMessage"); err != nil {
 		return nil, err
 	}
+	c.emitDelegation(ctx, "SendStreamingMessage", req)
 	return c.raw.SendStreamingMessage(injectTraceContext(c.streamContext(ctx)), req, opts...)
 }
 
@@ -322,4 +335,24 @@ func (c *Client) ensureAllowed(ctx context.Context, method string) error {
 		}
 	}
 	return status.Error(codes.PermissionDenied, reason)
+}
+
+func (c *Client) emitDelegation(ctx context.Context, method string, req *a2av1.SendMessageRequest) {
+	if c.eventEmitter == nil {
+		return
+	}
+	var (
+		taskID    string
+		contextID string
+	)
+	if req != nil && req.Request != nil {
+		taskID = req.Request.TaskId
+		contextID = req.Request.ContextId
+	}
+	payload := map[string]any{
+		"method":     method,
+		"context_id": contextID,
+	}
+	agent := strings.TrimSpace(c.agentName)
+	c.eventEmitter.Emit(ctx, core.NewEvent(core.EventAgentDelegation, agent, taskID, payload))
 }

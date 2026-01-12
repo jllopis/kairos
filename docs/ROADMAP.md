@@ -154,6 +154,22 @@ Tasks:
 - [ ] Web UI for flows, traces, memory state.
 Acceptance: US-09 complete.
 
+## Core UX Track (Library + Demo)
+Goals: make Kairos approachable to developers from Python agent frameworks while keeping standards.
+Dependencies: Phase 5, Phase 7.
+Core tasks (library):
+- [ ] Role/manifest metadata API (coexists with AgentCard).
+- [ ] Task entity in core with traceable IDs/status/result (no proto/store changes).
+- [ ] Event taxonomy for semantic streaming/logs (stable types + minimal fields).
+Demo tasks:
+- [ ] Role YAML files to feed core role metadata (`demoKairos/docs/role-*.yaml`).
+- [ ] Narrative guide: “what it is / what it is not”.
+- [ ] Demo builder facade (`NewSystem` + `WithAgent` + `WithFlow`), revisit for core after Task/Role/Event stabilize.
+- [ ] Single entrypoint script for running demo.
+Notes:
+- No changes to A2A proto or stores in this track.
+- See `docs/walkthrough-demo-improvements.md` for the detailed plan.
+
 ## Milestone Dependencies (summary)
 - P0 -> P1, P2, P3, P4, P6, P7
 - P2 -> P5, P8

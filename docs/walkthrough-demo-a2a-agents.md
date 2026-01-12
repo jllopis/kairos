@@ -10,6 +10,8 @@ This walkthrough describes the demo in `demoKairos/` and how it uses the core Ka
 - MCP tools are exposed and consumed using `pkg/mcp`.
 - Agents delegate using `pkg/a2a` with gRPC streaming.
 - The orchestrator follows an explicit plan using `pkg/planner`.
+- Role manifests are attached via `pkg/core` metadata for clarity.
+- Tasks are tracked as first-class entities via `pkg/core.Task` (no proto changes).
 
 ## Demo structure
 
@@ -61,14 +63,31 @@ Each node is mapped to a handler in the orchestrator:
 
 ## Streaming events
 
-The orchestrator emits semantic progress as `TaskStatusUpdateEvent`:
+The orchestrator emits semantic progress as `TaskStatusUpdateEvent` using the
+core event taxonomy (`docs/EVENT_TAXONOMY.md`):
 
-- `thinking`
-- `retrieval.started` / `retrieval.done`
-- `tool.started` / `tool.done`
-- `response.final`
+- `agent.task.started`
+- `agent.thinking`
+- `agent.delegation`
+- `agent.task.completed`
+- `agent.error`
 
-Incremental text is sent as `StreamResponse_Msg` chunks.
+Each event includes `event_type` + `payload` in metadata. Incremental text is
+sent as `StreamResponse_Msg` chunks.
+
+## Role manifests
+
+Each demo agent loads a role manifest from `demoKairos/docs/role-*.yaml` and
+attaches it via `agent.WithRoleManifest`. This is a library-level API for
+semantic role metadata that complements AgentCard.
+
+## Task tracking (core)
+
+The orchestrator creates a `core.Task` and attaches it to context with
+`core.WithTask`. This enables:
+
+- `task_id` and `task_goal` propagation in events/logs.
+- A stable task model without touching A2A proto or stores.
 
 ## Runtime flow
 

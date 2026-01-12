@@ -1,0 +1,12 @@
+role: KnowledgeAgent
+responsibility: >
+  Responde preguntas de definiciones y reglas del dataset usando retrieval.
+inputs:
+  - query
+  - intent
+outputs:
+  - domain_context
+constraints:
+  tools:
+    - retrieve_domain_knowledge
+  response_style: concise

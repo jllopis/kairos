@@ -158,8 +158,13 @@ func main() {
 	}
 
 	role := "Eres un agente de hojas de calculo. Usa SOLO la herramienta query_spreadsheet para responder. Devuelve un JSON con headers, rows y meta. No incluyas texto adicional."
+	roleManifest, err := demo.LoadRoleManifest("role-spreadsheet.yaml")
+	if err != nil {
+		log.Printf("role manifest: %v", err)
+	}
 	agentOpts := []agent.Option{
 		agent.WithRole(role),
+		agent.WithRoleManifest(roleManifest),
 		agent.WithModel(cfg.LLM.Model),
 		agent.WithMCPClients(mcpClient),
 		agent.WithMemory(memStore),

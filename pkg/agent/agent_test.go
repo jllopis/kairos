@@ -3,6 +3,7 @@ package agent_test
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/jllopis/kairos/pkg/agent"
@@ -84,6 +85,27 @@ func (p *toolCallProvider) Chat(_ context.Context, req llm.ChatRequest) (*llm.Ch
 	return &llm.ChatResponse{Content: final}, nil
 }
 
+type eventCollector struct {
+	mu     sync.Mutex
+	events []core.Event
+}
+
+func (c *eventCollector) Emit(_ context.Context, event core.Event) {
+	c.mu.Lock()
+	c.events = append(c.events, event)
+	c.mu.Unlock()
+}
+
+func (c *eventCollector) types() []core.EventType {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]core.EventType, 0, len(c.events))
+	for _, event := range c.events {
+		out = append(out, event.Type)
+	}
+	return out
+}
+
 func TestAgent_ReActLoop(t *testing.T) {
 	ctx := context.Background()
 
@@ -119,6 +141,41 @@ func TestAgent_ReActLoop(t *testing.T) {
 
 	if toolCallLLM.CallCount != 2 {
 		t.Errorf("Expected 2 LLM calls, got %d", toolCallLLM.CallCount)
+	}
+}
+
+func TestAgent_EmitsSemanticEvents(t *testing.T) {
+	ctx := context.Background()
+	emitter := &eventCollector{}
+	llmProvider := &llm.MockProvider{Response: "Final Answer: listo"}
+
+	a, err := agent.New("event-agent", llmProvider,
+		agent.WithRole("Tester"),
+		agent.WithEventEmitter(emitter),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create agent: %v", err)
+	}
+	if _, err := a.Run(ctx, "ping"); err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+
+	types := emitter.types()
+	foundStarted := false
+	foundCompleted := false
+	for _, tpe := range types {
+		switch tpe {
+		case core.EventAgentTaskStarted:
+			foundStarted = true
+		case core.EventAgentTaskCompleted:
+			foundCompleted = true
+		}
+	}
+	if !foundStarted {
+		t.Fatalf("expected task started event")
+	}
+	if !foundCompleted {
+		t.Fatalf("expected task completed event")
 	}
 }
 

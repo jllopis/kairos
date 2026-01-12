@@ -125,9 +125,14 @@ func main() {
 	}
 
 	role := "Eres un agente de conocimiento. Usa la herramienta retrieve_domain_knowledge para responder preguntas sobre el dataset. Responde en espanol con definiciones concisas."
+	roleManifest, err := demo.LoadRoleManifest("role-knowledge.yaml")
+	if err != nil {
+		log.Printf("role manifest: %v", err)
+	}
 
 	agentOpts := []agent.Option{
 		agent.WithRole(role),
+		agent.WithRoleManifest(roleManifest),
 		agent.WithModel(cfg.LLM.Model),
 		agent.WithMCPClients(mcpClient),
 		agent.WithMemory(memStore),

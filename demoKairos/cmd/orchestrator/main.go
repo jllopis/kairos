@@ -20,6 +20,7 @@ import (
 	"github.com/jllopis/kairos/pkg/a2a/server"
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
 	"github.com/jllopis/kairos/pkg/agent"
+	"github.com/jllopis/kairos/pkg/core"
 	"github.com/jllopis/kairos/pkg/memory"
 	"github.com/jllopis/kairos/pkg/memory/ollama"
 	"github.com/jllopis/kairos/pkg/planner"
@@ -33,6 +34,7 @@ type orchestratorHandler struct {
 	plan            *planner.Graph
 	classifier      *agent.Agent
 	synthesizer     *agent.Agent
+	task            *core.Task
 	knowledgeClient *client.Client
 	spreadClient    *client.Client
 	knowledgeCard   string
@@ -55,7 +57,8 @@ func (h *orchestratorHandler) SendMessage(ctx context.Context, req *a2av1.SendMe
 		log.Printf("orchestrator ensure task error: %v", err)
 		return nil, err
 	}
-	resp, err := h.runOrchestration(ctx, task, message, nil)
+	taskCtx := h.attachCoreTask(ctx, task, message)
+	resp, err := h.runOrchestration(taskCtx, task, message, nil)
 	if err != nil {
 		log.Printf("orchestrator run error: %v", err)
 		return nil, err
@@ -74,11 +77,12 @@ func (h *orchestratorHandler) SendStreamingMessage(req *a2av1.SendMessageRequest
 		log.Printf("orchestrator ensure task error: %v", err)
 		return err
 	}
+	taskCtx := h.attachCoreTask(stream.Context(), task, message)
 	if err := stream.Send(&a2av1.StreamResponse{Payload: &a2av1.StreamResponse_Task{Task: task}}); err != nil {
 		log.Printf("orchestrator send task error: %v", err)
 		return err
 	}
-	_, err = h.runOrchestration(stream.Context(), task, message, stream)
+	_, err = h.runOrchestration(taskCtx, task, message, stream)
 	if err != nil {
 		log.Printf("orchestrator run error: %v", err)
 	}
@@ -160,12 +164,18 @@ func (h *orchestratorHandler) runOrchestration(ctx context.Context, task *a2av1.
 		Message:   message,
 		Timestamp: timestamppb.Now(),
 	})
+	sendStatus(stream, task.Id, task.ContextId, core.EventAgentTaskStarted, "Iniciando orquestacion...", map[string]any{
+		"agent": "orchestrator",
+	})
 
 	state := planner.NewState()
 	state.Outputs["user_query"] = query
 	state.Outputs["task_id"] = task.Id
 	state.Outputs["context_id"] = task.ContextId
 	state.Outputs["stream"] = stream
+	if h.task != nil {
+		state.Outputs["task_goal"] = h.task.Goal
+	}
 
 	executor := planner.NewExecutor(map[string]planner.Handler{
 		"detect_intent": func(ctx context.Context, node planner.Node, state *planner.State) (any, error) {
@@ -184,11 +194,19 @@ func (h *orchestratorHandler) runOrchestration(ctx context.Context, task *a2av1.
 
 	_, err := executor.Execute(ctx, h.plan, state)
 	if err != nil {
+		if h.task != nil {
+			h.task.Status = core.TaskStatusFailed
+			h.task.Error = err.Error()
+		}
 		h.failWithStatus(ctx, stream, task, fmt.Sprintf("Fallo ejecutando plan: %v", err))
 		return nil, err
 	}
 	finalText, _ := state.Outputs["final"].(string)
 	respMsg := demo.NewTextMessage(a2av1.Role_ROLE_AGENT, finalText, task.ContextId, task.Id)
+	if h.task != nil {
+		h.task.Status = core.TaskStatusCompleted
+		h.task.Result = finalText
+	}
 	_ = h.store.AppendHistory(ctx, task.Id, respMsg)
 	_ = h.store.UpdateStatus(ctx, task.Id, &a2av1.TaskStatus{
 		State:     a2av1.TaskState_TASK_STATE_COMPLETED,
@@ -207,7 +225,10 @@ func (h *orchestratorHandler) handleDetectIntent(ctx context.Context, state *pla
 	taskID, _ := state.Outputs["task_id"].(string)
 	contextID, _ := state.Outputs["context_id"].(string)
 
-	sendStatus(stream, taskID, contextID, demo.EventThinking, "Analizando la peticion...")
+	sendStatus(stream, taskID, contextID, core.EventAgentThinking, "Analizando la peticion...", map[string]any{
+		"stage":     "detect_intent",
+		"task_goal": query,
+	})
 	prompt := fmt.Sprintf("Clasifica la intencion de la consulta en uno de estos ids: sales_by_region, top_products_margin_compare, gastos_anomalies. Responde solo con el id. Consulta: %s", query)
 	output, err := h.classifier.Run(ctx, prompt)
 	if err != nil {
@@ -231,7 +252,11 @@ func (h *orchestratorHandler) handleKnowledge(ctx context.Context, state *planne
 	if err := h.ensureAgentCard(ctx, h.knowledgeCard, "knowledge"); err != nil {
 		return nil, err
 	}
-	sendStatus(stream, taskID, contextID, demo.EventRetrievalStart, "Buscando definiciones y reglas...")
+	sendStatus(stream, taskID, contextID, core.EventAgentDelegation, "Buscando definiciones y reglas...", map[string]any{
+		"target":    "knowledge",
+		"stage":     "start",
+		"task_goal": query,
+	})
 	msg := demo.NewDataMessage(a2av1.Role_ROLE_USER, map[string]interface{}{
 		"query":  query,
 		"intent": intent,
@@ -244,7 +269,11 @@ func (h *orchestratorHandler) handleKnowledge(ctx context.Context, state *planne
 		return nil, err
 	}
 	knowledge := server.ExtractText(resp.GetMsg())
-	sendStatus(stream, taskID, contextID, demo.EventRetrievalDone, "Contexto obtenido.")
+	sendStatus(stream, taskID, contextID, core.EventAgentDelegation, "Contexto obtenido.", map[string]any{
+		"target":    "knowledge",
+		"stage":     "done",
+		"task_goal": query,
+	})
 	state.Outputs["knowledge"] = knowledge
 	return knowledge, nil
 }
@@ -258,7 +287,11 @@ func (h *orchestratorHandler) handleSpreadsheet(ctx context.Context, state *plan
 	if err := h.ensureAgentCard(ctx, h.spreadsheetCard, "spreadsheet"); err != nil {
 		return nil, err
 	}
-	sendStatus(stream, taskID, contextID, demo.EventToolStart, "Consultando hoja de calculo...")
+	sendStatus(stream, taskID, contextID, core.EventAgentDelegation, "Consultando hoja de calculo...", map[string]any{
+		"target":    "spreadsheet",
+		"stage":     "start",
+		"task_goal": query,
+	})
 	spec := querySpecForIntent(intent, query)
 	msg := demo.NewDataMessage(a2av1.Role_ROLE_USER, spec, contextID, "")
 	resp, err := h.spreadClient.SendMessage(ctx, &a2av1.SendMessageRequest{
@@ -273,7 +306,11 @@ func (h *orchestratorHandler) handleSpreadsheet(ctx context.Context, state *plan
 		return nil, fmt.Errorf("spreadsheet response missing data")
 	}
 	data["intent"] = intent
-	sendStatus(stream, taskID, contextID, demo.EventToolDone, "Datos listos.")
+	sendStatus(stream, taskID, contextID, core.EventAgentDelegation, "Datos listos.", map[string]any{
+		"target":    "spreadsheet",
+		"stage":     "done",
+		"task_goal": query,
+	})
 	state.Outputs["data"] = data
 	return data, nil
 }
@@ -314,11 +351,11 @@ func sendResponseDelta(stream a2av1.A2AService_SendStreamingMessageServer, task 
 	}
 }
 
-func sendStatus(stream a2av1.A2AService_SendStreamingMessageServer, taskID, contextID, eventType, message string) {
+func sendStatus(stream a2av1.A2AService_SendStreamingMessageServer, taskID, contextID string, eventType core.EventType, message string, payload map[string]any) {
 	if stream == nil {
 		return
 	}
-	_ = stream.Send(demo.StatusEvent(taskID, contextID, eventType, message, false))
+	_ = stream.Send(demo.StatusEvent(taskID, contextID, eventType, message, payload, false))
 }
 
 func (h *orchestratorHandler) ensureAgentCard(ctx context.Context, baseURL, label string) error {
@@ -339,13 +376,15 @@ func sendFinal(stream a2av1.A2AService_SendStreamingMessageServer, task *a2av1.T
 	if stream == nil {
 		return
 	}
-	status := demo.StatusEventWithState(task.Id, task.ContextId, "response.final", "Respuesta completa.", a2av1.TaskState_TASK_STATE_COMPLETED, true)
+	status := demo.StatusEventWithState(task.Id, task.ContextId, core.EventAgentTaskCompleted, "Respuesta completa.", nil, a2av1.TaskState_TASK_STATE_COMPLETED, true)
 	_ = stream.Send(status)
 	_ = stream.Send(&a2av1.StreamResponse{Payload: &a2av1.StreamResponse_Msg{Msg: msg}})
 }
 
 func (h *orchestratorHandler) failWithStatus(ctx context.Context, stream a2av1.A2AService_SendStreamingMessageServer, task *a2av1.Task, message string) {
-	status := demo.StatusEventWithState(task.Id, task.ContextId, "error", message, a2av1.TaskState_TASK_STATE_FAILED, true)
+	status := demo.StatusEventWithState(task.Id, task.ContextId, core.EventAgentError, message, map[string]any{
+		"stage": "orchestrator",
+	}, a2av1.TaskState_TASK_STATE_FAILED, true)
 	if stream != nil {
 		_ = stream.Send(status)
 	}
@@ -354,6 +393,19 @@ func (h *orchestratorHandler) failWithStatus(ctx context.Context, stream a2av1.A
 		Message:   demo.NewTextMessage(a2av1.Role_ROLE_AGENT, message, task.ContextId, task.Id),
 		Timestamp: timestamppb.Now(),
 	})
+}
+
+func (h *orchestratorHandler) attachCoreTask(ctx context.Context, task *a2av1.Task, message *a2av1.Message) context.Context {
+	query := server.ExtractText(message)
+	if h.task == nil {
+		h.task = core.NewTask(query, "orchestrator")
+	} else {
+		h.task.Goal = query
+	}
+	h.task.ID = task.Id
+	h.task.Status = core.TaskStatusRunning
+	ctx = core.WithTask(ctx, h.task)
+	return ctx
 }
 
 func parseIntent(value string) string {
@@ -540,13 +592,23 @@ func main() {
 
 	classifierRole := "Eres un clasificador de intencion. Responde solo con uno de estos ids: sales_by_region, top_products_margin_compare, gastos_anomalies."
 	synthRole := "Eres un agente que sintetiza respuestas con datos y contexto."
+	classifierManifest, err := demo.LoadRoleManifest("role-orchestrator-classifier.yaml")
+	if err != nil {
+		log.Printf("role manifest: %v", err)
+	}
+	synthManifest, err := demo.LoadRoleManifest("role-orchestrator-synth.yaml")
+	if err != nil {
+		log.Printf("role manifest: %v", err)
+	}
 
 	classifierOpts := []agent.Option{
 		agent.WithRole(classifierRole),
+		agent.WithRoleManifest(classifierManifest),
 		agent.WithModel(cfg.LLM.Model),
 	}
 	synthOpts := []agent.Option{
 		agent.WithRole(synthRole),
+		agent.WithRoleManifest(synthManifest),
 		agent.WithModel(cfg.LLM.Model),
 		agent.WithMemory(memStore),
 	}

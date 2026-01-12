@@ -6,17 +6,9 @@ import (
 
 	"github.com/google/uuid"
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
+	"github.com/jllopis/kairos/pkg/core"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-)
-
-const (
-	EventThinking       = "thinking"
-	EventRetrievalStart = "retrieval.started"
-	EventRetrievalDone  = "retrieval.done"
-	EventToolStart      = "tool.started"
-	EventToolProgress   = "tool.progress"
-	EventToolDone       = "tool.done"
 )
 
 // NewTextMessage builds a minimal A2A message with a single text part.
@@ -55,15 +47,19 @@ func NewDataMessage(role a2av1.Role, data map[string]interface{}, contextID, tas
 }
 
 // StatusEvent creates a stream response with a semantic event type in metadata.
-func StatusEvent(taskID, contextID, eventType, message string, final bool) *a2av1.StreamResponse {
-	return StatusEventWithState(taskID, contextID, eventType, message, a2av1.TaskState_TASK_STATE_WORKING, final)
+func StatusEvent(taskID, contextID string, eventType core.EventType, message string, payload map[string]any, final bool) *a2av1.StreamResponse {
+	return StatusEventWithState(taskID, contextID, eventType, message, payload, a2av1.TaskState_TASK_STATE_WORKING, final)
 }
 
 // StatusEventWithState creates a stream response with a specific task state.
-func StatusEventWithState(taskID, contextID, eventType, message string, state a2av1.TaskState, final bool) *a2av1.StreamResponse {
-	metadata, _ := structpb.NewStruct(map[string]interface{}{
-		"event_type": eventType,
-	})
+func StatusEventWithState(taskID, contextID string, eventType core.EventType, message string, payload map[string]any, state a2av1.TaskState, final bool) *a2av1.StreamResponse {
+	meta := map[string]interface{}{
+		"event_type": string(eventType),
+	}
+	if payload != nil {
+		meta["payload"] = payload
+	}
+	metadata, _ := structpb.NewStruct(normalizeStructMap(meta))
 	statusMsg := NewTextMessage(a2av1.Role_ROLE_AGENT, message, contextID, taskID)
 	status := &a2av1.TaskStatus{
 		State:     state,

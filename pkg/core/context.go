@@ -9,6 +9,7 @@ import (
 
 type runIDKey struct{}
 type memoryKey struct{}
+type taskKey struct{}
 
 // WithRunID attaches a run id to the context.
 func WithRunID(ctx context.Context, id string) context.Context {
@@ -39,6 +40,17 @@ func WithMemory(ctx context.Context, mem Memory) context.Context {
 func MemoryFromContext(ctx context.Context) (Memory, bool) {
 	mem, ok := ctx.Value(memoryKey{}).(Memory)
 	return mem, ok
+}
+
+// WithTask attaches a task to the context.
+func WithTask(ctx context.Context, task *Task) context.Context {
+	return context.WithValue(ctx, taskKey{}, task)
+}
+
+// TaskFromContext returns the task if present.
+func TaskFromContext(ctx context.Context) (*Task, bool) {
+	task, ok := ctx.Value(taskKey{}).(*Task)
+	return task, ok
 }
 
 func newRunID() string {

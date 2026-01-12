@@ -1,0 +1,10 @@
+role: SpreadsheetAgent
+responsibility: >
+  Ejecuta consultas analiticas sobre datos tabulares con limites de filas.
+inputs:
+  - query_spec
+outputs:
+  - tabular_result
+constraints:
+  max_rows: 1000
+  no_free_text: true

@@ -32,6 +32,7 @@ type toolDefiner interface {
 type Agent struct {
 	id                    string
 	role                  string
+	roleManifest          core.RoleManifest
 	skills                []core.Skill
 	tools                 []core.Tool
 	memory                core.Memory
@@ -43,6 +44,7 @@ type Agent struct {
 	disableActionFallback bool
 	warnOnActionFallback  bool
 	policyEngine          governance.PolicyEngine
+	eventEmitter          core.EventEmitter
 }
 
 // Option configures an Agent instance.
@@ -77,6 +79,14 @@ func New(id string, llmProvider llm.Provider, opts ...Option) (*Agent, error) {
 func WithRole(role string) Option {
 	return func(a *Agent) error {
 		a.role = role
+		return nil
+	}
+}
+
+// WithRoleManifest attaches a semantic role manifest to the agent.
+func WithRoleManifest(manifest core.RoleManifest) Option {
+	return func(a *Agent) error {
+		a.roleManifest = manifest
 		return nil
 	}
 }
@@ -198,11 +208,26 @@ func WithPolicyEngine(engine governance.PolicyEngine) Option {
 	}
 }
 
+// WithEventEmitter attaches a semantic event emitter to the agent.
+func WithEventEmitter(emitter core.EventEmitter) Option {
+	return func(a *Agent) error {
+		if emitter != nil {
+			a.eventEmitter = emitter
+		}
+		return nil
+	}
+}
+
 // ID returns the agent identifier.
 func (a *Agent) ID() string { return a.id }
 
 // Role returns the agent role.
 func (a *Agent) Role() string { return a.role }
+
+// RoleManifest returns the configured role manifest, if any.
+func (a *Agent) RoleManifest() core.RoleManifest {
+	return a.roleManifest
+}
 
 // Skills returns the agent skills.
 func (a *Agent) Skills() []core.Skill {
@@ -240,6 +265,9 @@ func (a *Agent) Run(ctx context.Context, input any) (any, error) {
 		slog.String("trace_id", traceID),
 		slog.String("span_id", spanID),
 	)
+	a.emitEvent(ctx, core.EventAgentTaskStarted, map[string]any{
+		"run_id": runID,
+	})
 
 	// 1. Construct Initial System Prompt and User Message
 	messages := []llm.Message{}
@@ -293,6 +321,9 @@ Final Answer: the final answer to the original input question
 
 	// 2. ReAct Loop
 	for i := 0; i < a.maxIterations; i++ {
+		a.emitEvent(ctx, core.EventAgentThinking, map[string]any{
+			"iteration": i + 1,
+		})
 		llmStart := time.Now()
 		llmCtx, llmSpan := a.tracer.Start(ctx, "Agent.LLM.Chat", trace.WithAttributes(
 			attribute.String("llm.model", a.model),
@@ -321,6 +352,11 @@ Final Answer: the final answer to the original input question
 				slog.String("span_id", spanID),
 				slog.String("error", err.Error()),
 			)
+			a.emitEvent(ctx, core.EventAgentError, map[string]any{
+				"run_id": runID,
+				"stage":  "llm",
+				"error":  err.Error(),
+			})
 			return nil, fmt.Errorf("llm chat failed: %w", err)
 		}
 
@@ -368,6 +404,10 @@ Final Answer: the final answer to the original input question
 					slog.String("span_id", spanID),
 					slog.Int("iterations", i+1),
 				)
+				a.emitEvent(ctx, core.EventAgentTaskCompleted, map[string]any{
+					"run_id": runID,
+					"result": finalAnswer,
+				})
 				return finalAnswer, nil
 			}
 			logDecision(log, decisionPayload{
@@ -390,6 +430,10 @@ Final Answer: the final answer to the original input question
 				slog.String("span_id", spanID),
 				slog.Int("iterations", i+1),
 			)
+			a.emitEvent(ctx, core.EventAgentTaskCompleted, map[string]any{
+				"run_id": runID,
+				"result": content,
+			})
 			return content, nil
 		}
 
@@ -488,6 +532,12 @@ Final Answer: the final answer to the original input question
 							slog.String("tool", action),
 							slog.String("error", err.Error()),
 						)
+						a.emitEvent(ctx, core.EventAgentError, map[string]any{
+							"run_id": runID,
+							"stage":  "tool",
+							"tool":   action,
+							"error":  err.Error(),
+						})
 					} else {
 						observation = fmt.Sprintf("%v", res)
 						log.Info("agent.tool.complete",
@@ -529,6 +579,10 @@ Final Answer: the final answer to the original input question
 				slog.String("span_id", spanID),
 				slog.Int("iterations", i+1),
 			)
+			a.emitEvent(ctx, core.EventAgentTaskCompleted, map[string]any{
+				"run_id": runID,
+				"result": content,
+			})
 			return content, nil
 		}
 	}
@@ -541,6 +595,11 @@ Final Answer: the final answer to the original input question
 		slog.String("span_id", spanID),
 		slog.Int("iterations", a.maxIterations),
 	)
+	a.emitEvent(ctx, core.EventAgentError, map[string]any{
+		"run_id": runID,
+		"stage":  "timeout",
+		"error":  "max iterations exceeded",
+	})
 	return nil, fmt.Errorf("agent exceeded max iterations (%d) without final answer", a.maxIterations)
 }
 
@@ -847,6 +906,12 @@ func (a *Agent) handleToolCalls(ctx context.Context, log *slog.Logger, runID, tr
 					slog.String("tool_call_id", call.ID),
 					slog.String("error", err.Error()),
 				)
+				a.emitEvent(ctx, core.EventAgentError, map[string]any{
+					"run_id": runID,
+					"stage":  "tool",
+					"tool":   toolName,
+					"error":  err.Error(),
+				})
 			} else {
 				observation = fmt.Sprintf("%v", res)
 				logDecisionOutcome(log, decisionPayload{
@@ -1004,6 +1069,17 @@ func traceIDFromContext(ctx context.Context) string {
 		return "unknown"
 	}
 	return sc.TraceID().String()
+}
+
+func (a *Agent) emitEvent(ctx context.Context, eventType core.EventType, payload map[string]any) {
+	if a.eventEmitter == nil {
+		return
+	}
+	taskID := ""
+	if task, ok := core.TaskFromContext(ctx); ok && task != nil {
+		taskID = task.ID
+	}
+	a.eventEmitter.Emit(ctx, core.NewEvent(eventType, a.id, taskID, payload))
 }
 
 func spanIDFromContext(ctx context.Context) string {
