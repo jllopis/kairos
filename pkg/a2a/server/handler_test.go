@@ -468,6 +468,25 @@ func TestPushConfig_ConfigIDFromName(t *testing.T) {
 	}
 }
 
+func TestPushConfig_NameWithMissingParent(t *testing.T) {
+	handler := &SimpleHandler{
+		Store:    NewMemoryTaskStore(),
+		PushCfgs: NewMemoryPushConfigStore(),
+	}
+
+	req := &a2av1.SetTaskPushNotificationConfigRequest{
+		Config: &a2av1.TaskPushNotificationConfig{
+			Name: "tasks/any/pushNotificationConfigs/cfg-1",
+			PushNotificationConfig: &a2av1.PushNotificationConfig{
+				Url: "https://example.com/hook",
+			},
+		},
+	}
+	if _, err := handler.SetTaskPushNotificationConfig(context.Background(), req); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
+	}
+}
+
 func TestSubscribeToTask_UpdatesAndArtifacts(t *testing.T) {
 	store := NewMemoryTaskStore()
 	task, err := store.CreateTask(context.Background(), &a2av1.Message{
