@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -156,7 +157,18 @@ func main() {
 		},
 	})
 
-	handler := server.NewAgentHandler(knowledgeAgent, server.WithAgentCard(card))
+	exec := &knowledgeExecutor{
+		agent:      knowledgeAgent,
+		store:      store,
+		embedder:   embedder,
+		collection: *collection,
+	}
+	handler := &server.SimpleHandler{
+		Store:    server.NewMemoryTaskStore(),
+		Executor: exec,
+		Card:     card,
+		PushCfgs: server.NewMemoryPushConfigStore(),
+	}
 	service := server.New(handler)
 
 	mux := http.NewServeMux()
@@ -175,6 +187,57 @@ func main() {
 	if err := grpcServer.Serve(listener); err != nil {
 		log.Fatalf("serve: %v", err)
 	}
+}
+
+type knowledgeExecutor struct {
+	agent      *agent.Agent
+	store      memory.VectorStore
+	embedder   memory.Embedder
+	collection string
+}
+
+func (e *knowledgeExecutor) Run(ctx context.Context, message *a2av1.Message) (any, []*a2av1.Artifact, error) {
+	query := ""
+	if data := server.ExtractData(message); data != nil {
+		if value, ok := data["query"].(string); ok {
+			query = value
+		} else if value, ok := data["text"].(string); ok {
+			query = value
+		} else if value, ok := data["intent"].(string); ok {
+			query = value
+		}
+	}
+	if query == "" {
+		query = server.ExtractText(message)
+	}
+	if query == "" {
+		return nil, nil, fmt.Errorf("query requerido")
+	}
+	results, err := demo.SearchDocs(ctx, e.store, e.embedder, e.collection, query, 4)
+	if err != nil {
+		return nil, nil, err
+	}
+	var b strings.Builder
+	for _, res := range results {
+		text, _ := res.Point.Payload["text"].(string)
+		source, _ := res.Point.Payload["source"].(string)
+		if text == "" {
+			continue
+		}
+		b.WriteString("- ")
+		b.WriteString(text)
+		if source != "" {
+			b.WriteString(" (source: ")
+			b.WriteString(source)
+			b.WriteString(")")
+		}
+		b.WriteString("\n")
+	}
+	if b.Len() == 0 {
+		b.WriteString("No se encontraron definiciones relevantes.")
+	}
+	resp := demo.NewTextMessage(a2av1.Role_ROLE_AGENT, strings.TrimSpace(b.String()), message.ContextId, message.TaskId)
+	return resp, nil, nil
 }
 
 func loadDocs(dir string) ([]demo.Doc, error) {

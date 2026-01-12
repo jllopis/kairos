@@ -232,7 +232,10 @@ func (h *orchestratorHandler) handleKnowledge(ctx context.Context, state *planne
 		return nil, err
 	}
 	sendStatus(stream, taskID, contextID, demo.EventRetrievalStart, "Buscando definiciones y reglas...")
-	msg := demo.NewTextMessage(a2av1.Role_ROLE_USER, fmt.Sprintf("Consulta: %s\nIntencion: %s", query, intent), contextID, "")
+	msg := demo.NewDataMessage(a2av1.Role_ROLE_USER, map[string]interface{}{
+		"query":  query,
+		"intent": intent,
+	}, contextID, "")
 	resp, err := h.knowledgeClient.SendMessage(ctx, &a2av1.SendMessageRequest{
 		Request:       msg,
 		Configuration: &a2av1.SendMessageConfiguration{Blocking: true},
