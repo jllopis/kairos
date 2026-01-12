@@ -53,7 +53,7 @@ go run ./cmd/client --addr localhost:9030 --q "Que anomalias hay en la hoja Gast
 # Ejecutar una consulta de ejemplo
 ./scripts/run-query.sh "Cual fue el total de ventas en Q4 por region?"
 
-# Ejecutar las tres consultas y guardar salida en ./outputs
+# Ejecutar las tres consultas y guardar salida en ./outputs/<timestamp>
 ./scripts/run-sample-queries.sh
 ```
 

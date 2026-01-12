@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ADDR="${ADDR:-localhost:9030}"
-OUT_DIR="${OUT_DIR:-./outputs}"
+OUT_DIR="${OUT_DIR:-./outputs/$(date -u +%Y%m%dT%H%M%SZ)}"
 
 mkdir -p "$OUT_DIR"
 
