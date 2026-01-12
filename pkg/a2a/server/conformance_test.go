@@ -9,8 +9,12 @@ import (
 	"time"
 
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	statuspb "google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -121,6 +125,38 @@ func TestConformance_AgentCardJSONGolden(t *testing.T) {
 	assertJSONGolden(t, "agent_card.json", card)
 }
 
+func TestConformance_TaskPushConfigJSONGolden(t *testing.T) {
+	config := &a2av1.TaskPushNotificationConfig{
+		Name: "tasks/task-1/push/primary",
+		PushNotificationConfig: &a2av1.PushNotificationConfig{
+			Id:  "primary",
+			Url: "https://example.com/notify",
+			Authentication: &a2av1.AuthenticationInfo{
+				Schemes:     []string{"bearer"},
+				Credentials: "token-123",
+			},
+		},
+	}
+	assertJSONGolden(t, "task_push_config.json", config)
+}
+
+func TestConformance_ErrorInfoJSONGolden(t *testing.T) {
+	status := &statuspb.Status{
+		Code:    int32(codes.NotFound),
+		Message: "task not found",
+		Details: []*anypb.Any{
+			mustAny(t, &errdetails.ErrorInfo{
+				Reason: "TASK_NOT_FOUND",
+				Domain: "a2a",
+				Metadata: map[string]string{
+					"taskId": "task-404",
+				},
+			}),
+		},
+	}
+	assertJSONGolden(t, "grpc_error_info.json", status)
+}
+
 func assertJSONGolden(t *testing.T, name string, msg proto.Message) {
 	t.Helper()
 	opts := protojson.MarshalOptions{Indent: "  "}
@@ -152,4 +188,13 @@ func normalizeJSON(t *testing.T, raw string) string {
 		t.Fatalf("marshal json: %v", err)
 	}
 	return string(normalized)
+}
+
+func mustAny(t *testing.T, msg proto.Message) *anypb.Any {
+	t.Helper()
+	anyMsg, err := anypb.New(msg)
+	if err != nil {
+		t.Fatalf("anypb: %v", err)
+	}
+	return anyMsg
 }

@@ -1,0 +1,11 @@
+{
+  "name": "tasks/task-1/push/primary",
+  "pushNotificationConfig": {
+    "id": "primary",
+    "url": "https://example.com/notify",
+    "authentication": {
+      "schemes": ["bearer"],
+      "credentials": "token-123"
+    }
+  }
+}

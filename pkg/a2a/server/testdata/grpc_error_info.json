@@ -1,0 +1,14 @@
+{
+  "code": 5,
+  "message": "task not found",
+  "details": [
+    {
+      "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+      "reason": "TASK_NOT_FOUND",
+      "domain": "a2a",
+      "metadata": {
+        "taskId": "task-404"
+      }
+    }
+  ]
+}
