@@ -607,6 +607,29 @@ func TestListTaskPushNotificationConfig_Empty(t *testing.T) {
 	}
 }
 
+func TestGetTaskPushNotificationConfig_NotFound(t *testing.T) {
+	store := NewMemoryTaskStore()
+	task, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+
+	handler := &SimpleHandler{
+		Store:    store,
+		PushCfgs: NewMemoryPushConfigStore(),
+	}
+
+	name := fmt.Sprintf("tasks/%s/pushNotificationConfigs/missing", task.Id)
+	_, err = handler.GetTaskPushNotificationConfig(context.Background(), &a2av1.GetTaskPushNotificationConfigRequest{Name: name})
+	if status.Code(err) != codes.NotFound {
+		t.Fatalf("expected NotFound, got %v", status.Code(err))
+	}
+}
+
 func TestSubscribeToTask_UpdatesAndArtifacts(t *testing.T) {
 	store := NewMemoryTaskStore()
 	task, err := store.CreateTask(context.Background(), &a2av1.Message{
