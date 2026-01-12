@@ -27,9 +27,11 @@ func NewState() *State {
 
 // Executor runs a graph using node handlers.
 type Executor struct {
-	Handlers  map[string]Handler
-	AuditHook func(ctx context.Context, event AuditEvent)
-	tracer    trace.Tracer
+	Handlers   map[string]Handler
+	AuditStore AuditStore
+	AuditHook  func(ctx context.Context, event AuditEvent)
+	RunID      string
+	tracer     trace.Tracer
 }
 
 // NewExecutor creates an executor with provided handlers.
@@ -42,6 +44,8 @@ func NewExecutor(handlers map[string]Handler) *Executor {
 
 // AuditEvent captures node execution details for observability.
 type AuditEvent struct {
+	GraphID    string
+	RunID      string
 	NodeID     string
 	NodeType   string
 	Status     string
@@ -92,12 +96,16 @@ func (e *Executor) Execute(ctx context.Context, graph *Graph, state *State) (*St
 		}
 
 		started := time.Now().UTC()
-		e.emitAudit(ctx, AuditEvent{
+		if err := e.emitAudit(ctx, AuditEvent{
+			GraphID:   graph.ID,
+			RunID:     e.RunID,
 			NodeID:    node.ID,
 			NodeType:  node.Type,
 			Status:    "started",
 			StartedAt: started,
-		})
+		}); err != nil {
+			return nil, err
+		}
 
 		nodeCtx, span := e.tracer.Start(ctx, "Planner.Node",
 			trace.WithAttributes(
@@ -108,24 +116,32 @@ func (e *Executor) Execute(ctx context.Context, graph *Graph, state *State) (*St
 		output, err := handler(nodeCtx, node, state)
 		span.End()
 		if err != nil {
-			e.emitAudit(ctx, AuditEvent{
+			if auditErr := e.emitAudit(ctx, AuditEvent{
+				GraphID:    graph.ID,
+				RunID:      e.RunID,
 				NodeID:     node.ID,
 				NodeType:   node.Type,
 				Status:     "failed",
 				Error:      err.Error(),
 				StartedAt:  started,
 				FinishedAt: time.Now().UTC(),
-			})
+			}); auditErr != nil {
+				return nil, auditErr
+			}
 			return nil, fmt.Errorf("node %q failed: %w", node.ID, err)
 		}
-		e.emitAudit(ctx, AuditEvent{
+		if err := e.emitAudit(ctx, AuditEvent{
+			GraphID:    graph.ID,
+			RunID:      e.RunID,
 			NodeID:     node.ID,
 			NodeType:   node.Type,
 			Status:     "completed",
 			Output:     output,
 			StartedAt:  started,
 			FinishedAt: time.Now().UTC(),
-		})
+		}); err != nil {
+			return nil, err
+		}
 		state.Outputs[node.ID] = output
 		state.Last = output
 
@@ -234,6 +250,9 @@ func evaluateCondition(condition string, state *State) (bool, error) {
 	case strings.HasPrefix(condition, "last!="):
 		value := strings.TrimSpace(strings.TrimPrefix(condition, "last!="))
 		return fmt.Sprint(state.Last) != value, nil
+	case strings.HasPrefix(condition, "last.contains:"):
+		value := strings.TrimSpace(strings.TrimPrefix(condition, "last.contains:"))
+		return strings.Contains(fmt.Sprint(state.Last), value), nil
 	case strings.HasPrefix(condition, "output."):
 		return evalOutputCondition(condition, state)
 	default:
@@ -244,18 +263,20 @@ func evaluateCondition(condition string, state *State) (bool, error) {
 func evalOutputCondition(condition string, state *State) (bool, error) {
 	rest := strings.TrimPrefix(condition, "output.")
 	if parts := strings.SplitN(rest, "==", 2); len(parts) == 2 {
-		return compareOutput(parts[0], parts[1], state, true), nil
+		return compareOutputPath(parts[0], parts[1], state, true), nil
 	}
 	if parts := strings.SplitN(rest, "!=", 2); len(parts) == 2 {
-		return compareOutput(parts[0], parts[1], state, false), nil
+		return compareOutputPath(parts[0], parts[1], state, false), nil
+	}
+	if parts := strings.SplitN(rest, ".contains:", 2); len(parts) == 2 {
+		return containsOutputPath(parts[0], parts[1], state), nil
 	}
 	return false, fmt.Errorf("invalid output condition")
 }
 
-func compareOutput(nodeID, rawValue string, state *State, equal bool) bool {
-	nodeID = strings.TrimSpace(nodeID)
+func compareOutputPath(path, rawValue string, state *State, equal bool) bool {
 	value := strings.TrimSpace(rawValue)
-	got, ok := state.Outputs[nodeID]
+	got, ok := resolveOutputPath(path, state)
 	if !ok {
 		return false
 	}
@@ -265,9 +286,61 @@ func compareOutput(nodeID, rawValue string, state *State, equal bool) bool {
 	return fmt.Sprint(got) != value
 }
 
-func (e *Executor) emitAudit(ctx context.Context, event AuditEvent) {
-	if e.AuditHook == nil {
-		return
+func containsOutputPath(path, rawValue string, state *State) bool {
+	value := strings.TrimSpace(rawValue)
+	got, ok := resolveOutputPath(path, state)
+	if !ok {
+		return false
 	}
-	e.AuditHook(ctx, event)
+	return strings.Contains(fmt.Sprint(got), value)
+}
+
+func resolveOutputPath(path string, state *State) (any, bool) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil, false
+	}
+	parts := strings.Split(path, ".")
+	nodeID := parts[0]
+	output, ok := state.Outputs[nodeID]
+	if !ok {
+		return nil, false
+	}
+	if len(parts) == 1 {
+		return output, true
+	}
+	current := output
+	for _, key := range parts[1:] {
+		value, ok := resolveMapValue(current, key)
+		if !ok {
+			return nil, false
+		}
+		current = value
+	}
+	return current, true
+}
+
+func resolveMapValue(value any, key string) (any, bool) {
+	switch typed := value.(type) {
+	case map[string]any:
+		v, ok := typed[key]
+		return v, ok
+	case map[string]string:
+		v, ok := typed[key]
+		return v, ok
+	default:
+		return nil, false
+	}
+}
+
+func (e *Executor) emitAudit(ctx context.Context, event AuditEvent) error {
+	if e.AuditStore != nil {
+		if err := e.AuditStore.Record(ctx, event); err != nil {
+			return fmt.Errorf("audit store: %w", err)
+		}
+	}
+	if e.AuditHook != nil {
+		e.AuditHook(ctx, event)
+	}
+	return nil
 }
