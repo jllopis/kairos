@@ -415,6 +415,32 @@ func TestSubscribeToTask_InvalidName(t *testing.T) {
 	}
 }
 
+func TestSubscribeToTask_PlainIDName(t *testing.T) {
+	store := NewMemoryTaskStore()
+	task, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	if err := store.UpdateStatus(context.Background(), task.Id, newStatus(a2av1.TaskState_TASK_STATE_COMPLETED, task.History[0])); err != nil {
+		t.Fatalf("UpdateStatus error: %v", err)
+	}
+
+	handler := &SimpleHandler{Store: store}
+	stream := newStreamRecorder()
+
+	req := &a2av1.SubscribeToTaskRequest{Name: task.Id}
+	if err := handler.SubscribeToTask(req, stream); err != nil {
+		t.Fatalf("SubscribeToTask error: %v", err)
+	}
+	if len(stream.snapshot()) != 1 {
+		t.Fatalf("expected 1 stream response, got %d", len(stream.snapshot()))
+	}
+}
+
 func TestPushConfig_InvalidNames(t *testing.T) {
 	handler := &SimpleHandler{PushCfgs: NewMemoryPushConfigStore()}
 
