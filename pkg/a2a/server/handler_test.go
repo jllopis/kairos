@@ -580,6 +580,33 @@ func TestListTaskPushNotificationConfig_PageSize(t *testing.T) {
 	}
 }
 
+func TestListTaskPushNotificationConfig_Empty(t *testing.T) {
+	store := NewMemoryTaskStore()
+	task, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+
+	handler := &SimpleHandler{
+		Store:    store,
+		PushCfgs: NewMemoryPushConfigStore(),
+	}
+
+	resp, err := handler.ListTaskPushNotificationConfig(context.Background(), &a2av1.ListTaskPushNotificationConfigRequest{
+		Parent: fmt.Sprintf("tasks/%s", task.Id),
+	})
+	if err != nil {
+		t.Fatalf("ListTaskPushNotificationConfig error: %v", err)
+	}
+	if len(resp.GetConfigs()) != 0 {
+		t.Fatalf("expected 0 configs, got %d", len(resp.GetConfigs()))
+	}
+}
+
 func TestSubscribeToTask_UpdatesAndArtifacts(t *testing.T) {
 	store := NewMemoryTaskStore()
 	task, err := store.CreateTask(context.Background(), &a2av1.Message{
