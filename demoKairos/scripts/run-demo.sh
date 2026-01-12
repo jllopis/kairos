@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-QDRANT_URL="${QDRANT_URL:-http://localhost:6333}"
+QDRANT_URL="${QDRANT_URL:-localhost:6334}"
 OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
 EMBED_MODEL="${EMBED_MODEL:-nomic-embed-text}"
 
@@ -14,6 +14,35 @@ ORCH_ADDR="${ORCH_ADDR:-:9030}"
 log() {
   printf "[%s] %s\n" "$(date +%H:%M:%S)" "$*"
 }
+
+check_port() {
+  local name=$1
+  local addr=$2
+  local host=${addr%%:*}
+  local port=${addr##*:}
+  if ! (echo >"/dev/tcp/${host}/${port}") >/dev/null 2>&1; then
+    log "WARN: ${name} not reachable at ${addr}"
+    return 1
+  fi
+  return 0
+}
+
+check_http() {
+  local name=$1
+  local url=$2
+  local hostport=${url#http://}
+  hostport=${hostport#https://}
+  local host=${hostport%%:*}
+  local port=${hostport##*:}
+  if ! (echo >"/dev/tcp/${host}/${port}") >/dev/null 2>&1; then
+    log "WARN: ${name} not reachable at ${url}"
+    return 1
+  fi
+  return 0
+}
+
+check_port "Qdrant gRPC" "$QDRANT_URL" || log "Hint: Qdrant gRPC defaults to localhost:6334."
+check_http "Ollama HTTP" "$OLLAMA_URL" || log "Hint: Ollama defaults to http://localhost:11434."
 
 log "Starting knowledge agent..."
 ( cd "$ROOT_DIR" && go run ./cmd/knowledge --addr "$KNOWLEDGE_ADDR" --qdrant "$QDRANT_URL" --embed-model "$EMBED_MODEL" ) &
