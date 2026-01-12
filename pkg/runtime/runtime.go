@@ -5,7 +5,9 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
+	"github.com/jllopis/kairos/pkg/config"
 	"github.com/jllopis/kairos/pkg/core"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -21,13 +23,30 @@ type Runtime interface {
 
 // LocalRuntime is a simple in-process runtime.
 type LocalRuntime struct {
-	started bool
-	tracer  trace.Tracer
+	started               bool
+	tracer                trace.Tracer
+	approvalSweepInterval time.Duration
+	approvalExpirers      []ApprovalExpirer
+	approvalSweepCancel   context.CancelFunc
+	approvalSweepDone     chan struct{}
+	approvalSweepTimeout  time.Duration
 }
 
 // NewLocal creates a new LocalRuntime instance.
 func NewLocal() *LocalRuntime {
 	return &LocalRuntime{}
+}
+
+// NewLocalFromConfig creates a LocalRuntime with approval sweep settings from config.
+func NewLocalFromConfig(cfg config.RuntimeConfig) *LocalRuntime {
+	rt := NewLocal()
+	if cfg.ApprovalSweepIntervalSeconds > 0 {
+		rt.SetApprovalSweepInterval(time.Duration(cfg.ApprovalSweepIntervalSeconds) * time.Second)
+	}
+	if cfg.ApprovalSweepTimeoutSeconds > 0 {
+		rt.SetApprovalSweepTimeout(time.Duration(cfg.ApprovalSweepTimeoutSeconds) * time.Second)
+	}
+	return rt
 }
 
 // Start marks the runtime as ready.
@@ -36,12 +55,14 @@ func (r *LocalRuntime) Start(_ context.Context) error {
 	if r.tracer == nil {
 		r.tracer = otel.Tracer("kairos/runtime")
 	}
+	r.startApprovalSweeper()
 	return nil
 }
 
 // Stop marks the runtime as stopped.
 func (r *LocalRuntime) Stop(_ context.Context) error {
 	r.started = false
+	r.stopApprovalSweeper()
 	return nil
 }
 

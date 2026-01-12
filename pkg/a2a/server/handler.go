@@ -5,14 +5,17 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
+	"github.com/jllopis/kairos/pkg/governance"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // Executor runs a task and returns a response message payload.
@@ -22,10 +25,14 @@ type Executor interface {
 
 // SimpleHandler implements core A2A operations using a TaskStore and Executor.
 type SimpleHandler struct {
-	Store    TaskStore
-	Executor Executor
-	Card     *a2av1.AgentCard
-	PushCfgs PushConfigStore
+	Store           TaskStore
+	Executor        Executor
+	Card            *a2av1.AgentCard
+	PushCfgs        PushConfigStore
+	PolicyEngine    governance.PolicyEngine
+	ApprovalHook    governance.ApprovalHook
+	ApprovalStore   ApprovalStore
+	ApprovalTimeout time.Duration
 }
 
 // AgentCard exposes the configured agent card for capability checks.
@@ -41,6 +48,10 @@ func (h *SimpleHandler) SendMessage(ctx context.Context, req *a2av1.SendMessageR
 	message := req.GetRequest()
 	if err := ValidateMessage(message); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	if response, ok, err := h.applyPolicy(ctx, message); ok {
+		return response, err
 	}
 
 	task, _, err := h.ensureTask(ctx, message)
@@ -74,6 +85,14 @@ func (h *SimpleHandler) SendStreamingMessage(req *a2av1.SendMessageRequest, stre
 	message := req.GetRequest()
 	if err := ValidateMessage(message); err != nil {
 		return status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	handled, err := h.applyStreamingPolicy(stream.Context(), message, stream)
+	if err != nil {
+		return err
+	}
+	if handled {
+		return nil
 	}
 
 	task, _, err := h.ensureTask(stream.Context(), message)
@@ -476,4 +495,316 @@ func isTerminalState(state a2av1.TaskState) bool {
 	default:
 		return false
 	}
+}
+
+func (h *SimpleHandler) applyPolicy(ctx context.Context, message *a2av1.Message) (*a2av1.SendMessageResponse, bool, error) {
+	if h.PolicyEngine == nil {
+		return nil, false, nil
+	}
+	action := h.policyAction(message)
+	decision := h.PolicyEngine.Evaluate(ctx, action)
+	if decision.IsPending() && h.ApprovalHook != nil {
+		decision = h.ApprovalHook.Request(ctx, action)
+	}
+	if decision.IsAllowed() {
+		return nil, false, nil
+	}
+	task, _, err := h.ensureTask(ctx, message)
+	if err != nil {
+		return nil, true, err
+	}
+	message.TaskId = task.Id
+	message.ContextId = task.ContextId
+	approvalID := ""
+	expiresAt := time.Time{}
+	if decision.IsPending() && h.ApprovalStore != nil {
+		expiresAt = approvalExpiry(h.ApprovalTimeout)
+		if record, err := h.ApprovalStore.Create(ctx, ApprovalRecord{
+			TaskID:    task.Id,
+			ContextID: task.ContextId,
+			Status:    ApprovalStatusPending,
+			Reason:    decision.Reason,
+			ExpiresAt: expiresAt,
+			Message:   message,
+		}); err == nil {
+			approvalID = record.ID
+		}
+	}
+	state, reason := policyStatus(decision)
+	statusMsg := ResponseMessage(reason, task.ContextId, task.Id)
+	if approvalID != "" {
+		metadata := map[string]string{"approval_id": approvalID}
+		if !expiresAt.IsZero() {
+			metadata["approval_expires_at"] = expiresAt.UTC().Format(time.RFC3339)
+		}
+		statusMsg.Metadata = mergeMetadata(statusMsg.Metadata, metadata)
+	}
+	_ = h.Store.AppendHistory(ctx, task.Id, statusMsg)
+	status := newStatus(state, statusMsg)
+	_ = h.Store.UpdateStatus(ctx, task.Id, status)
+	task.Status = status
+	return &a2av1.SendMessageResponse{Payload: &a2av1.SendMessageResponse_Task{Task: task}}, true, nil
+}
+
+func (h *SimpleHandler) applyStreamingPolicy(ctx context.Context, message *a2av1.Message, stream a2av1.A2AService_SendStreamingMessageServer) (bool, error) {
+	if h.PolicyEngine == nil {
+		return false, nil
+	}
+	action := h.policyAction(message)
+	decision := h.PolicyEngine.Evaluate(ctx, action)
+	if decision.IsPending() && h.ApprovalHook != nil {
+		decision = h.ApprovalHook.Request(ctx, action)
+	}
+	if decision.IsAllowed() {
+		return false, nil
+	}
+	task, _, err := h.ensureTask(ctx, message)
+	if err != nil {
+		return true, err
+	}
+	message.TaskId = task.Id
+	message.ContextId = task.ContextId
+	approvalID := ""
+	expiresAt := time.Time{}
+	if decision.IsPending() && h.ApprovalStore != nil {
+		expiresAt = approvalExpiry(h.ApprovalTimeout)
+		if record, err := h.ApprovalStore.Create(ctx, ApprovalRecord{
+			TaskID:    task.Id,
+			ContextID: task.ContextId,
+			Status:    ApprovalStatusPending,
+			Reason:    decision.Reason,
+			ExpiresAt: expiresAt,
+			Message:   message,
+		}); err == nil {
+			approvalID = record.ID
+		}
+	}
+	if err := stream.Send(&a2av1.StreamResponse{Payload: &a2av1.StreamResponse_Task{Task: task}}); err != nil {
+		return true, err
+	}
+	state, reason := policyStatus(decision)
+	statusMsg := ResponseMessage(reason, task.ContextId, task.Id)
+	if approvalID != "" {
+		metadata := map[string]string{"approval_id": approvalID}
+		if !expiresAt.IsZero() {
+			metadata["approval_expires_at"] = expiresAt.UTC().Format(time.RFC3339)
+		}
+		statusMsg.Metadata = mergeMetadata(statusMsg.Metadata, metadata)
+	}
+	_ = h.Store.AppendHistory(ctx, task.Id, statusMsg)
+	status := newStatus(state, statusMsg)
+	_ = h.Store.UpdateStatus(ctx, task.Id, status)
+	task.Status = status
+	statusEvent := &a2av1.TaskStatusUpdateEvent{
+		TaskId:    task.Id,
+		ContextId: task.ContextId,
+		Status:    status,
+		Final:     state == a2av1.TaskState_TASK_STATE_REJECTED,
+	}
+	return true, stream.Send(&a2av1.StreamResponse{Payload: &a2av1.StreamResponse_StatusUpdate{StatusUpdate: statusEvent}})
+}
+
+func (h *SimpleHandler) policyAction(message *a2av1.Message) governance.Action {
+	name := "a2a-handler"
+	if h.Card != nil && strings.TrimSpace(h.Card.Name) != "" {
+		name = h.Card.Name
+	}
+	return governance.Action{
+		Type:     governance.ActionAgent,
+		Name:     name,
+		Metadata: policyMetadata(message),
+	}
+}
+
+func policyMetadata(message *a2av1.Message) map[string]string {
+	if message == nil {
+		return nil
+	}
+	meta := map[string]string{
+		"message_id": message.GetMessageId(),
+		"context_id": message.GetContextId(),
+		"task_id":    message.GetTaskId(),
+	}
+	extra := message.GetMetadata()
+	if extra == nil {
+		return meta
+	}
+	for _, key := range []string{"caller", "agent", "tenant"} {
+		if val, ok := extra.Fields[key]; ok {
+			if str := val.GetStringValue(); str != "" {
+				meta[key] = str
+			}
+		}
+	}
+	return meta
+}
+
+func policyStatus(decision governance.Decision) (a2av1.TaskState, string) {
+	reason := strings.TrimSpace(decision.Reason)
+	if decision.IsPending() {
+		if reason == "" {
+			reason = "approval required"
+		}
+		return a2av1.TaskState_TASK_STATE_INPUT_REQUIRED, reason
+	}
+	if reason == "" {
+		reason = "blocked by policy"
+	}
+	return a2av1.TaskState_TASK_STATE_REJECTED, reason
+}
+
+// Approve resolves a pending approval and executes the task.
+func (h *SimpleHandler) Approve(ctx context.Context, id, reason string) (*a2av1.Task, error) {
+	if h.ApprovalStore == nil {
+		return nil, status.Error(codes.FailedPrecondition, "approval store not configured")
+	}
+	approval, err := h.ApprovalStore.Get(ctx, id)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	if approval.Status == ApprovalStatusApproved {
+		return h.Store.GetTask(ctx, approval.TaskID, 0, true)
+	}
+	if approval.Status == ApprovalStatusRejected {
+		return h.Store.GetTask(ctx, approval.TaskID, 0, true)
+	}
+	if isApprovalExpired(approval) {
+		_, _ = h.ApprovalStore.UpdateStatus(ctx, id, ApprovalStatusRejected, "approval expired")
+		return h.Reject(ctx, id, "approval expired")
+	}
+	if approval.Message == nil {
+		return nil, status.Error(codes.FailedPrecondition, "approval has no message")
+	}
+	if _, err := h.ApprovalStore.UpdateStatus(ctx, id, ApprovalStatusApproved, reason); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	task, err := h.Store.GetTask(ctx, approval.TaskID, 0, true)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	if isTerminalState(task.GetStatus().GetState()) {
+		return task, nil
+	}
+	if _, _, err := h.executeTask(ctx, task, approval.Message); err != nil {
+		return nil, err
+	}
+	return h.Store.GetTask(ctx, approval.TaskID, 0, true)
+}
+
+// Reject resolves a pending approval as rejected.
+func (h *SimpleHandler) Reject(ctx context.Context, id, reason string) (*a2av1.Task, error) {
+	if h.ApprovalStore == nil {
+		return nil, status.Error(codes.FailedPrecondition, "approval store not configured")
+	}
+	approval, err := h.ApprovalStore.Get(ctx, id)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	if approval.Status == ApprovalStatusRejected {
+		return h.Store.GetTask(ctx, approval.TaskID, 0, true)
+	}
+	if isApprovalExpired(approval) {
+		_, _ = h.ApprovalStore.UpdateStatus(ctx, id, ApprovalStatusRejected, "approval expired")
+	}
+	if _, err := h.ApprovalStore.UpdateStatus(ctx, id, ApprovalStatusRejected, reason); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	task, err := h.Store.GetTask(ctx, approval.TaskID, 0, true)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	statusMsg := ResponseMessage(reason, task.ContextId, task.Id)
+	statusMsg.Metadata = mergeMetadata(statusMsg.Metadata, map[string]string{
+		"approval_id": id,
+	})
+	_ = h.Store.AppendHistory(ctx, task.Id, statusMsg)
+	status := newStatus(a2av1.TaskState_TASK_STATE_REJECTED, statusMsg)
+	_ = h.Store.UpdateStatus(ctx, task.Id, status)
+	task.Status = status
+	return task, nil
+}
+
+// GetApproval returns a single approval record.
+func (h *SimpleHandler) GetApproval(ctx context.Context, id string) (*ApprovalRecord, error) {
+	if h.ApprovalStore == nil {
+		return nil, status.Error(codes.FailedPrecondition, "approval store not configured")
+	}
+	record, err := h.ApprovalStore.Get(ctx, id)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	return record, nil
+}
+
+// ListApprovals returns approval records.
+func (h *SimpleHandler) ListApprovals(ctx context.Context, filter ApprovalFilter) ([]*ApprovalRecord, error) {
+	if h.ApprovalStore == nil {
+		return nil, status.Error(codes.FailedPrecondition, "approval store not configured")
+	}
+	return h.ApprovalStore.List(ctx, filter)
+}
+
+func mergeMetadata(existing *structpb.Struct, values map[string]string) *structpb.Struct {
+	if len(values) == 0 {
+		return existing
+	}
+	out := map[string]interface{}{}
+	if existing != nil {
+		for key, value := range existing.AsMap() {
+			out[key] = value
+		}
+	}
+	for key, value := range values {
+		out[key] = value
+	}
+	merged, err := structpb.NewStruct(out)
+	if err != nil {
+		return existing
+	}
+	return merged
+}
+
+// ExpireApprovals rejects pending approvals that passed their expiry.
+func (h *SimpleHandler) ExpireApprovals(ctx context.Context) (int, error) {
+	if h.ApprovalStore == nil {
+		return 0, status.Error(codes.FailedPrecondition, "approval store not configured")
+	}
+	now := time.Now().UTC()
+	records, err := h.ApprovalStore.List(ctx, ApprovalFilter{
+		Status:         ApprovalStatusPending,
+		ExpiringBefore: now,
+	})
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	expired := 0
+	for _, record := range records {
+		if record == nil {
+			continue
+		}
+		if _, err := h.Reject(ctx, record.ID, "approval expired"); err == nil {
+			expired++
+		}
+	}
+	return expired, nil
+}
+
+func approvalExpiry(timeout time.Duration) time.Time {
+	if timeout == 0 {
+		return time.Time{}
+	}
+	if timeout < 0 {
+		return time.Now().UTC().Add(timeout)
+	}
+	return time.Now().UTC().Add(timeout)
+}
+
+func isApprovalExpired(record *ApprovalRecord) bool {
+	if record == nil {
+		return false
+	}
+	if record.ExpiresAt.IsZero() {
+		return false
+	}
+	return time.Now().UTC().After(record.ExpiresAt)
 }

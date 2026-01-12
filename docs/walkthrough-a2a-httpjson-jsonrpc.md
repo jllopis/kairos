@@ -26,6 +26,7 @@ func main() {
 		Executor: myExecutor{}, // implements server.Executor
 		Card:     myAgentCard(),
 		PushCfgs: server.NewMemoryPushConfigStore(),
+		ApprovalStore: server.NewMemoryApprovalStore(),
 	}
 
 	srv := httpjson.New(handler)
@@ -85,6 +86,30 @@ SSE events contain JSON-encoded `StreamResponse` values:
 data: {"statusUpdate":{"status":{"state":"TASK_STATE_WORKING"}}}
 ```
 
+### Approvals (HITL)
+
+If policy evaluation returns a pending decision, the task transitions to
+`TASK_STATE_INPUT_REQUIRED` and includes an `approval_id` in the status message
+metadata (plus `approval_expires_at` if a timeout is configured). You can list
+approvals or approve/reject them:
+
+```bash
+curl -s http://localhost:8080/approvals?status=pending
+curl -s http://localhost:8080/approvals?status=pending&expiresBefore=1735689600000
+```
+
+```bash
+curl -s http://localhost:8080/approvals/APPROVAL_ID:approve \
+  -H 'Content-Type: application/json' \
+  -d '{"reason":"approved by operator"}'
+```
+
+```bash
+curl -s http://localhost:8080/approvals/APPROVAL_ID:reject \
+  -H 'Content-Type: application/json' \
+  -d '{"reason":"blocked by policy"}'
+```
+
 ## JSON-RPC binding
 
 Minimal server setup:
@@ -106,6 +131,7 @@ func main() {
 		Executor: myExecutor{},
 		Card:     myAgentCard(),
 		PushCfgs: server.NewMemoryPushConfigStore(),
+		ApprovalStore: server.NewMemoryApprovalStore(),
 	}
 
 	srv := jsonrpc.New(handler)
@@ -130,6 +156,32 @@ curl -s http://localhost:8081 \
         "taskId": "task-1"
       }
     }
+  }'
+```
+
+List pending approvals:
+
+```bash
+curl -s http://localhost:8081 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "1",
+    "method": "ListApprovals",
+    "params": {"status": "pending"}
+  }'
+```
+
+Approve an approval:
+
+```bash
+curl -s http://localhost:8081 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "2",
+    "method": "ApproveApproval",
+    "params": {"id": "APPROVAL_ID", "reason": "approved by operator"}
   }'
 ```
 

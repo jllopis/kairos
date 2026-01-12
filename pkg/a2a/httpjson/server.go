@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jllopis/kairos/pkg/a2a/server"
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
@@ -63,6 +64,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.handleExtendedAgentCard(w, r)
+		return
+	case "approvals":
+		s.handleApprovals(w, r, segments)
 		return
 	default:
 		http.NotFound(w, r)
@@ -150,6 +154,45 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request, segments []
 	}
 }
 
+func (s *Server) handleApprovals(w http.ResponseWriter, r *http.Request, segments []string) {
+	handler, ok := s.Handler.(server.ApprovalHandler)
+	if !ok {
+		writeError(w, status.Error(codes.Unimplemented, "approvals not supported"))
+		return
+	}
+	if len(segments) == 1 {
+		if r.Method != http.MethodGet {
+			http.NotFound(w, r)
+			return
+		}
+		s.handleListApprovals(w, r, handler)
+		return
+	}
+	name := segments[1]
+	switch {
+	case strings.HasSuffix(name, ":approve"):
+		if r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		name = strings.TrimSuffix(name, ":approve")
+		s.handleApprove(w, r, handler, name)
+	case strings.HasSuffix(name, ":reject"):
+		if r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		name = strings.TrimSuffix(name, ":reject")
+		s.handleReject(w, r, handler, name)
+	default:
+		if r.Method != http.MethodGet {
+			http.NotFound(w, r)
+			return
+		}
+		s.handleGetApproval(w, r, handler, name)
+	}
+}
+
 func (s *Server) handleGetTask(w http.ResponseWriter, r *http.Request, name string) {
 	req := &a2av1.GetTaskRequest{Name: name}
 	if history := r.URL.Query().Get("historyLength"); history != "" {
@@ -208,6 +251,66 @@ func (s *Server) handleCancelTask(w http.ResponseWriter, r *http.Request, name s
 		return
 	}
 	writeProtoJSON(w, resp)
+}
+
+func (s *Server) handleGetApproval(w http.ResponseWriter, r *http.Request, handler server.ApprovalHandler, id string) {
+	record, err := handler.GetApproval(r.Context(), id)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, record)
+}
+
+func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request, handler server.ApprovalHandler) {
+	query := r.URL.Query()
+	filter := server.ApprovalFilter{
+		TaskID:    query.Get("taskId"),
+		ContextID: query.Get("contextId"),
+		Status:    server.ApprovalStatus(query.Get("status")),
+	}
+	if filter.Status != "" && filter.Status != server.ApprovalStatusPending && filter.Status != server.ApprovalStatusApproved && filter.Status != server.ApprovalStatusRejected {
+		writeError(w, status.Error(codes.InvalidArgument, "invalid status"))
+		return
+	}
+	if limit := parseInt32(query.Get("limit")); limit != nil {
+		filter.Limit = int(*limit)
+	}
+	if expiresBefore := parseInt64(query.Get("expiresBefore")); expiresBefore > 0 {
+		filter.ExpiringBefore = time.UnixMilli(expiresBefore).UTC()
+	}
+	records, err := handler.ListApprovals(r.Context(), filter)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, records)
+}
+
+func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request, handler server.ApprovalHandler, id string) {
+	var payload struct {
+		Reason string `json:"reason"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&payload)
+	task, err := handler.Approve(r.Context(), id, payload.Reason)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeProtoJSON(w, task)
+}
+
+func (s *Server) handleReject(w http.ResponseWriter, r *http.Request, handler server.ApprovalHandler, id string) {
+	var payload struct {
+		Reason string `json:"reason"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&payload)
+	task, err := handler.Reject(r.Context(), id, payload.Reason)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeProtoJSON(w, task)
 }
 
 func (s *Server) handleSubscribeTask(w http.ResponseWriter, r *http.Request, name string) {
@@ -311,6 +414,11 @@ func writeProtoJSON(w http.ResponseWriter, msg proto.Message) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(payload)
+}
+
+func writeJSON(w http.ResponseWriter, payload any) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(payload)
 }
 
 func writeError(w http.ResponseWriter, err error) {

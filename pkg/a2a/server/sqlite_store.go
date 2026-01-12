@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -68,6 +69,19 @@ func ensureSQLiteSchema(db *sql.DB) error {
 		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%s_status ON %s(status_state);`, taskTable, taskTable),
 		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%s_updated ON %s(updated_at);`, taskTable, taskTable),
 		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
+			id TEXT PRIMARY KEY,
+			task_id TEXT NOT NULL,
+			context_id TEXT NOT NULL,
+			status TEXT NOT NULL,
+			reason TEXT NOT NULL,
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL,
+			message_json BLOB NOT NULL,
+			expires_at INTEGER NOT NULL DEFAULT 0
+		);`, approvalTable),
+		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%s_task ON %s(task_id);`, approvalTable, approvalTable),
+		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%s_status ON %s(status);`, approvalTable, approvalTable),
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 			task_id TEXT NOT NULL,
 			config_id TEXT NOT NULL,
 			config_json BLOB NOT NULL,
@@ -80,7 +94,21 @@ func ensureSQLiteSchema(db *sql.DB) error {
 			return err
 		}
 	}
+	if err := ensureApprovalExpiryColumn(db); err != nil {
+		return err
+	}
 	return nil
+}
+
+func ensureApprovalExpiryColumn(db *sql.DB) error {
+	_, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN expires_at INTEGER NOT NULL DEFAULT 0", approvalTable))
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+		return nil
+	}
+	return err
 }
 
 // CreateTask persists a new task seeded from the incoming message.

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/jllopis/kairos/pkg/agent"
@@ -21,7 +22,7 @@ func main() {
 	ctx := context.Background()
 
 	// 1. Load Configuration
-	cfg, err := config.Load("")
+	cfg, err := config.LoadWithCLI(os.Args[1:])
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}

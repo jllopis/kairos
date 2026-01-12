@@ -26,14 +26,14 @@
 - A2A/ACP for discovery, delegation, and remote execution.
 - AGENTS.md auto-loading on startup to enforce repo rules.
 
-### A2A integration plan (MVP)
-- gRPC binding first (streaming required in MVP).
-- Go types generated directly from `pkg/a2a/proto/a2a.proto`.
+### A2A implementation (current)
+- gRPC binding with streaming (SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask).
+- Go types generated directly from `pkg/a2a/proto/a2a.proto` (`scripts/gen-a2a.sh`).
 - AgentCard publishing + discovery, plus A2AService server/client.
 - Task/Message/Artifact mapping with streaming responses.
- - HTTP+JSON and JSON-RPC bindings (`pkg/a2a/httpjson`, `pkg/a2a/jsonrpc`).
- - Task store + push config store backends (in-memory + SQLite).
- - Demo multi-agent flow (demoKairos) exercising delegation (orchestrator -> knowledge/spreadsheet).
+- HTTP+JSON and JSON-RPC server bindings (`pkg/a2a/httpjson`, `pkg/a2a/jsonrpc`) with SSE for streaming.
+- Task store + push config store backends (in-memory + SQLite).
+- Demo multi-agent flow (demoKairos) exercising delegation (orchestrator -> knowledge/spreadsheet).
 
 ### A2A storage backends
 - In-memory stores: `MemoryTaskStore`, `MemoryPushConfigStore` (default in handlers).
@@ -107,6 +107,19 @@ go test ./pkg/telemetry -run TestOTLPSmoke -count=1
 3) Build plan (explicit graph or emergent).
 4) Execute steps with context propagation.
 5) Emit traces/metrics/logs and audit events.
+
+## Configuration sources
+- File: `~/.kairos/settings.json` or `./.kairos/settings.json`.
+- Env: `KAIROS_*` (maps to config keys).
+- CLI: `--config=/path/to/settings.json` and repeatable `--set key=value`.
+Precedence: defaults < file < env < CLI.
+Examples:
+```bash
+go run ./examples/basic-agent --config=./.kairos/settings.json \
+  --set llm.provider=ollama \
+  --set telemetry.exporter=stdout
+```
+See `docs/CONFIGURATION.md` for the full guide.
 
 ## Agent loop options
 - `agent.WithDisableActionFallback(true)` disables legacy "Action:" parsing in the ReAct loop when tool calls are supported.

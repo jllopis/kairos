@@ -46,7 +46,7 @@ Follow-ups (post-milestone):
 Acceptance: US-01 complete.
 Notes:
 - Core MCP path works via config + stdio/http client/server; hardening now defaults in the client.
-- Exposing retry/timeout/cache policy in config is still pending.
+- MCP retry/timeout/cache policy is configurable in `mcp.servers` settings.
 
 ## Phase 2: Observability baseline (Estimate: M)
 Goals: OTel traces/metrics/logs from runtime.
@@ -109,9 +109,10 @@ Tasks:
 - [x] Implement ListTasks pagination with page tokens.
 - [x] SQLite-backed TaskStore/PushConfigStore (no CGO) for persistence.
 - [x] Planner-driven multi-agent demo (demoKairos) with A2A + MCP + OTLP.
-Acceptance: US-02 (MVP) complete; distributed trace continuity pending.
+Acceptance: US-02 (MVP) complete with trace continuity.
 Notes:
-- MVP binding is gRPC-first for streaming stability; HTTP+JSON/JSON-RPC follow later.
+- MVP binding is gRPC-first for streaming stability; HTTP+JSON/JSON-RPC server bindings are implemented.
+ - HTTP+JSON/JSON-RPC client helpers are available for parity with server bindings.
 - Demo feedback:
   - Add a bootstrap helper for agents (config + telemetry + llm + mcp) to reduce boilerplate.
   - Provide a lightweight in-process MCP server helper for tool-only agents.
@@ -140,7 +141,9 @@ Tasks:
 Follow-ups (post-milestone):
 - [x] Config-driven policy rule loading.
 - [x] Policy enforcement for A2A/MCP calls (beyond tool gating).
-Acceptance: US-07, US-08 complete.
+- [x] Server-side policy enforcement for A2A handlers.
+- [~] Human-in-the-loop policy flow (approvals + endpoints).
+Acceptance: US-07 complete; US-08 in progress.
 
 ## Phase 8: UI/CLI (Estimate: L)
 Goals: operator visibility and control.
@@ -158,3 +161,4 @@ Acceptance: US-09 complete.
 
 ## Tracking Updates
 Update checkboxes per task and add brief notes under each phase if needed.
+See `docs/CONFIGURATION.md` for configuration sources and precedence.

@@ -310,12 +310,16 @@ func (c *Client) ensureAllowed(ctx context.Context, method string) error {
 			"method": method,
 		},
 	})
-	if decision.Allowed {
+	if decision.IsAllowed() {
 		return nil
 	}
 	reason := strings.TrimSpace(decision.Reason)
 	if reason == "" {
-		reason = "blocked by policy"
+		if decision.IsPending() {
+			reason = "approval required"
+		} else {
+			reason = "blocked by policy"
+		}
 	}
 	return status.Error(codes.PermissionDenied, reason)
 }

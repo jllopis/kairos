@@ -2,8 +2,11 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/knadh/koanf/parsers/yaml"
@@ -21,6 +24,7 @@ type Config struct {
 	Memory     MemoryConfig                   `koanf:"memory"`
 	MCP        MCPConfig                      `koanf:"mcp"`
 	Telemetry  TelemetryConfig                `koanf:"telemetry"`
+	Runtime    RuntimeConfig                  `koanf:"runtime"`
 	Governance GovernanceConfig               `koanf:"governance"`
 }
 
@@ -86,9 +90,16 @@ type TelemetryConfig struct {
 	OTLPTimeoutSeconds int    `koanf:"otlp_timeout_seconds"`
 }
 
+// RuntimeConfig configures runtime-level behaviors.
+type RuntimeConfig struct {
+	ApprovalSweepIntervalSeconds int `koanf:"approval_sweep_interval_seconds"`
+	ApprovalSweepTimeoutSeconds  int `koanf:"approval_sweep_timeout_seconds"`
+}
+
 // GovernanceConfig defines policy and instruction loading options.
 type GovernanceConfig struct {
-	Policies []PolicyRuleConfig `koanf:"policies"`
+	Policies               []PolicyRuleConfig `koanf:"policies"`
+	ApprovalTimeoutSeconds int                `koanf:"approval_timeout_seconds"`
 }
 
 // PolicyRuleConfig defines a single policy rule.
@@ -105,6 +116,22 @@ var k = koanf.New(".")
 
 // Load resolves configuration from defaults, files, and environment variables.
 func Load(path string) (*Config, error) {
+	return loadWithOverrides(path, nil)
+}
+
+// LoadWithCLI resolves configuration and applies CLI overrides from args.
+// Supported flags:
+// - --config=/path/to/settings.json
+// - --set key=value (repeatable)
+func LoadWithCLI(args []string) (*Config, error) {
+	path, overrides, err := parseCLIOverrides(args)
+	if err != nil {
+		return nil, err
+	}
+	return loadWithOverrides(path, overrides)
+}
+
+func loadWithOverrides(path string, overrides map[string]any) (*Config, error) {
 	// Defaults
 	k.Set("log.level", "info")
 	k.Set("log.format", "text")
@@ -126,7 +153,11 @@ func Load(path string) (*Config, error) {
 	k.Set("telemetry.otlp_insecure", true)
 	k.Set("telemetry.otlp_timeout_seconds", 10)
 
+	k.Set("runtime.approval_sweep_interval_seconds", 0)
+	k.Set("runtime.approval_sweep_timeout_seconds", 0)
+
 	k.Set("governance.policies", []PolicyRuleConfig{})
+	k.Set("governance.approval_timeout_seconds", 0)
 
 	// 1. Load from file
 	if path != "" {
@@ -149,6 +180,12 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
+	if len(overrides) > 0 {
+		for key, value := range overrides {
+			_ = k.Set(key, value)
+		}
+	}
+
 	normalizeMCPServers()
 	normalizeMCPServerTransport()
 	normalizeTelemetryConfig()
@@ -159,6 +196,85 @@ func Load(path string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func parseCLIOverrides(args []string) (string, map[string]any, error) {
+	overrides := make(map[string]any)
+	var path string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			break
+		}
+		if arg == "--config" {
+			if i+1 >= len(args) {
+				return "", nil, fmt.Errorf("missing value for --config")
+			}
+			path = args[i+1]
+			i++
+			continue
+		}
+		if strings.HasPrefix(arg, "--config=") {
+			path = strings.TrimPrefix(arg, "--config=")
+			continue
+		}
+		if arg == "--set" {
+			if i+1 >= len(args) {
+				return "", nil, fmt.Errorf("missing value for --set")
+			}
+			key, value, err := parseKeyValue(args[i+1])
+			if err != nil {
+				return "", nil, err
+			}
+			overrides[key] = value
+			i++
+			continue
+		}
+		if strings.HasPrefix(arg, "--set=") {
+			key, value, err := parseKeyValue(strings.TrimPrefix(arg, "--set="))
+			if err != nil {
+				return "", nil, err
+			}
+			overrides[key] = value
+			continue
+		}
+	}
+	return path, overrides, nil
+}
+
+func parseKeyValue(raw string) (string, any, error) {
+	parts := strings.SplitN(raw, "=", 2)
+	if len(parts) != 2 {
+		return "", nil, fmt.Errorf("invalid --set value %q (expected key=value)", raw)
+	}
+	key := strings.TrimSpace(parts[0])
+	if key == "" {
+		return "", nil, fmt.Errorf("invalid --set key in %q", raw)
+	}
+	value := parseOverrideValue(strings.TrimSpace(parts[1]))
+	return key, value, nil
+}
+
+func parseOverrideValue(raw string) any {
+	if raw == "" {
+		return ""
+	}
+	if strings.HasPrefix(raw, "{") || strings.HasPrefix(raw, "[") || strings.HasPrefix(raw, "\"") {
+		var value any
+		if err := json.Unmarshal([]byte(raw), &value); err == nil {
+			return value
+		}
+	}
+	if value, err := strconv.ParseBool(raw); err == nil {
+		return value
+	}
+	if value, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		return value
+	}
+	if value, err := strconv.ParseFloat(raw, 64); err == nil {
+		return value
+	}
+	return raw
 }
 
 // AgentConfigFor returns the effective agent config for a specific agent id.

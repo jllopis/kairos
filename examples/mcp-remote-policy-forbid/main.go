@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/jllopis/kairos/pkg/config"
@@ -42,7 +43,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	cfg, err := config.Load("")
+	cfg, err := config.LoadWithCLI(os.Args[1:])
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}

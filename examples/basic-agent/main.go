@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/jllopis/kairos/pkg/agent"
 	"github.com/jllopis/kairos/pkg/config"
@@ -17,7 +18,7 @@ func main() {
 
 	// 1. Load Configuration
 	// Example: KAIROS_AGENT_DISABLE_ACTION_FALLBACK=true
-	cfg, err := config.Load("")
+	cfg, err := config.LoadWithCLI(os.Args[1:])
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}

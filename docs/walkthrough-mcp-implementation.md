@@ -83,30 +83,43 @@ func main() {
 ### runnable example (config-driven)
 
 See `examples/mcp-agent/main.go` for a working end-to-end sample. It reads
-`mcp.servers` from a `kairos.json`-style config file.
+`mcp.servers` from a `kairos.json`-style config file (legacy `mcpServers`
+is still accepted for compatibility).
 
 Example config (stdio):
 
 ```json
 {
-  "mcpServers": {
-    "fetch": {
-      "transport": "stdio",
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "mcp/fetch"]
+  "mcp": {
+    "servers": {
+      "fetch": {
+        "transport": "stdio",
+        "command": "docker",
+        "args": ["run", "-i", "--rm", "mcp/fetch"]
+      }
     }
   }
 }
+```
+
+CLI overrides are supported via `--config` and repeatable `--set` flags:
+
+```bash
+go run ./examples/mcp-agent --config=./.kairos/settings.json \
+  --set llm.provider=ollama \
+  --set mcp.servers.fetch.transport=stdio
 ```
 
 Example config (streamable HTTP):
 
 ```json
 {
-  "mcpServers": {
-    "fetch-http": {
-      "transport": "http",
-      "url": "http://localhost:8080/mcp"
+  "mcp": {
+    "servers": {
+      "fetch-http": {
+        "transport": "http",
+        "url": "http://localhost:8080/mcp"
+      }
     }
   }
 }
@@ -118,15 +131,17 @@ You can override retry/timeout/cache behavior per MCP server:
 
 ```json
 {
-  "mcpServers": {
-    "fetch": {
-      "transport": "stdio",
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "mcp/fetch"],
-      "timeout_seconds": 15,
-      "retry_count": 2,
-      "retry_backoff_ms": 200,
-      "cache_ttl_seconds": 30
+  "mcp": {
+    "servers": {
+      "fetch": {
+        "transport": "stdio",
+        "command": "docker",
+        "args": ["run", "-i", "--rm", "mcp/fetch"],
+        "timeout_seconds": 15,
+        "retry_count": 2,
+        "retry_backoff_ms": 200,
+        "cache_ttl_seconds": 30
+      }
     }
   }
 }
@@ -146,10 +161,12 @@ Example config:
 
 ```json
 {
-  "mcpServers": {
-    "microsoft.docs.mcp": {
-      "type": "http",
-      "url": "https://learn.microsoft.com/api/mcp"
+  "mcp": {
+    "servers": {
+      "microsoft.docs.mcp": {
+        "transport": "http",
+        "url": "https://learn.microsoft.com/api/mcp"
+      }
     }
   }
 }
@@ -181,10 +198,12 @@ Then point your agent config to the server:
 
 ```json
 {
-  "mcpServers": {
-    "echo-http": {
-      "transport": "http",
-      "url": "http://localhost:8080/mcp"
+  "mcp": {
+    "servers": {
+      "echo-http": {
+        "transport": "http",
+        "url": "http://localhost:8080/mcp"
+      }
     }
   }
 }

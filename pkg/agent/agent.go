@@ -451,7 +451,7 @@ Final Answer: the final answer to the original input question
 				var observation string
 				if foundTool != nil {
 					if decision, ok := a.evaluatePolicy(ctx, log, runID, traceID, spanID, action, ""); ok {
-						if !decision.Allowed {
+						if !decision.IsAllowed() {
 							observation = fmt.Sprintf("Policy denied: %s", decision.Reason)
 						} else {
 							observation = ""
@@ -795,7 +795,7 @@ func (a *Agent) handleToolCalls(ctx context.Context, log *slog.Logger, runID, tr
 			)
 		} else {
 			if decision, ok := a.evaluatePolicy(ctx, log, runID, traceID, spanID, toolName, call.ID); ok {
-				if !decision.Allowed {
+				if !decision.IsAllowed() {
 					observation = fmt.Sprintf("Policy denied: %s", decision.Reason)
 					*messages = append(*messages, llm.Message{
 						Role:       llm.RoleTool,
@@ -901,11 +901,18 @@ func (a *Agent) evaluatePolicy(ctx context.Context, log *slog.Logger, runID, tra
 			"tool_call_id": toolCallID,
 		},
 	})
-	if !decision.Allowed && strings.TrimSpace(decision.Reason) == "" {
+	if decision.IsPending() && strings.TrimSpace(decision.Reason) == "" {
+		decision.Reason = "approval required"
+	}
+	if decision.IsDenied() && strings.TrimSpace(decision.Reason) == "" {
 		decision.Reason = "blocked by policy"
 	}
-	if !decision.Allowed {
-		log.Warn("agent.policy.denied",
+	if !decision.IsAllowed() {
+		event := "agent.policy.denied"
+		if decision.IsPending() {
+			event = "agent.policy.pending"
+		}
+		log.Warn(event,
 			slog.String("agent_id", a.id),
 			slog.String("run_id", runID),
 			slog.String("trace_id", traceID),

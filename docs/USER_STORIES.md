@@ -1,5 +1,7 @@
 # User Stories and Acceptance Criteria
 
+For configuration sources and precedence, see `docs/CONFIGURATION.md`.
+
 ## Status Legend
 - [ ] Planned
 - [~] In progress
@@ -16,8 +18,7 @@ Current implementation:
 - Agent can auto-discover MCP tools via registered clients, filtered by skills.
 - Example MCP agent loads servers from config and executes a tool call.
 Follow-ups:
-- Expose MCP retry/timeout/cache policy in config and docs.
-- Add end-to-end MCP smoke tests for stdio + HTTP.
+- Document MCP retry/timeout/cache settings in examples/config docs.
 Acceptance criteria:
 - Create a Go agent via typed API and run a simple task.
 - Agent can call an external MCP tool.
@@ -32,8 +33,8 @@ Current implementation (MVP, gRPC binding):
 - AgentCard publishing + discovery client.
 - Task/Message/Artifact mapping + streaming responses.
 - Demo multi-agent flow (demoKairos) with orchestrator delegating to knowledge/spreadsheet agents.
-Gaps to close:
-- Optional HTTP+JSON/JSON-RPC client helpers (server bindings exist).
+Notes:
+- HTTP+JSON/JSON-RPC client helpers are available alongside server bindings.
 Acceptance criteria:
 - Remote agent registers and is discoverable.
 - Agent A calls Agent B and receives a response.
@@ -65,7 +66,7 @@ Current implementation:
 - Legacy Action parsing is disabled by default and can be enabled explicitly.
 Follow-ups:
 - Deprecate legacy Action parsing fully (warn + eventual removal plan).
-- Document fallback deprecation phases and activation rules.
+- Track removal timeline once a release cadence is defined.
 Acceptance criteria:
 - Agent selects the next step among multiple tools or agents.
 - Decisions and intermediate results are logged.
@@ -116,8 +117,11 @@ Current implementation:
 - Config-driven policy rule loading.
 - Agent hook to block tool calls using `agent.WithPolicyEngine`.
 - A2A and MCP client policy enforcement hooks.
+ - Server-side A2A handler policy enforcement with pending approvals.
+ - Approval store for HITL workflows (memory/SQLite).
 Follow-ups:
-- Optional policy enforcement for server-side A2A handlers.
+- Approval timeouts/expiry policies.
+- Operator UI/CLI for approvals and audit views.
 Acceptance criteria:
 - Scopes can be defined per tool/skill.
 - All executions are audited with metadata.

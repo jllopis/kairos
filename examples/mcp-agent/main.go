@@ -25,15 +25,17 @@ import (
 // Example content:
 //
 //	{
-//	  "mcpServers": {
-//	    "fetch-stdio": {
-//	      "transport": "stdio",
-//	      "command": "docker",
-//	      "args": ["run", "-i", "--rm", "mcp/fetch"]
-//	    },
-//	    "fetch-http": {
-//	      "transport": "http",
-//	      "url": "http://localhost:8080/mcp"
+//	  "mcp": {
+//	    "servers": {
+//	      "fetch-stdio": {
+//	        "transport": "stdio",
+//	        "command": "docker",
+//	        "args": ["run", "-i", "--rm", "mcp/fetch"]
+//	      },
+//	      "fetch-http": {
+//	        "transport": "http",
+//	        "url": "http://localhost:8080/mcp"
+//	      }
 //	    }
 //	  }
 //	}
@@ -44,7 +46,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	cfg, err := config.Load("")
+	cfg, err := config.LoadWithCLI(os.Args[1:])
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/jllopis/kairos/pkg/a2a/server"
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
@@ -58,6 +59,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.handleSubscribe(w, r, req)
 	case "GetExtendedAgentCard":
 		s.handleExtendedAgentCard(w, r, req)
+	case "GetApproval":
+		s.handleGetApproval(w, r, req)
+	case "ListApprovals":
+		s.handleListApprovals(w, r, req)
+	case "ApproveApproval":
+		s.handleApproveApproval(w, r, req)
+	case "RejectApproval":
+		s.handleRejectApproval(w, r, req)
 	default:
 		writeError(w, rpcError{Code: -32601, Message: "method not found"})
 	}
@@ -170,11 +179,123 @@ func (s *Server) handleExtendedAgentCard(w http.ResponseWriter, r *http.Request,
 	writeResult(w, req.ID, resp)
 }
 
+func (s *Server) handleGetApproval(w http.ResponseWriter, r *http.Request, req rpcRequest) {
+	handler, ok := s.Handler.(server.ApprovalHandler)
+	if !ok {
+		writeRPCError(w, status.Error(codes.Unimplemented, "approvals not supported"))
+		return
+	}
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := decodeJSONParams(req.Params, &payload); err != nil {
+		writeError(w, rpcError{Code: -32602, Message: err.Error()})
+		return
+	}
+	resp, err := handler.GetApproval(r.Context(), payload.ID)
+	if err != nil {
+		writeRPCError(w, err)
+		return
+	}
+	writeJSONResult(w, req.ID, resp)
+}
+
+func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request, req rpcRequest) {
+	handler, ok := s.Handler.(server.ApprovalHandler)
+	if !ok {
+		writeRPCError(w, status.Error(codes.Unimplemented, "approvals not supported"))
+		return
+	}
+	var payload struct {
+		TaskID        string `json:"task_id"`
+		ContextID     string `json:"context_id"`
+		Status        string `json:"status"`
+		Limit         int    `json:"limit"`
+		ExpiresBefore int64  `json:"expires_before"`
+	}
+	if len(req.Params) > 0 {
+		if err := decodeJSONParams(req.Params, &payload); err != nil {
+			writeError(w, rpcError{Code: -32602, Message: err.Error()})
+			return
+		}
+	}
+	filter := server.ApprovalFilter{
+		TaskID:    payload.TaskID,
+		ContextID: payload.ContextID,
+		Status:    server.ApprovalStatus(payload.Status),
+		Limit:     payload.Limit,
+	}
+	if payload.ExpiresBefore > 0 {
+		filter.ExpiringBefore = time.UnixMilli(payload.ExpiresBefore).UTC()
+	}
+	if filter.Status != "" && filter.Status != server.ApprovalStatusPending && filter.Status != server.ApprovalStatusApproved && filter.Status != server.ApprovalStatusRejected {
+		writeError(w, rpcError{Code: -32602, Message: "invalid status"})
+		return
+	}
+	resp, err := handler.ListApprovals(r.Context(), filter)
+	if err != nil {
+		writeRPCError(w, err)
+		return
+	}
+	writeJSONResult(w, req.ID, resp)
+}
+
+func (s *Server) handleApproveApproval(w http.ResponseWriter, r *http.Request, req rpcRequest) {
+	handler, ok := s.Handler.(server.ApprovalHandler)
+	if !ok {
+		writeRPCError(w, status.Error(codes.Unimplemented, "approvals not supported"))
+		return
+	}
+	var payload struct {
+		ID     string `json:"id"`
+		Reason string `json:"reason"`
+	}
+	if err := decodeJSONParams(req.Params, &payload); err != nil {
+		writeError(w, rpcError{Code: -32602, Message: err.Error()})
+		return
+	}
+	resp, err := handler.Approve(r.Context(), payload.ID, payload.Reason)
+	if err != nil {
+		writeRPCError(w, err)
+		return
+	}
+	writeResult(w, req.ID, resp)
+}
+
+func (s *Server) handleRejectApproval(w http.ResponseWriter, r *http.Request, req rpcRequest) {
+	handler, ok := s.Handler.(server.ApprovalHandler)
+	if !ok {
+		writeRPCError(w, status.Error(codes.Unimplemented, "approvals not supported"))
+		return
+	}
+	var payload struct {
+		ID     string `json:"id"`
+		Reason string `json:"reason"`
+	}
+	if err := decodeJSONParams(req.Params, &payload); err != nil {
+		writeError(w, rpcError{Code: -32602, Message: err.Error()})
+		return
+	}
+	resp, err := handler.Reject(r.Context(), payload.ID, payload.Reason)
+	if err != nil {
+		writeRPCError(w, err)
+		return
+	}
+	writeResult(w, req.ID, resp)
+}
+
 func decodeParams(params json.RawMessage, msg proto.Message) error {
 	if len(params) == 0 {
 		return status.Error(codes.InvalidArgument, "missing params")
 	}
 	return protojson.Unmarshal(params, msg)
+}
+
+func decodeJSONParams(params json.RawMessage, target any) error {
+	if len(params) == 0 {
+		return status.Error(codes.InvalidArgument, "missing params")
+	}
+	return json.Unmarshal(params, target)
 }
 
 func writeResult(w http.ResponseWriter, id any, msg proto.Message) {
@@ -187,6 +308,20 @@ func writeResult(w http.ResponseWriter, id any, msg proto.Message) {
 		JSONRPC: "2.0",
 		ID:      id,
 		Result:  json.RawMessage(payload),
+	}
+	writeJSON(w, resp)
+}
+
+func writeJSONResult(w http.ResponseWriter, id any, payload any) {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		writeRPCError(w, status.Error(codes.Internal, err.Error()))
+		return
+	}
+	resp := rpcResponse{
+		JSONRPC: "2.0",
+		ID:      id,
+		Result:  json.RawMessage(raw),
 	}
 	writeJSON(w, resp)
 }
