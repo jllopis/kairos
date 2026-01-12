@@ -52,6 +52,9 @@ go run ./cmd/client --addr localhost:9030 --q "Que anomalias hay en la hoja Gast
 
 # Ejecutar una consulta de ejemplo
 ./scripts/run-query.sh "Cual fue el total de ventas en Q4 por region?"
+
+# Ejecutar las tres consultas y guardar salida en ./outputs
+./scripts/run-sample-queries.sh
 ```
 
 El script de arranque incluye comprobaciones basicas para Qdrant (gRPC) y Ollama (HTTP) y mostrara avisos si no estan disponibles.
