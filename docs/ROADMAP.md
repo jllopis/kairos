@@ -107,6 +107,7 @@ Tasks:
 - [ ] Minimal auth middleware hooks (OIDC/mTLS stubs; config-driven).
 - [ ] Conformance tests (golden proto/JSON payloads, streaming order, cancel).
 - [x] Implement ListTasks pagination with page tokens.
+- [x] SQLite-backed TaskStore/PushConfigStore (no CGO) for persistence.
 Acceptance: US-02 complete, US-05 complete.
 Notes:
 - MVP binding is gRPC-first for streaming stability; HTTP+JSON/JSON-RPC follow later.

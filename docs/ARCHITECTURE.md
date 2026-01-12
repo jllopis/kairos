@@ -31,6 +31,13 @@
 - Go types generated directly from `pkg/a2a/proto/a2a.proto`.
 - AgentCard publishing + discovery, plus A2AService server/client.
 - Task/Message/Artifact mapping with trace propagation.
+ - Task store + push config store backends (in-memory + SQLite).
+
+### A2A storage backends
+- In-memory stores: `MemoryTaskStore`, `MemoryPushConfigStore` (default in handlers).
+- SQLite stores (no CGO): `SQLiteTaskStore`, `SQLitePushConfigStore` via `modernc.org/sqlite`.
+- Schema is created automatically on startup; tasks/configs are stored as JSON blobs with indexes for status, context, and updated time.
+- Pagination uses stable ordering: `updated_at DESC`, then `id ASC`.
 
 ## Observability
 - OpenTelemetry tracing for agent runs, planner steps, tool calls, A2A hops.
