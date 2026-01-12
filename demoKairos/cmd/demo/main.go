@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -27,6 +28,9 @@ func main() {
 	llmProvider := flag.String("llm-provider", getenv("KAIROS_LLM_PROVIDER", "ollama"), "LLM provider")
 	configPath := flag.String("config", os.Getenv("CONFIG_PATH"), "Config file path")
 	verbose := flag.Bool("verbose", envBool("DEMO_VERBOSE"), "Enable verbose traces")
+	registryURL := flag.String("registry-url", getenv("KAIROS_DISCOVERY_REGISTRY_URL", ""), "Registry base URL for auto-register")
+	autoRegister := flag.Bool("auto-register", envBool("KAIROS_DISCOVERY_AUTO_REGISTER"), "Enable discovery auto-register")
+	heartbeatSeconds := flag.Int("heartbeat", envInt("KAIROS_DISCOVERY_HEARTBEAT_SECONDS", 10), "Auto-register heartbeat seconds")
 
 	knowledgeAddr := flag.String("knowledge-addr", getenv("KNOWLEDGE_ADDR", ":9031"), "Knowledge agent listen address")
 	spreadsheetAddr := flag.String("spreadsheet-addr", getenv("SPREADSHEET_ADDR", ":9032"), "Spreadsheet agent listen address")
@@ -54,9 +58,12 @@ func main() {
 	}
 
 	system.WithEnvMap(map[string]string{
-		"OLLAMA_URL":          *ollamaURL,
-		"KAIROS_LLM_PROVIDER": *llmProvider,
-		"KAIROS_LLM_MODEL":    *llmModel,
+		"OLLAMA_URL":                         *ollamaURL,
+		"KAIROS_LLM_PROVIDER":                *llmProvider,
+		"KAIROS_LLM_MODEL":                   *llmModel,
+		"KAIROS_DISCOVERY_REGISTRY_URL":      *registryURL,
+		"KAIROS_DISCOVERY_AUTO_REGISTER":     fmt.Sprintf("%t", *autoRegister),
+		"KAIROS_DISCOVERY_HEARTBEAT_SECONDS": fmt.Sprintf("%d", *heartbeatSeconds),
 	})
 	flow := "UserQuery -> Knowledge -> Spreadsheet -> Orchestrator"
 	system.WithFlow(demo.Flow(flow))
@@ -143,6 +150,18 @@ func envBool(key string) bool {
 	}
 	value = strings.ToLower(value)
 	return value == "1" || value == "true" || value == "yes"
+}
+
+func envInt(key string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 func hostAddr(addr string) string {

@@ -46,6 +46,8 @@ sin imponer discovery dinamico.
 - `RegistryProvider` opt-in (via `discovery.registry_url`).
 - TTL + expiracion con helper `RegistryServer`.
 - Auth opcional con `discovery.registry_token`.
+- Auto-register opcional desde agentes (`discovery.auto_register`).
+- Heartbeat configurable (`discovery.heartbeat_seconds`).
 
 ### Ejemplo rapido (CLI)
 
@@ -73,6 +75,23 @@ Lista agentes:
 
 ```
 curl -s http://localhost:9900/v1/agents | jq
+```
+
+### Auto-register (opcional)
+
+Cuando `discovery.auto_register=true`, el agente se registra en el registry
+de forma periodica usando `discovery.heartbeat_seconds` (default interno 10s).
+
+Ejemplo:
+
+```json
+{
+  "discovery": {
+    "registry_url": "http://localhost:9900",
+    "auto_register": true,
+    "heartbeat_seconds": 10
+  }
+}
 ```
 
 ## Fase 4: Wiring CLI/UI

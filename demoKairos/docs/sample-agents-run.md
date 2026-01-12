@@ -1,6 +1,6 @@
 # Instrucciones para ejecutar por separado cada uno de los agentes
 
-Al ejecutar cada agente en su propia consola es más sencillo acceder a los logs de consola.
+Al ejecutar cada agente en su propia consola es mas sencillo acceder a los logs de consola.
 
 ```bash
 # Knowledge
@@ -37,8 +37,25 @@ go run ./cmd/orchestrator --addr :9030 --knowledge localhost:9031 --spreadsheet 
 --knowledge-card-url http://127.0.0.1:9141 --spreadsheet-card-url http://127.0.0.1:9142 --card-addr 127.0.0.1:9140
 ```
 
-# Cómo arrancar la UI con discovery demo
+# Como arrancar la UI con discovery demo
 
 ```bash
 go run ./cmd/kairos --web --config docs/demo-settings.json --web-addr :8090
+```
+
+# Como iniciar la demo con autodiscovery
+
+Se han anadido flags al launcher de la demo para configurar auto-register y se propagan como `KAIROS_DISCOVERY_*` para todos los agentes. Ahora se puede lanzar:
+
+```bash
+go run ./cmd/demo --registry-url http://localhost:9900 --auto-register --heartbeat 10
+```
+
+o por ENV:
+
+```bash
+KAIROS_DISCOVERY_REGISTRY_URL=http://localhost:9900 \
+KAIROS_DISCOVERY_AUTO_REGISTER=true \
+KAIROS_DISCOVERY_HEARTBEAT_SECONDS=10 \
+go run ./cmd/demo
 ```

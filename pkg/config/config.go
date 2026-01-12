@@ -76,9 +76,11 @@ type MCPConfig struct {
 
 // DiscoveryConfig defines agent discovery options.
 type DiscoveryConfig struct {
-	Order         []string `koanf:"order"`
-	RegistryURL   string   `koanf:"registry_url"`
-	RegistryToken string   `koanf:"registry_token"`
+	Order            []string `koanf:"order"`
+	RegistryURL      string   `koanf:"registry_url"`
+	RegistryToken    string   `koanf:"registry_token"`
+	AutoRegister     bool     `koanf:"auto_register"`
+	HeartbeatSeconds int      `koanf:"heartbeat_seconds"`
 }
 
 // MCPServerConfig describes an MCP server endpoint and client settings.
@@ -171,6 +173,8 @@ func loadWithOverrides(path string, overrides map[string]any) (*Config, error) {
 	k.Set("governance.policies", []PolicyRuleConfig{})
 	k.Set("governance.approval_timeout_seconds", 0)
 	k.Set("discovery.order", []string{})
+	k.Set("discovery.auto_register", false)
+	k.Set("discovery.heartbeat_seconds", 0)
 
 	// 1. Load from file
 	if path != "" {

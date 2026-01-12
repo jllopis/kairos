@@ -211,6 +211,15 @@ func main() {
 	go func() {
 		_ = http.ListenAndServe(*cardAddr, mux)
 	}()
+	if stop, err := demo.AutoRegisterAgent(context.Background(), cfg, demo.AgentEndpoint{
+		Name:         "spreadsheet",
+		AgentCardURL: demo.AgentCardURL(*cardAddr),
+		GRPCAddr:     *addr,
+	}); err != nil {
+		log.Printf("auto-register: %v", err)
+	} else if stop != nil {
+		defer stop()
+	}
 
 	listener, err := net.Listen("tcp", *addr)
 	if err != nil {

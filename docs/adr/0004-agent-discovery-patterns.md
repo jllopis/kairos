@@ -30,6 +30,7 @@ Adoptar tres patrones de discovery, cada uno como provider pluggable:
    - Fuente: registry propio / k8s / Consul / DB interna.
    - No forma parte de A2A; A2A empieza al invocar el agente.
    - Opt-in via `discovery.registry_url` (token opcional).
+   - Auto-register opcional via `discovery.auto_register` + `discovery.heartbeat_seconds`.
 
 ### Resolver y orden
 

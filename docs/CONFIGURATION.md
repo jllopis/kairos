@@ -37,7 +37,9 @@ Example:
   "discovery": {
     "order": ["config", "well_known", "registry"],
     "registry_url": "http://localhost:9900",
-    "registry_token": "token-if-needed"
+    "registry_token": "token-if-needed",
+    "auto_register": false,
+    "heartbeat_seconds": 10
   },
   "mcp": {
     "servers": {
@@ -112,3 +114,5 @@ go run ./examples/mcp-agent \
 - `discovery.order` (opcional; default: `config, well_known, registry`)
 - `discovery.registry_url` (opcional; habilita RegistryProvider)
 - `discovery.registry_token` (opcional; bearer token)
+- `discovery.auto_register` (opcional; registra el agente en registry si esta habilitado)
+- `discovery.heartbeat_seconds` (opcional; intervalo para auto-register, default interno 10s)
