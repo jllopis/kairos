@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jllopis/kairos/demoKairos/internal/demo"
@@ -19,8 +20,9 @@ import (
 
 func main() {
 	var (
-		addr  = flag.String("addr", "localhost:9030", "orchestrator gRPC endpoint")
-		query = flag.String("q", "", "user query")
+		addr           = flag.String("addr", "localhost:9030", "orchestrator gRPC endpoint")
+		query          = flag.String("q", "", "user query")
+		timeoutSeconds = flag.Int("timeout", 60, "client timeout in seconds")
 	)
 	flag.Parse()
 
@@ -40,7 +42,11 @@ func main() {
 	}
 	defer conn.Close()
 
-	cli := client.New(conn)
+	opts := []client.Option{}
+	if *timeoutSeconds > 0 {
+		opts = append(opts, client.WithTimeout(time.Duration(*timeoutSeconds)*time.Second))
+	}
+	cli := client.New(conn, opts...)
 	ctx := context.Background()
 	contextID := uuid.NewString()
 	msg := demo.NewTextMessage(a2av1.Role_ROLE_USER, text, contextID, "")

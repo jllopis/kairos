@@ -60,6 +60,12 @@ go run ./cmd/client --addr localhost:9030 --q "Que anomalias hay en la hoja Gast
 
 El script genera `outputs/summary.md` con timestamps y enlaces a cada salida.
 
+Puedes ajustar el timeout del cliente (por defecto 60s):
+
+```bash
+TIMEOUT_SECONDS=120 ./scripts/run-query.sh "Cual fue el total de ventas en Q4 por region?"
+```
+
 El script de arranque incluye comprobaciones basicas para Qdrant (gRPC) y Ollama (HTTP) y mostrara avisos si no estan disponibles.
 
 ## Streaming semantico

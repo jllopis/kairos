@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ADDR="${ADDR:-localhost:9030}"
+TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-60}"
 OUT_DIR="${OUT_DIR:-./outputs/$(date -u +%Y%m%dT%H%M%SZ)}"
 
 mkdir -p "$OUT_DIR"
@@ -13,7 +14,7 @@ run_query() {
   local started
   started=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   echo "==> ${query}" | tee "$out"
-  go run ./cmd/client --addr "$ADDR" --q "$query" | tee -a "$out"
+  go run ./cmd/client --addr "$ADDR" --q "$query" --timeout "$TIMEOUT_SECONDS" | tee -a "$out"
   local finished
   finished=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   echo "- ${name} | ${started} -> ${finished} | ${out}" >> "$OUT_DIR/summary.md"
