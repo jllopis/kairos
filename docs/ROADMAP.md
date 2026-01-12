@@ -9,9 +9,9 @@
 - M0: Go SDK skeleton + hello agent (Phase 0) [x]
 - M1: Agent can call external MCP tool (Phase 1) [x]
 - M2: OTel traces visible in backend (Phase 2) [x]
-- M3: YAML/JSON graph executes end-to-end (Phase 3) [~]
-- M4: Emergent flow runs with decision logs (Phase 4) [~]
-- M5: Two agents delegate with distributed traces (Phase 5) [ ]
+- M3: YAML/JSON graph executes end-to-end (Phase 3) [x]
+- M4: Emergent flow runs with decision logs (Phase 4) [x]
+- M5: Two agents delegate with distributed traces (Phase 5) [~]
 - M6: Per-agent memory with short/long backends (Phase 6) [x]
 - M7: AGENTS.md and policies enforced with audit trail (Phase 7) [ ]
 - M8: Operator UI with agents, flows, and traces (Phase 8) [ ]
@@ -87,34 +87,35 @@ Tasks:
 - [x] Logging of decisions and outcomes (decision rationale + inputs/outputs).
 - [x] Structured tool-call parsing (LLM tool calls + JSON args).
 - [x] Provide tool definitions to LLM (function schema) for native tool calls.
-- [~] Prefer tool calls over "Action:" parsing when available (deprecate string parsing path).
+- [x] Prefer tool calls over "Action:" parsing when available (deprecate string parsing path).
 - [x] Optional warning when legacy "Action:" parsing is used.
-Acceptance: US-04 partial.
+Acceptance: US-04 complete.
 Notes:
-- Fallback "Action:" parsing is now configurable and disabled by default; full deprecation still pending.
-- Deprecation plan: next minor adds warnings; following minor keeps legacy-only flag; next major removes fallback.
+- Fallback "Action:" parsing is configurable and disabled by default; deprecation path remains documented.
 
 ## Phase 5: A2A distributed runtime (Estimate: L)
 Goals: discovery, delegation, and trace continuity.
 Dependencies: Phase 0, Phase 2.
 Milestone: two agents delegate with distributed traces.
 Tasks:
-- [ ] Pin A2A proto version and generate Go types from `pkg/a2a/proto/a2a.proto`.
-- [ ] Implement gRPC binding with streaming (SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask).
-- [ ] AgentCard publishing (well-known) + discovery client.
-- [ ] Remote agent invocation (call/response) and task lifecycle mapping.
+- [x] Pin A2A proto version and generate Go types from `pkg/a2a/proto/a2a.proto`.
+- [x] Implement gRPC binding with streaming (SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask).
+- [x] AgentCard publishing (well-known) + discovery client.
+- [x] Remote agent invocation (call/response) and task lifecycle mapping.
 - [ ] Trace context propagation over A2A (end-to-end).
 - [ ] Minimal auth middleware hooks (OIDC/mTLS stubs; config-driven).
 - [ ] Conformance tests (golden proto/JSON payloads, streaming order, cancel).
 - [x] Implement ListTasks pagination with page tokens.
 - [x] SQLite-backed TaskStore/PushConfigStore (no CGO) for persistence.
-Acceptance: US-02 complete, US-05 complete.
+- [x] Planner-driven multi-agent demo (demoKairos) with A2A + MCP + OTLP.
+Acceptance: US-02 (MVP) complete; distributed trace continuity pending.
 Notes:
 - MVP binding is gRPC-first for streaming stability; HTTP+JSON/JSON-RPC follow later.
 - Demo feedback:
   - Add a bootstrap helper for agents (config + telemetry + llm + mcp) to reduce boilerplate.
   - Provide a lightweight in-process MCP server helper for tool-only agents.
   - Ship a planner-driven multi-agent demo template (A2A + MCP + OTLP) as reference.
+  - Add explicit run docs and minimal examples for manual debugging.
 
 ## Phase 6: Multi-level memory (Estimate: M)
 Goals: short and long-term memory backends.

@@ -25,13 +25,15 @@ Acceptance criteria:
 
 ## US-02: A2A discovery and delegation
 As an architect, I want an agent to delegate tasks to another agent via A2A.
-Status: [ ] Planned
-Implementation plan (MVP, gRPC binding):
+Status: [~] In progress
+Current implementation (MVP, gRPC binding):
 - Types generated from `pkg/a2a/proto/a2a.proto`.
 - A2AService server with SendMessage + SendStreamingMessage + Get/List/Cancel Task.
 - AgentCard publishing + discovery client.
-- Task/Message/Artifact mapping with trace propagation.
+- Task/Message/Artifact mapping + streaming responses.
+- Demo multi-agent flow (demoKairos) with orchestrator delegating to knowledge/spreadsheet agents.
 Gaps to close:
+- Trace context propagation over A2A boundaries (metadata/propagators).
 - AuthN/AuthZ middleware (OIDC/mTLS) and multi-tenant routing.
 - Conformance tests across bindings (JSON-RPC/HTTP+JSON).
 Acceptance criteria:
@@ -41,13 +43,13 @@ Acceptance criteria:
 
 ## US-03: Explicit planner with graphs
 As an engineer, I want to define deterministic flows using a graph planner.
-Status: [~] In progress
+Status: [x] Done
 Current implementation:
 - Graph schema with nodes/edges and validation.
 - JSON/YAML parsers for graph definitions.
 - Executor with per-node tracing, branching conditions, and audit hooks.
 - Walkthrough and example usage in `docs/walkthrough-explicit-planner.md` and `examples/explicit-planner`.
-Gaps to close:
+Follow-ups:
 - Richer audit events (persisted store) and advanced condition types.
 Acceptance criteria:
 - Graph defined in YAML/JSON executes correctly.
@@ -56,32 +58,32 @@ Acceptance criteria:
 
 ## US-04: Emergent planner
 As a flow designer, I want the agent to choose the next action dynamically.
-Status: [~] In progress
+Status: [x] Done
 Current implementation:
 - ReAct-style loop selects tools based on LLM tool calls by default.
 - Prompt-driven "Action:" parsing remains as a fallback for providers without tool calls.
 - LLM tool-calls are supported (function schema + structured tool calls).
 - Tool calls are logged with trace/span identifiers.
- - Legacy Action parsing is disabled by default and can be enabled explicitly.
-Gaps to close:
-- Prefer tool calls over string parsing when supported (deprecate "Action:" path).
-- Deprecate legacy Action parsing (warn + eventual removal plan).
- - Document fallback deprecation phases and activation rules.
+- Legacy Action parsing is disabled by default and can be enabled explicitly.
+Follow-ups:
+- Deprecate legacy Action parsing fully (warn + eventual removal plan).
+- Document fallback deprecation phases and activation rules.
 Acceptance criteria:
 - Agent selects the next step among multiple tools or agents.
 - Decisions and intermediate results are logged.
 
 ## US-05: End-to-end observability
 As an SRE, I want traces, metrics, and logs for multi-agent diagnosis.
-Status: [~] In progress
+Status: [x] Done
 Current implementation:
 - OpenTelemetry tracer initialization and spans for agent, LLM, tool calls, and memory.
 - Basic metrics (run count, errors, latency histograms) via stdout exporter.
 - Structured logs include trace/span identifiers.
 - Configurable OTLP exporter for traces and metrics.
 - Example OTLP config in docs.
-Gaps to close:
-- Validate OTLP export against a backend and document verification steps.
+- OTLP smoke test and demo validation steps documented.
+Follow-ups:
+- Add optional automated OTLP validation in CI (behind an env flag).
 Acceptance criteria:
 - Traces exported to a standard OTel backend.
 - Basic metrics (latency, errors) exported.
