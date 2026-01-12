@@ -57,6 +57,8 @@ go run ./cmd/client --addr localhost:9030 --q "Que anomalias hay en la hoja Gast
 ./scripts/run-sample-queries.sh
 ```
 
+El script genera `outputs/summary.md` con timestamps y enlaces a cada salida.
+
 El script de arranque incluye comprobaciones basicas para Qdrant (gRPC) y Ollama (HTTP) y mostrara avisos si no estan disponibles.
 
 ## Streaming semantico
