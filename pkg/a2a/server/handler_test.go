@@ -394,6 +394,43 @@ func TestPushConfig_GeneratesConfigID(t *testing.T) {
 	}
 }
 
+func TestPushConfig_ConfigIDFromRequest(t *testing.T) {
+	store := NewMemoryTaskStore()
+	task, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+
+	handler := &SimpleHandler{
+		Store:    store,
+		PushCfgs: NewMemoryPushConfigStore(),
+	}
+
+	req := &a2av1.SetTaskPushNotificationConfigRequest{
+		Parent:   "tasks/" + task.Id,
+		ConfigId: "cfg-1",
+		Config: &a2av1.TaskPushNotificationConfig{
+			PushNotificationConfig: &a2av1.PushNotificationConfig{
+				Url: "https://example.com/hook",
+			},
+		},
+	}
+	cfg, err := handler.SetTaskPushNotificationConfig(context.Background(), req)
+	if err != nil {
+		t.Fatalf("SetTaskPushNotificationConfig error: %v", err)
+	}
+	if cfg.GetPushNotificationConfig().GetId() != "cfg-1" {
+		t.Fatalf("expected config id from request")
+	}
+	if cfg.GetName() != "tasks/"+task.Id+"/pushNotificationConfigs/cfg-1" {
+		t.Fatalf("unexpected config name %q", cfg.GetName())
+	}
+}
+
 func TestSubscribeToTask_UpdatesAndArtifacts(t *testing.T) {
 	store := NewMemoryTaskStore()
 	task, err := store.CreateTask(context.Background(), &a2av1.Message{
