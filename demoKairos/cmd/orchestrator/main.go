@@ -524,10 +524,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("llm: %v", err)
 	}
-	policyEngine, err := demo.NewPolicyEngine(cfg)
-	if err != nil {
-		log.Fatalf("policy: %v", err)
-	}
 
 	store, err := demo.NewQdrantStore(demo.QdrantConfig{URL: *qdrantURL, Collection: *memColl})
 	if err != nil {
@@ -548,13 +544,11 @@ func main() {
 	classifierOpts := []agent.Option{
 		agent.WithRole(classifierRole),
 		agent.WithModel(cfg.LLM.Model),
-		agent.WithPolicyEngine(policyEngine),
 	}
 	synthOpts := []agent.Option{
 		agent.WithRole(synthRole),
 		agent.WithModel(cfg.LLM.Model),
 		agent.WithMemory(memStore),
-		agent.WithPolicyEngine(policyEngine),
 	}
 	if len(cfg.MCP.Servers) > 0 {
 		classifierOpts = append(classifierOpts, agent.WithMCPServerConfigs(cfg.MCP.Servers))
@@ -593,14 +587,8 @@ func main() {
 		log.Fatalf("spreadsheet dial: %v", err)
 	}
 
-	knowledgeClient := client.New(knowledgeConn,
-		client.WithPolicyEngine(policyEngine),
-		client.WithAgentName("knowledge-agent"),
-	)
-	spreadClient := client.New(spreadConn,
-		client.WithPolicyEngine(policyEngine),
-		client.WithAgentName("spreadsheet-agent"),
-	)
+	knowledgeClient := client.New(knowledgeConn)
+	spreadClient := client.New(spreadConn)
 
 	handler := &orchestratorHandler{
 		store:           server.NewMemoryTaskStore(),

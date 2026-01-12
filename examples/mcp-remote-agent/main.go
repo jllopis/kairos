@@ -6,20 +6,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/jllopis/kairos/pkg/agent"
 	"github.com/jllopis/kairos/pkg/config"
 	"github.com/jllopis/kairos/pkg/core"
 	"github.com/jllopis/kairos/pkg/llm"
+	kmcp "github.com/jllopis/kairos/pkg/mcp"
 )
 
 // Example config (settings.json):
 //
 //	{
-//	  "mcpServers": {
-//	    "microsoft.docs.mcp": {
-//	      "type": "http",
-//	      "url": "https://learn.microsoft.com/api/mcp"
+//	  "mcp": {
+//	    "servers": {
+//	      "example-mcp": {
+//	        "transport": "http",
+//	        "url": "http://localhost:8080/mcp"
+//	      }
 //	    }
 //	  }
 //	}
@@ -83,9 +87,55 @@ func main() {
 		}
 	}
 
+	for name, server := range cfg.MCP.Servers {
+		client, err := newMCPClient(server)
+		if err != nil {
+			log.Printf("mcp client %q: %v", name, err)
+			continue
+		}
+		tools, err := client.ListTools(ctx)
+		if err != nil {
+			log.Printf("mcp list tools %q: %v", name, err)
+			_ = client.Close()
+			continue
+		}
+		log.Printf("mcp %q tools=%d", name, len(tools))
+		if len(tools) == 0 {
+			_ = client.Close()
+			continue
+		}
+		tool := tools[0]
+		log.Printf("calling tool=%s (empty args)", tool.Name)
+		res, err := client.CallTool(ctx, tool.Name, map[string]interface{}{})
+		if err != nil {
+			log.Printf("tool call error: %v", err)
+		} else if payload, err := json.MarshalIndent(res, "", "  "); err == nil {
+			log.Printf("tool response: %s", payload)
+		}
+		_ = client.Close()
+	}
+
 	response, err := ag.Run(ctx, "List the tools you can use.")
 	if err != nil {
 		log.Fatalf("agent run failed: %v", err)
 	}
 	fmt.Printf("Agent response: %v\n", response)
+}
+
+func newMCPClient(server config.MCPServerConfig) (*kmcp.Client, error) {
+	transport := strings.ToLower(strings.TrimSpace(server.Transport))
+	if transport == "" {
+		transport = "stdio"
+	}
+	switch transport {
+	case "stdio":
+		if strings.TrimSpace(server.Command) == "" {
+			return nil, fmt.Errorf("missing command for stdio transport")
+		}
+		return kmcp.NewClientWithStdioProtocol(server.Command, server.Args, server.ProtocolVersion)
+	case "http", "streamable-http", "streamablehttp":
+		return kmcp.NewClientWithStreamableHTTPProtocol(server.URL, server.ProtocolVersion)
+	default:
+		return nil, fmt.Errorf("unsupported transport %q", server.Transport)
+	}
 }

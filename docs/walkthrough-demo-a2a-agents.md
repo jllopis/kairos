@@ -59,35 +59,6 @@ Each node is mapped to a handler in the orchestrator:
 - Spreadsheet agent exposes `query_spreadsheet`, `list_sheets`, `get_schema` via MCP.
 - Each agent uses `agent.WithMCPClients(...)` to call its local MCP server.
 
-## Governance policies in the demo
-
-The demo can load governance rules from the same config file used for LLM and telemetry.
-Each agent wires the policy engine so it applies to:
-
-- tool calls (agent loop),
-- MCP client calls,
-- A2A client calls from the orchestrator.
-
-Example config fragment (see `demoKairos/data/demo-config.json`):
-
-```json
-{
-  "governance": {
-    "policies": [
-      { "id": "deny-spreadsheet", "effect": "deny", "type": "tool", "name": "query_spreadsheet" },
-      { "id": "deny-knowledge", "effect": "deny", "type": "agent", "name": "knowledge-agent" },
-      { "id": "deny-mcp", "effect": "deny", "type": "mcp", "name": "spreadsheet-mcp" }
-    ]
-  }
-}
-```
-
-Expected behavior when a policy denies a call:
-
-- tool calls: the agent writes a policy observation and skips execution,
-- A2A calls: the client returns a permission denied error,
-- MCP calls: the client fails fast before sending a request.
-
 ## Streaming events
 
 The orchestrator emits semantic progress as `TaskStatusUpdateEvent`:

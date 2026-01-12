@@ -58,10 +58,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("llm: %v", err)
 	}
-	policyEngine, err := demo.NewPolicyEngine(cfg)
-	if err != nil {
-		log.Fatalf("policy: %v", err)
-	}
 
 	store, err := demo.NewQdrantStore(demo.QdrantConfig{URL: *qdrantURL, Collection: *collection})
 	if err != nil {
@@ -135,7 +131,6 @@ func main() {
 		agent.WithModel(cfg.LLM.Model),
 		agent.WithMCPClients(mcpClient),
 		agent.WithMemory(memStore),
-		agent.WithPolicyEngine(policyEngine),
 	}
 	if len(cfg.MCP.Servers) > 0 {
 		agentOpts = append(agentOpts, agent.WithMCPServerConfigs(cfg.MCP.Servers))

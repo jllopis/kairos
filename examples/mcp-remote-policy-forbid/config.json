@@ -1,0 +1,21 @@
+{
+  "mcp": {
+    "servers": {
+      "example-mcp": {
+        "transport": "http",
+        "url": "http://localhost:8080/mcp"
+      }
+    }
+  },
+  "governance": {
+    "policies": [
+      {
+        "id": "deny-tools",
+        "effect": "deny",
+        "type": "tool",
+        "name": "*",
+        "reason": "blocked by policy"
+      }
+    ]
+  }
+}
