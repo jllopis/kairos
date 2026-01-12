@@ -111,7 +111,7 @@ import (
 )
 
 func main() {
-	// 0) MCP: tool local via Streamable HTTP
+	// 0) MCP: tool local via Streamable HTTP (inicia antes del agente)
 	mcpServer := mcp.NewServer("demo-mcp", "0.1.0")
 	mcpServer.RegisterTool("hello", "Devuelve un saludo", nil, func(ctx context.Context, args map[string]interface{}) (*mcpgo.CallToolResult, error) {
 		name, _ := args["name"].(string)
