@@ -146,7 +146,7 @@ func (s *Service) SetTaskPushNotificationConfig(ctx context.Context, req *a2av1.
 	if !supportsPushNotifications(s.handler) {
 		return nil, status.Error(codes.Unimplemented, "push notifications not supported")
 	}
-	handler, ok := s.handler.(pushNotificationHandler)
+	handler, ok := s.handler.(PushNotificationHandler)
 	if !ok {
 		return nil, status.Error(codes.Unimplemented, "SetTaskPushNotificationConfig handler not configured")
 	}
@@ -164,7 +164,7 @@ func (s *Service) GetTaskPushNotificationConfig(ctx context.Context, req *a2av1.
 	if !supportsPushNotifications(s.handler) {
 		return nil, status.Error(codes.Unimplemented, "push notifications not supported")
 	}
-	handler, ok := s.handler.(pushNotificationHandler)
+	handler, ok := s.handler.(PushNotificationHandler)
 	if !ok {
 		return nil, status.Error(codes.Unimplemented, "GetTaskPushNotificationConfig handler not configured")
 	}
@@ -182,7 +182,7 @@ func (s *Service) ListTaskPushNotificationConfig(ctx context.Context, req *a2av1
 	if !supportsPushNotifications(s.handler) {
 		return nil, status.Error(codes.Unimplemented, "push notifications not supported")
 	}
-	handler, ok := s.handler.(pushNotificationHandler)
+	handler, ok := s.handler.(PushNotificationHandler)
 	if !ok {
 		return nil, status.Error(codes.Unimplemented, "ListTaskPushNotificationConfig handler not configured")
 	}
@@ -200,7 +200,7 @@ func (s *Service) DeleteTaskPushNotificationConfig(ctx context.Context, req *a2a
 	if !supportsPushNotifications(s.handler) {
 		return nil, status.Error(codes.Unimplemented, "push notifications not supported")
 	}
-	handler, ok := s.handler.(pushNotificationHandler)
+	handler, ok := s.handler.(PushNotificationHandler)
 	if !ok {
 		return nil, status.Error(codes.Unimplemented, "DeleteTaskPushNotificationConfig handler not configured")
 	}
@@ -213,7 +213,8 @@ func (s *Service) DeleteTaskPushNotificationConfig(ctx context.Context, req *a2a
 	return handler.DeleteTaskPushNotificationConfig(ctx, req)
 }
 
-type pushNotificationHandler interface {
+// PushNotificationHandler exposes task push notification operations.
+type PushNotificationHandler interface {
 	SetTaskPushNotificationConfig(ctx context.Context, req *a2av1.SetTaskPushNotificationConfigRequest) (*a2av1.TaskPushNotificationConfig, error)
 	GetTaskPushNotificationConfig(ctx context.Context, req *a2av1.GetTaskPushNotificationConfigRequest) (*a2av1.TaskPushNotificationConfig, error)
 	ListTaskPushNotificationConfig(ctx context.Context, req *a2av1.ListTaskPushNotificationConfigRequest) (*a2av1.ListTaskPushNotificationConfigResponse, error)

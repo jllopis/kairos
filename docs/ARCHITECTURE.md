@@ -31,6 +31,7 @@
 - Go types generated directly from `pkg/a2a/proto/a2a.proto`.
 - AgentCard publishing + discovery, plus A2AService server/client.
 - Task/Message/Artifact mapping with streaming responses.
+ - HTTP+JSON and JSON-RPC bindings (`pkg/a2a/httpjson`, `pkg/a2a/jsonrpc`).
  - Task store + push config store backends (in-memory + SQLite).
  - Demo multi-agent flow (demoKairos) exercising delegation (orchestrator -> knowledge/spreadsheet).
 
@@ -41,7 +42,7 @@
 - Pagination uses stable ordering: `updated_at DESC`, then `id ASC`.
 
 ## Observability
-- OpenTelemetry tracing for agent runs, planner steps, tool calls, A2A hops (trace propagation over A2A is pending).
+- OpenTelemetry tracing for agent runs, planner steps, tool calls, A2A hops (trace propagation over A2A is implemented).
 - Metrics: latency per step, errors per agent, token usage.
 - Structured logs with trace/span ids and decision summaries (rationale + inputs/outputs).
 - Decision events emitted per iteration, including tool-call outcomes for auditing.
@@ -183,3 +184,6 @@ Example config (full, with telemetry):
 
 ## Demo A2A agents walkthrough
 - `docs/walkthrough-demo-a2a-agents.md`
+
+## A2A HTTP+JSON and JSON-RPC walkthrough
+- `docs/walkthrough-a2a-httpjson-jsonrpc.md`
