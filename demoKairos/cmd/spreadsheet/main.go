@@ -59,6 +59,10 @@ func main() {
 		Name:            "Kairos Spreadsheet Agent",
 		Description:     "Runs safe, structured queries over CSV sheets.",
 		Version:         "0.1.0",
+		Capabilities: func() *a2av1.AgentCapabilities {
+			streaming := true
+			return &a2av1.AgentCapabilities{Streaming: &streaming}
+		}(),
 		SupportedInterfaces: []*a2av1.AgentInterface{
 			{Url: "grpc://localhost" + *addr, ProtocolBinding: "grpc"},
 		},

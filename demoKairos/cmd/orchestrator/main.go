@@ -431,6 +431,10 @@ func main() {
 			Name:            "Kairos Orchestrator",
 			Description:     "Routes user questions to knowledge + spreadsheet agents.",
 			Version:         "0.1.0",
+			Capabilities: func() *a2av1.AgentCapabilities {
+				streaming := true
+				return &a2av1.AgentCapabilities{Streaming: &streaming}
+			}(),
 			SupportedInterfaces: []*a2av1.AgentInterface{
 				{Url: "grpc://localhost" + *addr, ProtocolBinding: "grpc"},
 			},
