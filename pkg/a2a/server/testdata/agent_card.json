@@ -1,0 +1,22 @@
+{
+  "protocolVersion": "v1",
+  "name": "Kairos Agent",
+  "description": "Agente de ejemplo.",
+  "version": "0.1.0",
+  "capabilities": {
+    "streaming": true
+  },
+  "supportedInterfaces": [
+    {
+      "url": "grpc://localhost:9030",
+      "protocolBinding": "grpc"
+    }
+  ],
+  "skills": [
+    {
+      "id": "hello",
+      "name": "hello",
+      "description": "Devuelve un saludo."
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "artifactUpdate": {
+    "taskId": "task-1",
+    "contextId": "ctx-1",
+    "artifact": {
+      "artifactId": "artifact-1",
+      "name": "resultado",
+      "parts": [
+        {
+          "text": "contenido"
+        }
+      ]
+    },
+    "append": true
+  }
+}
