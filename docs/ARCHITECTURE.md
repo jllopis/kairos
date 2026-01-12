@@ -30,8 +30,9 @@
 - gRPC binding first (streaming required in MVP).
 - Go types generated directly from `pkg/a2a/proto/a2a.proto`.
 - AgentCard publishing + discovery, plus A2AService server/client.
-- Task/Message/Artifact mapping with trace propagation.
+- Task/Message/Artifact mapping with streaming responses.
  - Task store + push config store backends (in-memory + SQLite).
+ - Demo multi-agent flow (demoKairos) exercising delegation (orchestrator -> knowledge/spreadsheet).
 
 ### A2A storage backends
 - In-memory stores: `MemoryTaskStore`, `MemoryPushConfigStore` (default in handlers).
@@ -40,7 +41,7 @@
 - Pagination uses stable ordering: `updated_at DESC`, then `id ASC`.
 
 ## Observability
-- OpenTelemetry tracing for agent runs, planner steps, tool calls, A2A hops.
+- OpenTelemetry tracing for agent runs, planner steps, tool calls, A2A hops (trace propagation over A2A is pending).
 - Metrics: latency per step, errors per agent, token usage.
 - Structured logs with trace/span ids and decision summaries (rationale + inputs/outputs).
 - Decision events emitted per iteration, including tool-call outcomes for auditing.
@@ -97,7 +98,7 @@ go test ./pkg/telemetry -run TestOTLPSmoke -count=1
 ## Explicit planner groundwork
 - Graph schema (`pkg/planner`): nodes, edges, and optional start node.
 - JSON/YAML parsers with validation for well-formed graphs.
-- Executor supports linear paths with per-node tracing; branching/conditions are future work.
+- Executor supports per-node tracing with branching/conditions and multi-edge evaluation.
 
 ## Execution Flow (runtime)
 1) Load AGENTS.md and apply repository rules.
