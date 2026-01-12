@@ -14,6 +14,7 @@ import (
 
 	"github.com/jllopis/kairos/pkg/config"
 	"github.com/jllopis/kairos/pkg/core"
+	"github.com/jllopis/kairos/pkg/governance"
 	"github.com/jllopis/kairos/pkg/llm"
 	kmcp "github.com/jllopis/kairos/pkg/mcp"
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
@@ -41,6 +42,7 @@ type Agent struct {
 	mcpClients            []*kmcp.Client
 	disableActionFallback bool
 	warnOnActionFallback  bool
+	policyEngine          governance.PolicyEngine
 }
 
 // Option configures an Agent instance.
@@ -184,6 +186,14 @@ func WithDisableActionFallback(disable bool) Option {
 func WithActionFallbackWarning(enable bool) Option {
 	return func(a *Agent) error {
 		a.warnOnActionFallback = enable
+		return nil
+	}
+}
+
+// WithPolicyEngine sets a policy engine for tool execution decisions.
+func WithPolicyEngine(engine governance.PolicyEngine) Option {
+	return func(a *Agent) error {
+		a.policyEngine = engine
 		return nil
 	}
 }
@@ -440,6 +450,17 @@ Final Answer: the final answer to the original input question
 
 				var observation string
 				if foundTool != nil {
+					if decision, ok := a.evaluatePolicy(ctx, log, runID, traceID, spanID, action, ""); ok {
+						if !decision.Allowed {
+							observation = fmt.Sprintf("Policy denied: %s", decision.Reason)
+						} else {
+							observation = ""
+						}
+					}
+					if observation != "" {
+						messages = append(messages, llm.Message{Role: llm.RoleUser, Content: fmt.Sprintf("Observation: %s", observation)})
+						continue
+					}
 					log.Info("agent.tool.found",
 						slog.String("agent_id", a.id),
 						slog.String("run_id", runID),
@@ -773,6 +794,17 @@ func (a *Agent) handleToolCalls(ctx context.Context, log *slog.Logger, runID, tr
 				slog.String("tool_call_id", call.ID),
 			)
 		} else {
+			if decision, ok := a.evaluatePolicy(ctx, log, runID, traceID, spanID, toolName, call.ID); ok {
+				if !decision.Allowed {
+					observation = fmt.Sprintf("Policy denied: %s", decision.Reason)
+					*messages = append(*messages, llm.Message{
+						Role:       llm.RoleTool,
+						Content:    observation,
+						ToolCallID: call.ID,
+					})
+					continue
+				}
+			}
 			log.Info("agent.tool.found",
 				slog.String("agent_id", a.id),
 				slog.String("run_id", runID),
@@ -855,6 +887,35 @@ func parseToolArguments(raw string) map[string]interface{} {
 		return nil
 	}
 	return decoded
+}
+
+func (a *Agent) evaluatePolicy(ctx context.Context, log *slog.Logger, runID, traceID, spanID, toolName, toolCallID string) (governance.Decision, bool) {
+	if a.policyEngine == nil {
+		return governance.Decision{}, false
+	}
+	decision := a.policyEngine.Evaluate(ctx, governance.Action{
+		Type: governance.ActionTool,
+		Name: toolName,
+		Metadata: map[string]string{
+			"agent_id":     a.id,
+			"tool_call_id": toolCallID,
+		},
+	})
+	if !decision.Allowed && strings.TrimSpace(decision.Reason) == "" {
+		decision.Reason = "blocked by policy"
+	}
+	if !decision.Allowed {
+		log.Warn("agent.policy.denied",
+			slog.String("agent_id", a.id),
+			slog.String("run_id", runID),
+			slog.String("trace_id", traceID),
+			slog.String("span_id", spanID),
+			slog.String("tool", toolName),
+			slog.String("rule_id", decision.RuleID),
+			slog.String("reason", decision.Reason),
+		)
+	}
+	return decision, true
 }
 
 // ToolNames returns the resolved tool names for the agent.

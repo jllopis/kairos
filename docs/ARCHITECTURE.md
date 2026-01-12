@@ -187,3 +187,6 @@ Example config (full, with telemetry):
 
 ## A2A HTTP+JSON and JSON-RPC walkthrough
 - `docs/walkthrough-a2a-httpjson-jsonrpc.md`
+
+## Governance walkthrough
+- `docs/walkthrough-governance-agentsmd.md`
