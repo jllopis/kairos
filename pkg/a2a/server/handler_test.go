@@ -2250,6 +2250,30 @@ func TestGetTask_HistoryLengthOne(t *testing.T) {
 	}
 }
 
+func TestGetTask_StripsArtifacts(t *testing.T) {
+	store := NewMemoryTaskStore()
+	handler := &SimpleHandler{Store: store}
+
+	task, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "alpha"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+	if err := store.AddArtifacts(context.Background(), task.Id, []*a2av1.Artifact{{Name: "artifact"}}); err != nil {
+		t.Fatalf("AddArtifacts error: %v", err)
+	}
+
+	resp, err := handler.GetTask(context.Background(), &a2av1.GetTaskRequest{Name: task.Id})
+	if err != nil {
+		t.Fatalf("GetTask error: %v", err)
+	}
+	if len(resp.GetArtifacts()) != 0 {
+		t.Fatalf("expected artifacts stripped")
+	}
+}
 func TestGetTask_NotFound(t *testing.T) {
 	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
 
