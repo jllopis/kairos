@@ -230,7 +230,7 @@ func (h *orchestratorHandler) handleKnowledge(ctx context.Context, state *planne
 		return nil, err
 	}
 	sendStatus(stream, taskID, contextID, demo.EventRetrievalStart, "Buscando definiciones y reglas...")
-	msg := demo.NewTextMessage(a2av1.Role_ROLE_USER, fmt.Sprintf("Consulta: %s\nIntencion: %s", query, intent), contextID, taskID)
+	msg := demo.NewTextMessage(a2av1.Role_ROLE_USER, fmt.Sprintf("Consulta: %s\nIntencion: %s", query, intent), contextID, "")
 	resp, err := h.knowledgeClient.SendMessage(ctx, &a2av1.SendMessageRequest{Request: msg})
 	if err != nil {
 		return nil, err
@@ -250,7 +250,7 @@ func (h *orchestratorHandler) handleSpreadsheet(ctx context.Context, state *plan
 		return nil, err
 	}
 	sendStatus(stream, taskID, contextID, demo.EventToolStart, "Consultando hoja de calculo...")
-	msg := demo.NewTextMessage(a2av1.Role_ROLE_USER, fmt.Sprintf("Genera la consulta para %s en formato JSON.", intent), contextID, taskID)
+	msg := demo.NewTextMessage(a2av1.Role_ROLE_USER, fmt.Sprintf("Genera la consulta para %s en formato JSON.", intent), contextID, "")
 	resp, err := h.spreadClient.SendMessage(ctx, &a2av1.SendMessageRequest{Request: msg})
 	if err != nil {
 		return nil, err
