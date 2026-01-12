@@ -17,6 +17,7 @@ No introduce nuevos endpoints; reutiliza A2A + approvals + AgentCard.
 
 ### 2) Tasks
 - Tabla con `task_id`, estado, updated_at, mensaje.
+- Filtro por estado, contexto y updated_at.
 - Detalle de task con historial y artifacts.
 - Fuente: A2A `ListTasks` + `GetTask`.
 
@@ -29,6 +30,7 @@ No introduce nuevos endpoints; reutiliza A2A + approvals + AgentCard.
 - Tabla de approvals pendientes y filtrado por estado.
 - Acciones aprobar / rechazar.
 - Fuente: A2A HTTP+JSON approvals.
+ - Columnas: updated_at y task_id para audit trail basico.
 
 ## Endpoints requeridos (ya existen)
 
@@ -45,10 +47,10 @@ No introduce nuevos endpoints; reutiliza A2A + approvals + AgentCard.
 - Routing: `/agents`, `/tasks`, `/tasks/:id`, `/approvals`.
 - Tabla + panel de detalle (split view).
 - Streaming con autoscroll y pausa.
+ - Polling suave para estado/historial en task detail.
 
 ## No incluye
 
 - Persistencia de UI.
 - Autenticacion/autorizacion.
 - Multi-tenant.
-

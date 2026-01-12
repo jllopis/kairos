@@ -4,24 +4,71 @@
     <p>Estado: {{.Status}}</p>
 </section>
 <section class="panel">
+    <h2>Estado actual</h2>
+    <div
+        id="task-status"
+        hx-get="/ui/tasks/{{.TaskID}}/status"
+        hx-trigger="load, every 3s"
+    >
+        <div class="loading">Actualizando estado...</div>
+    </div>
+</section>
+<section class="panel">
     <h2>Historial</h2>
-    {{if .History}}
-    <ul class="history">
-        {{range .History}}
-        <li>
-            <div class="history-meta">{{.Role}} · {{.Timestamp}}</div>
-            <div class="history-body">{{.Text}}</div>
-        </li>
-        {{end}}
-    </ul>
-    {{else}}
-    <div class="empty">Sin historial disponible.</div>
-    {{end}}
+    <div
+        id="task-history"
+        hx-get="/ui/tasks/{{.TaskID}}/history"
+        hx-trigger="load, every 5s"
+    >
+        <div class="loading">Cargando historial...</div>
+    </div>
 </section>
 <section class="panel">
     <h2>Stream</h2>
-    <p class="hint">
-        Usa <code>kairos tasks follow {{.TaskID}}</code> para ver streaming.
-    </p>
+    <div class="stream-toolbar">
+        <button type="button" class="btn secondary" id="stream-toggle">
+            Pausar
+        </button>
+        <span class="hint">Eventos en vivo</span>
+    </div>
+    <div id="task-stream" class="stream-box" data-task-id="{{.TaskID}}">
+        <div class="loading">Conectando stream...</div>
+    </div>
 </section>
+<script>
+    (() => {
+        const container = document.getElementById("task-stream");
+        const toggle = document.getElementById("stream-toggle");
+        if (!container || !toggle) return;
+        let autoScroll = true;
+        toggle.addEventListener("click", () => {
+            autoScroll = !autoScroll;
+            toggle.textContent = autoScroll ? "Pausar" : "Reanudar";
+        });
+        const taskId = container.dataset.taskId;
+        if (!taskId || !window.EventSource) {
+            container.innerHTML =
+                '<div class="empty">Streaming no disponible.</div>';
+            return;
+        }
+        container.innerHTML = "";
+        const source = new EventSource(`/ui/tasks/${taskId}/stream`);
+        source.onmessage = (event) => {
+            const row = document.createElement("div");
+            row.className = "stream-line";
+            row.textContent = event.data;
+            container.appendChild(row);
+            if (autoScroll) {
+                container.scrollTop = container.scrollHeight;
+            }
+        };
+        source.onerror = () => {
+            const row = document.createElement("div");
+            row.className = "stream-line error";
+            row.textContent = "Stream desconectado.";
+            container.appendChild(row);
+            source.close();
+        };
+    })();
+</script>
 {{end}}

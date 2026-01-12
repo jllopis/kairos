@@ -18,6 +18,7 @@ import (
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
 	"github.com/jllopis/kairos/pkg/config"
 	"github.com/jllopis/kairos/pkg/discovery"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const defaultWebAddr = ":8088"
@@ -28,7 +29,13 @@ var webFS embed.FS
 var (
 	webPartials = template.Must(template.New("partials").Funcs(template.FuncMap{
 		"lower": strings.ToLower,
-	}).ParseFS(webFS, "web/templates/agents_list.html", "web/templates/tasks_list.html", "web/templates/approvals_list.html"))
+	}).ParseFS(webFS,
+		"web/templates/agents_list.html",
+		"web/templates/tasks_list.html",
+		"web/templates/approvals_list.html",
+		"web/templates/task_status.html",
+		"web/templates/task_history.html",
+	))
 	pageTemplates = map[string]*template.Template{}
 )
 
@@ -69,6 +76,8 @@ type approvalRow struct {
 	ID        string
 	Status    string
 	ExpiresAt string
+	UpdatedAt string
+	TaskID    string
 	Reason    string
 	Pending   bool
 }
@@ -80,15 +89,25 @@ type listApprovalsData struct {
 }
 
 type taskDetail struct {
-	TaskID  string
-	Status  string
-	History []taskHistoryRow
+	TaskID string
+	Status string
 }
 
 type taskHistoryRow struct {
 	Role      string
 	Timestamp string
 	Text      string
+}
+
+type taskStatusData struct {
+	TaskID    string
+	Status    string
+	UpdatedAt string
+	Message   string
+}
+
+type taskHistoryData struct {
+	History []taskHistoryRow
 }
 
 type pageData struct {
@@ -118,6 +137,7 @@ func runWeb(ctx context.Context, flags globalFlags, cfg *config.Config) {
 
 	mux.HandleFunc("/ui/agents/list", server.handleAgentsList)
 	mux.HandleFunc("/ui/tasks/list", server.handleTasksList)
+	mux.HandleFunc("/ui/tasks/", server.handleTaskUI)
 	mux.HandleFunc("/ui/approvals/list", server.handleApprovalsList)
 	mux.HandleFunc("/ui/approvals/", server.handleApprovalAction)
 
@@ -176,26 +196,9 @@ func (s *webServer) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	taskID := parts[0]
-	length := int32(50)
-	var task *a2av1.Task
-	if err := s.withGRPC(r.Context(), func(c *client.Client) error {
-		var err error
-		task, err = c.GetTask(r.Context(), &a2av1.GetTaskRequest{Name: fmt.Sprintf("tasks/%s", taskID), HistoryLength: &length})
-		return err
-	}); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
 	data := taskDetail{
-		TaskID: task.GetId(),
-		Status: strings.ToLower(strings.TrimPrefix(task.GetStatus().GetState().String(), "TASK_STATE_")),
-	}
-	for _, msg := range task.GetHistory() {
-		data.History = append(data.History, taskHistoryRow{
-			Role:      msg.GetRole().String(),
-			Timestamp: "-",
-			Text:      normalizeCell(server.ExtractText(msg)),
-		})
+		TaskID: taskID,
+		Status: "unknown",
 	}
 	renderPage(w, "task_detail", fmt.Sprintf("Task %s", taskID), data)
 }
@@ -250,6 +253,7 @@ func (s *webServer) handleAgentsList(w http.ResponseWriter, r *http.Request) {
 func (s *webServer) handleTasksList(w http.ResponseWriter, r *http.Request) {
 	status := strings.TrimSpace(r.URL.Query().Get("status"))
 	contextID := strings.TrimSpace(r.URL.Query().Get("context"))
+	updatedAfter := strings.TrimSpace(r.URL.Query().Get("updated_after"))
 	state, err := parseTaskState(status)
 	data := listTasksData{}
 	if err != nil {
@@ -258,9 +262,15 @@ func (s *webServer) handleTasksList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var resp *a2av1.ListTasksResponse
+	req := &a2av1.ListTasksRequest{ContextId: contextID, Status: state}
+	if updatedAfter != "" {
+		if millis, err := parseTimeMillis(updatedAfter); err == nil {
+			req.LastUpdatedAfter = millis
+		}
+	}
 	if err := s.withGRPC(r.Context(), func(c *client.Client) error {
 		var err error
-		resp, err = c.ListTasks(r.Context(), &a2av1.ListTasksRequest{ContextId: contextID, Status: state})
+		resp, err = c.ListTasks(r.Context(), req)
 		return err
 	}); err != nil {
 		data.Error = err.Error()
@@ -299,6 +309,8 @@ func (s *webServer) handleApprovalsList(w http.ResponseWriter, r *http.Request) 
 			ID:        record.ID,
 			Status:    string(record.Status),
 			ExpiresAt: formatTime(record.ExpiresAt),
+			UpdatedAt: formatTime(record.UpdatedAt),
+			TaskID:    record.TaskID,
 			Reason:    normalizeCell(record.Reason),
 			Pending:   record.Status == server.ApprovalStatusPending,
 		})
@@ -361,6 +373,151 @@ func renderPartial(w http.ResponseWriter, name string, data any) {
 	if err := webPartials.ExecuteTemplate(w, name, data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func (s *webServer) handleTaskUI(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/ui/tasks/")
+	parts := strings.Split(path, "/")
+	if len(parts) < 2 {
+		http.NotFound(w, r)
+		return
+	}
+	taskID := parts[0]
+	switch parts[1] {
+	case "status":
+		s.handleTaskStatus(w, r, taskID)
+	case "history":
+		s.handleTaskHistory(w, r, taskID)
+	case "stream":
+		s.handleTaskStream(w, r, taskID)
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+func (s *webServer) handleTaskStatus(w http.ResponseWriter, r *http.Request, taskID string) {
+	length := int32(1)
+	var task *a2av1.Task
+	if err := s.withGRPC(r.Context(), func(c *client.Client) error {
+		var err error
+		task, err = c.GetTask(r.Context(), &a2av1.GetTaskRequest{Name: fmt.Sprintf("tasks/%s", taskID), HistoryLength: &length})
+		return err
+	}); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	status := task.GetStatus()
+	data := taskStatusData{
+		TaskID:    taskID,
+		Status:    strings.ToLower(strings.TrimPrefix(status.GetState().String(), "TASK_STATE_")),
+		UpdatedAt: formatTimestamp(status.GetTimestamp()),
+		Message:   truncateMessage(server.ExtractText(status.GetMessage()), 160),
+	}
+	renderPartial(w, "task_status", data)
+}
+
+func (s *webServer) handleTaskHistory(w http.ResponseWriter, r *http.Request, taskID string) {
+	length := int32(25)
+	var task *a2av1.Task
+	if err := s.withGRPC(r.Context(), func(c *client.Client) error {
+		var err error
+		task, err = c.GetTask(r.Context(), &a2av1.GetTaskRequest{Name: fmt.Sprintf("tasks/%s", taskID), HistoryLength: &length})
+		return err
+	}); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	history := make([]taskHistoryRow, 0, len(task.GetHistory()))
+	for _, msg := range task.GetHistory() {
+		history = append(history, taskHistoryRow{
+			Role:      msg.GetRole().String(),
+			Timestamp: "-",
+			Text:      normalizeCell(server.ExtractText(msg)),
+		})
+	}
+	renderPartial(w, "task_history", taskHistoryData{History: history})
+}
+
+func (s *webServer) handleTaskStream(w http.ResponseWriter, r *http.Request, taskID string) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "stream not supported", http.StatusInternalServerError)
+		return
+	}
+
+	ctx := r.Context()
+	if err := s.withGRPC(ctx, func(c *client.Client) error {
+		stream, err := c.SubscribeToTask(ctx, &a2av1.SubscribeToTaskRequest{Name: fmt.Sprintf("tasks/%s", taskID)})
+		if err != nil {
+			return err
+		}
+		for {
+			resp, err := stream.Recv()
+			if err != nil {
+				return err
+			}
+			line := formatStreamLine(resp)
+			if line == "" {
+				continue
+			}
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", line); err != nil {
+				return err
+			}
+			flusher.Flush()
+		}
+	}); err != nil {
+		_, _ = fmt.Fprintf(w, "data: stream error: %s\n\n", err.Error())
+		flusher.Flush()
+		return
+	}
+}
+
+func formatStreamLine(resp *a2av1.StreamResponse) string {
+	if resp == nil {
+		return ""
+	}
+	switch payload := resp.Payload.(type) {
+	case *a2av1.StreamResponse_StatusUpdate:
+		update := payload.StatusUpdate
+		state := strings.ToLower(strings.TrimPrefix(update.GetStatus().GetState().String(), "TASK_STATE_"))
+		msg := normalizeCell(server.ExtractText(update.GetStatus().GetMessage()))
+		eventType, _ := extractEventMetadataFromStruct(update.GetMetadata())
+		if eventType != "" {
+			return fmt.Sprintf("[%s] %s (%s)", state, msg, eventType)
+		}
+		return fmt.Sprintf("[%s] %s", state, msg)
+	case *a2av1.StreamResponse_Msg:
+		text := normalizeCell(server.ExtractText(payload.Msg))
+		if text != "" {
+			return fmt.Sprintf("[msg] %s", text)
+		}
+	case *a2av1.StreamResponse_Task:
+		return fmt.Sprintf("[task] %s", payload.Task.GetId())
+	}
+	return ""
+}
+
+func extractEventMetadataFromStruct(meta *structpb.Struct) (string, string) {
+	if meta == nil {
+		return "", ""
+	}
+	fields := meta.GetFields()
+	if fields == nil {
+		return "", ""
+	}
+	var eventType string
+	if v, ok := fields["event_type"]; ok {
+		eventType = v.GetStringValue()
+	}
+	var payloadSummary string
+	if v, ok := fields["payload"]; ok {
+		payloadSummary = v.String()
+	}
+	return eventType, payloadSummary
 }
 
 func (s *webServer) withGRPC(ctx context.Context, fn func(*client.Client) error) error {

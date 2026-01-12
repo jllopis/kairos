@@ -1,0 +1,14 @@
+{{define "task_history"}}
+{{if .History}}
+<ul class="history">
+    {{range .History}}
+    <li>
+        <div class="history-meta">{{.Role}} · {{.Timestamp}}</div>
+        <div class="history-body">{{.Text}}</div>
+    </li>
+    {{end}}
+</ul>
+{{else}}
+<div class="empty">Sin historial disponible.</div>
+{{end}}
+{{end}}

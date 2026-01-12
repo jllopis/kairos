@@ -1,0 +1,15 @@
+{{define "task_status"}}
+<div class="status-card">
+    <div class="status-line">
+        <span class="label">Estado</span>
+        <span class="chip status-{{.Status}}">{{.Status}}</span>
+    </div>
+    <div class="status-line">
+        <span class="label">Actualizado</span>
+        <span>{{.UpdatedAt}}</span>
+    </div>
+    {{if .Message}}
+    <div class="status-message">{{.Message}}</div>
+    {{end}}
+</div>
+{{end}}

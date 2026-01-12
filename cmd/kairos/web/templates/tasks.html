@@ -27,6 +27,14 @@
             Contexto
             <input type="text" name="context" placeholder="context id" />
         </label>
+        <label>
+            Actualizado despues
+            <input
+                type="text"
+                name="updated_after"
+                placeholder="RFC3339 o ms epoch"
+            />
+        </label>
         <button type="submit">Actualizar</button>
     </form>
     <div id="tasks-list" hx-get="/ui/tasks/list" hx-trigger="load">
