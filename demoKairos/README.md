@@ -49,6 +49,9 @@ go run ./cmd/client --addr localhost:9030 --q "Que anomalias hay en la hoja Gast
 
 # Healthcheck rapido de puertos gRPC
 ./scripts/healthcheck.sh
+
+# Ejecutar una consulta de ejemplo
+./scripts/run-query.sh "Cual fue el total de ventas en Q4 por region?"
 ```
 
 El script de arranque incluye comprobaciones basicas para Qdrant (gRPC) y Ollama (HTTP) y mostrara avisos si no estan disponibles.
