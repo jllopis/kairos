@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,16 +35,19 @@ func (e *spreadsheetExecutor) Run(ctx context.Context, message *a2av1.Message) (
 	if input == "" {
 		input = "Genera la consulta adecuada usando query_spreadsheet y devuelve JSON con headers, rows, meta."
 	}
-	output, err := e.agent.Run(ctx, input)
-	if err != nil {
-		return nil, nil, err
+	for attempt := 0; attempt < 2; attempt++ {
+		output, err := e.agent.Run(ctx, input)
+		if err != nil {
+			return nil, nil, err
+		}
+		payload := extractJSON(output)
+		if payload != nil {
+			resp := demo.NewDataMessage(a2av1.Role_ROLE_AGENT, payload, message.ContextId, message.TaskId)
+			return resp, nil, nil
+		}
+		input = "Devuelve SOLO JSON valido con headers, rows y meta. No incluyas texto adicional."
 	}
-	payload := extractJSON(output)
-	if payload == nil {
-		return nil, nil, fmt.Errorf("failed to parse JSON output from spreadsheet agent")
-	}
-	resp := demo.NewDataMessage(a2av1.Role_ROLE_AGENT, payload, message.ContextId, message.TaskId)
-	return resp, nil, nil
+	return nil, nil, fmt.Errorf("failed to parse JSON output from spreadsheet agent")
 }
 
 func main() {
@@ -52,6 +56,7 @@ func main() {
 		dataDir    = flag.String("data", "", "CSV data directory")
 		configPath = flag.String("config", "", "Config file path")
 		mcpAddr    = flag.String("mcp-addr", "127.0.0.1:9042", "MCP streamable HTTP address")
+		cardAddr   = flag.String("card-addr", "127.0.0.1:9142", "AgentCard HTTP address")
 		embedModel = flag.String("embed-model", "nomic-embed-text", "Ollama embed model")
 		qdrantURL  = flag.String("qdrant", "localhost:6334", "Qdrant gRPC address")
 		memColl    = flag.String("memory-collection", "kairos_demo_sheet_memory", "Qdrant memory collection")
@@ -170,6 +175,12 @@ func main() {
 		PushCfgs: server.NewMemoryPushConfigStore(),
 	}
 	service := server.New(handler)
+
+	mux := http.NewServeMux()
+	mux.Handle(agentcard.WellKnownPath, agentcard.PublishHandler(card))
+	go func() {
+		_ = http.ListenAndServe(*cardAddr, mux)
+	}()
 
 	listener, err := net.Listen("tcp", *addr)
 	if err != nil {

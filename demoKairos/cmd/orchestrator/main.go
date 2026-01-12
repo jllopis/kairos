@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,6 +33,8 @@ type orchestratorHandler struct {
 	synthesizer     *agent.Agent
 	knowledgeClient *client.Client
 	spreadClient    *client.Client
+	knowledgeCard   string
+	spreadsheetCard string
 	card            *a2av1.AgentCard
 }
 
@@ -223,14 +226,17 @@ func (h *orchestratorHandler) handleKnowledge(ctx context.Context, state *planne
 	taskID, _ := state.Outputs["task_id"].(string)
 	contextID, _ := state.Outputs["context_id"].(string)
 
-	_ = stream.Send(demo.StatusEvent(taskID, contextID, demo.EventRetrievalStart, "Buscando definiciones y reglas...", false))
+	if err := h.ensureAgentCard(ctx, h.knowledgeCard, "knowledge"); err != nil {
+		return nil, err
+	}
+	sendStatus(stream, taskID, contextID, demo.EventRetrievalStart, "Buscando definiciones y reglas...")
 	msg := demo.NewTextMessage(a2av1.Role_ROLE_USER, fmt.Sprintf("Consulta: %s\nIntencion: %s", query, intent), contextID, taskID)
 	resp, err := h.knowledgeClient.SendMessage(ctx, &a2av1.SendMessageRequest{Request: msg})
 	if err != nil {
 		return nil, err
 	}
 	knowledge := server.ExtractText(resp.GetMsg())
-	_ = stream.Send(demo.StatusEvent(taskID, contextID, demo.EventRetrievalDone, "Contexto obtenido.", false))
+	sendStatus(stream, taskID, contextID, demo.EventRetrievalDone, "Contexto obtenido.")
 	state.Outputs["knowledge"] = knowledge
 	return knowledge, nil
 }
@@ -240,6 +246,9 @@ func (h *orchestratorHandler) handleSpreadsheet(ctx context.Context, state *plan
 	intent, _ := state.Outputs["intent"].(string)
 	taskID, _ := state.Outputs["task_id"].(string)
 	contextID, _ := state.Outputs["context_id"].(string)
+	if err := h.ensureAgentCard(ctx, h.spreadsheetCard, "spreadsheet"); err != nil {
+		return nil, err
+	}
 	sendStatus(stream, taskID, contextID, demo.EventToolStart, "Consultando hoja de calculo...")
 	msg := demo.NewTextMessage(a2av1.Role_ROLE_USER, fmt.Sprintf("Genera la consulta para %s en formato JSON.", intent), contextID, taskID)
 	resp, err := h.spreadClient.SendMessage(ctx, &a2av1.SendMessageRequest{Request: msg})
@@ -297,6 +306,20 @@ func sendStatus(stream a2av1.A2AService_SendStreamingMessageServer, taskID, cont
 		return
 	}
 	_ = stream.Send(demo.StatusEvent(taskID, contextID, eventType, message, false))
+}
+
+func (h *orchestratorHandler) ensureAgentCard(ctx context.Context, baseURL, label string) error {
+	if baseURL == "" {
+		return fmt.Errorf("missing %s agent card url", label)
+	}
+	card, err := agentcard.Fetch(ctx, baseURL)
+	if err != nil {
+		return fmt.Errorf("%s agent card fetch failed: %w", label, err)
+	}
+	if card.GetCapabilities() == nil || !card.GetCapabilities().GetStreaming() {
+		return fmt.Errorf("%s agent does not advertise streaming capability", label)
+	}
+	return nil
 }
 
 func sendFinal(stream a2av1.A2AService_SendStreamingMessageServer, task *a2av1.Task, msg *a2av1.Message) {
@@ -414,14 +437,17 @@ func parseTaskName(name string) (string, error) {
 
 func main() {
 	var (
-		addr        = flag.String("addr", ":9030", "gRPC listen address")
-		knowledge   = flag.String("knowledge", "localhost:9031", "Knowledge agent gRPC endpoint")
-		spreadsheet = flag.String("spreadsheet", "localhost:9032", "Spreadsheet agent gRPC endpoint")
-		qdrantURL   = flag.String("qdrant", "localhost:6334", "Qdrant gRPC address")
-		memColl     = flag.String("memory-collection", "kairos_demo_orch_memory", "Qdrant memory collection")
-		configPath  = flag.String("config", "", "Config file path")
-		embedModel  = flag.String("embed-model", "nomic-embed-text", "Ollama embed model")
-		planPath    = flag.String("plan", "", "Planner YAML path")
+		addr               = flag.String("addr", ":9030", "gRPC listen address")
+		knowledge          = flag.String("knowledge", "localhost:9031", "Knowledge agent gRPC endpoint")
+		spreadsheet        = flag.String("spreadsheet", "localhost:9032", "Spreadsheet agent gRPC endpoint")
+		knowledgeCardURL   = flag.String("knowledge-card-url", "http://localhost:9141", "Knowledge AgentCard base URL")
+		spreadsheetCardURL = flag.String("spreadsheet-card-url", "http://localhost:9142", "Spreadsheet AgentCard base URL")
+		qdrantURL          = flag.String("qdrant", "localhost:6334", "Qdrant gRPC address")
+		memColl            = flag.String("memory-collection", "kairos_demo_orch_memory", "Qdrant memory collection")
+		configPath         = flag.String("config", "", "Config file path")
+		embedModel         = flag.String("embed-model", "nomic-embed-text", "Ollama embed model")
+		planPath           = flag.String("plan", "", "Planner YAML path")
+		cardAddr           = flag.String("card-addr", "127.0.0.1:9140", "AgentCard HTTP address")
 	)
 	flag.Parse()
 
@@ -507,6 +533,8 @@ func main() {
 		synthesizer:     synthesizer,
 		knowledgeClient: knowledgeClient,
 		spreadClient:    spreadClient,
+		knowledgeCard:   *knowledgeCardURL,
+		spreadsheetCard: *spreadsheetCardURL,
 		card: agentcard.Build(agentcard.Config{
 			ProtocolVersion: "v1",
 			Name:            "Kairos Orchestrator",
@@ -524,6 +552,12 @@ func main() {
 			},
 		}),
 	}
+
+	mux := http.NewServeMux()
+	mux.Handle(agentcard.WellKnownPath, agentcard.PublishHandler(handler.card))
+	go func() {
+		_ = http.ListenAndServe(*cardAddr, mux)
+	}()
 
 	grpcServer := grpc.NewServer()
 	a2av1.RegisterA2AServiceServer(grpcServer, server.New(handler))

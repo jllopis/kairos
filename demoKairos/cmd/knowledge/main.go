@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,6 +31,7 @@ func main() {
 		configPath = flag.String("config", "", "Config file path")
 		mcpAddr    = flag.String("mcp-addr", "127.0.0.1:9041", "MCP streamable HTTP address")
 		embedModel = flag.String("embed-model", "nomic-embed-text", "Ollama embed model")
+		cardAddr   = flag.String("card-addr", "127.0.0.1:9141", "AgentCard HTTP address")
 	)
 	flag.Parse()
 
@@ -155,6 +157,12 @@ func main() {
 
 	handler := server.NewAgentHandler(knowledgeAgent, server.WithAgentCard(card))
 	service := server.New(handler)
+
+	mux := http.NewServeMux()
+	mux.Handle(agentcard.WellKnownPath, agentcard.PublishHandler(card))
+	go func() {
+		_ = http.ListenAndServe(*cardAddr, mux)
+	}()
 
 	listener, err := net.Listen("tcp", *addr)
 	if err != nil {

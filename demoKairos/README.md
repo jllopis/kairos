@@ -15,14 +15,15 @@ Desde `demoKairos/`:
 
 ```bash
 # Agente Knowledge (RAG) - usa MCP + LLM
-go run ./cmd/knowledge --addr :9031 --qdrant localhost:6334 --embed-model nomic-embed-text --mcp-addr 127.0.0.1:9041
+go run ./cmd/knowledge --addr :9031 --qdrant localhost:6334 --embed-model nomic-embed-text --mcp-addr 127.0.0.1:9041 --card-addr 127.0.0.1:9141
 
 # Agente Spreadsheet (CSV) - usa MCP + LLM
-go run ./cmd/spreadsheet --addr :9032 --data ./data --qdrant localhost:6334 --embed-model nomic-embed-text --mcp-addr 127.0.0.1:9042
+go run ./cmd/spreadsheet --addr :9032 --data ./data --qdrant localhost:6334 --embed-model nomic-embed-text --mcp-addr 127.0.0.1:9042 --card-addr 127.0.0.1:9142
 
 # Orchestrator (planner + LLM)
 go run ./cmd/orchestrator --addr :9030 --knowledge localhost:9031 --spreadsheet localhost:9032 \
-  --qdrant localhost:6334 --embed-model nomic-embed-text --plan ./data/orchestrator_plan.yaml
+  --qdrant localhost:6334 --embed-model nomic-embed-text --plan ./data/orchestrator_plan.yaml \
+  --knowledge-card-url http://127.0.0.1:9141 --spreadsheet-card-url http://127.0.0.1:9142 --card-addr 127.0.0.1:9140
 ```
 
 ## Probar con cliente gRPC
