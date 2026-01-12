@@ -120,6 +120,9 @@ func (h *SimpleHandler) GetTask(ctx context.Context, req *a2av1.GetTaskRequest) 
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	if req.GetHistoryLength() < 0 {
+		return nil, status.Error(codes.InvalidArgument, "history length must be >= 0")
+	}
 
 	task, err := h.Store.GetTask(ctx, taskID, req.GetHistoryLength(), false)
 	if err != nil {
@@ -131,6 +134,9 @@ func (h *SimpleHandler) GetTask(ctx context.Context, req *a2av1.GetTaskRequest) 
 func (h *SimpleHandler) ListTasks(ctx context.Context, req *a2av1.ListTasksRequest) (*a2av1.ListTasksResponse, error) {
 	if h.Store == nil {
 		return nil, status.Error(codes.FailedPrecondition, "task store not configured")
+	}
+	if req.GetHistoryLength() < 0 {
+		return nil, status.Error(codes.InvalidArgument, "history length must be >= 0")
 	}
 
 	filter := TaskFilter{

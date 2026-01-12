@@ -2268,6 +2268,18 @@ func TestCancelTask_NotFound(t *testing.T) {
 	}
 }
 
+func TestGetTask_NegativeHistoryLength(t *testing.T) {
+	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
+
+	_, err := handler.GetTask(context.Background(), &a2av1.GetTaskRequest{
+		Name:          "tasks/missing",
+		HistoryLength: int32Ptr(-1),
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
+	}
+}
+
 func TestListTasks_NegativePageSizeRejected(t *testing.T) {
 	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
 
