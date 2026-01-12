@@ -36,3 +36,9 @@ go run ./cmd/orchestrator --addr :9030 --knowledge localhost:9031 --spreadsheet 
 --qdrant localhost:6334 --embed-model nomic-embed-text --plan ./data/orchestrator_plan.yaml \
 --knowledge-card-url http://127.0.0.1:9141 --spreadsheet-card-url http://127.0.0.1:9142 --card-addr 127.0.0.1:9140
 ```
+
+# Cómo arrancar la UI con discovery demo
+
+```bash
+go run ./cmd/kairos --web --config docs/demo-settings.json --web-addr :8090
+```

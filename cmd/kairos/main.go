@@ -84,6 +84,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
+	applyAgentDefaults(&global, cfg)
 
 	if global.Help || len(args) == 0 {
 		if global.Help {
@@ -1130,4 +1131,20 @@ func getenv(key, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func applyAgentDefaults(flags *globalFlags, cfg *config.Config) {
+	if flags == nil || cfg == nil {
+		return
+	}
+	agentCfg, ok := cfg.Agents["orchestrator"]
+	if !ok {
+		return
+	}
+	if flags.GRPCAddr == defaultGRPCAddr && strings.TrimSpace(agentCfg.GRPCAddr) != "" {
+		flags.GRPCAddr = strings.TrimSpace(agentCfg.GRPCAddr)
+	}
+	if flags.HTTPURL == defaultHTTPURL && strings.TrimSpace(agentCfg.HTTPURL) != "" {
+		flags.HTTPURL = strings.TrimSpace(agentCfg.HTTPURL)
+	}
 }
