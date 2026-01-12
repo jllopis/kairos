@@ -52,6 +52,7 @@ func main() {
 	for {
 		event, err := stream.Recv()
 		if err != nil {
+			log.Printf("stream ended: %v", err)
 			break
 		}
 		switch payload := event.Payload.(type) {

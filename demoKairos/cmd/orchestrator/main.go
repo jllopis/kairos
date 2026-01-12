@@ -36,14 +36,17 @@ func (h *orchestratorHandler) AgentCard() *a2av1.AgentCard {
 func (h *orchestratorHandler) SendMessage(ctx context.Context, req *a2av1.SendMessageRequest) (*a2av1.SendMessageResponse, error) {
 	message := req.GetRequest()
 	if err := server.ValidateMessage(message); err != nil {
+		log.Printf("orchestrator validate error: %v", err)
 		return nil, err
 	}
 	task, _, err := h.ensureTask(ctx, message)
 	if err != nil {
+		log.Printf("orchestrator ensure task error: %v", err)
 		return nil, err
 	}
 	resp, err := h.runOrchestration(ctx, task, message, nil)
 	if err != nil {
+		log.Printf("orchestrator run error: %v", err)
 		return nil, err
 	}
 	return &a2av1.SendMessageResponse{Payload: &a2av1.SendMessageResponse_Msg{Msg: resp}}, nil
@@ -52,16 +55,22 @@ func (h *orchestratorHandler) SendMessage(ctx context.Context, req *a2av1.SendMe
 func (h *orchestratorHandler) SendStreamingMessage(req *a2av1.SendMessageRequest, stream a2av1.A2AService_SendStreamingMessageServer) error {
 	message := req.GetRequest()
 	if err := server.ValidateMessage(message); err != nil {
+		log.Printf("orchestrator validate error: %v", err)
 		return err
 	}
 	task, _, err := h.ensureTask(stream.Context(), message)
 	if err != nil {
+		log.Printf("orchestrator ensure task error: %v", err)
 		return err
 	}
 	if err := stream.Send(&a2av1.StreamResponse{Payload: &a2av1.StreamResponse_Task{Task: task}}); err != nil {
+		log.Printf("orchestrator send task error: %v", err)
 		return err
 	}
 	_, err = h.runOrchestration(stream.Context(), task, message, stream)
+	if err != nil {
+		log.Printf("orchestrator run error: %v", err)
+	}
 	return err
 }
 
@@ -152,12 +161,17 @@ func (h *orchestratorHandler) runOrchestration(ctx context.Context, task *a2av1.
 
 	knowledge := ""
 	sendStatus(stream, task, demo.EventRetrievalStart, "Buscando definiciones y reglas...")
-	knowledge, _ = h.askKnowledge(ctx, task, query)
+	knowledge, err := h.askKnowledge(ctx, task, query)
+	if err != nil {
+		h.failWithStatus(ctx, stream, task, fmt.Sprintf("Fallo en knowledge agent: %v", err))
+		return nil, err
+	}
 	sendStatus(stream, task, demo.EventRetrievalDone, "Contexto obtenido.")
 
 	sendStatus(stream, task, demo.EventToolStart, "Consultando hoja de calculo...")
 	dataMsg, err := h.askSpreadsheet(ctx, task, intent)
 	if err != nil {
+		h.failWithStatus(ctx, stream, task, fmt.Sprintf("Fallo consultando hoja: %v", err))
 		return nil, err
 	}
 	sendStatus(stream, task, demo.EventToolDone, "Datos listos.")
@@ -232,6 +246,18 @@ func sendFinal(stream a2av1.A2AService_SendStreamingMessageServer, task *a2av1.T
 	status := demo.StatusEventWithState(task.Id, task.ContextId, "response.final", "Respuesta completa.", a2av1.TaskState_TASK_STATE_COMPLETED, true)
 	_ = stream.Send(status)
 	_ = stream.Send(&a2av1.StreamResponse{Payload: &a2av1.StreamResponse_Msg{Msg: msg}})
+}
+
+func (h *orchestratorHandler) failWithStatus(ctx context.Context, stream a2av1.A2AService_SendStreamingMessageServer, task *a2av1.Task, message string) {
+	status := demo.StatusEventWithState(task.Id, task.ContextId, "error", message, a2av1.TaskState_TASK_STATE_FAILED, true)
+	if stream != nil {
+		_ = stream.Send(status)
+	}
+	_ = h.store.UpdateStatus(ctx, task.Id, &a2av1.TaskStatus{
+		State:     a2av1.TaskState_TASK_STATE_FAILED,
+		Message:   demo.NewTextMessage(a2av1.Role_ROLE_AGENT, message, task.ContextId, task.Id),
+		Timestamp: timestamppb.Now(),
+	})
 }
 
 func detectIntent(text string) string {
@@ -359,7 +385,7 @@ func main() {
 		addr        = flag.String("addr", ":9030", "gRPC listen address")
 		knowledge   = flag.String("knowledge", "localhost:9031", "Knowledge agent gRPC endpoint")
 		spreadsheet = flag.String("spreadsheet", "localhost:9032", "Spreadsheet agent gRPC endpoint")
-		qdrantURL   = flag.String("qdrant", "http://localhost:6333", "Qdrant URL")
+		qdrantURL   = flag.String("qdrant", "localhost:6334", "Qdrant gRPC address")
 		memColl     = flag.String("memory-collection", "kairos_demo_memory", "Qdrant memory collection")
 		ollamaURL   = flag.String("ollama", "http://localhost:11434", "Ollama base URL")
 		embedModel  = flag.String("embed-model", "nomic-embed-text", "Ollama embed model")
