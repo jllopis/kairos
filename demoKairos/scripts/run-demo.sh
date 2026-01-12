@@ -9,6 +9,10 @@ EMBED_MODEL="${EMBED_MODEL:-nomic-embed-text}"
 KAIROS_LLM_MODEL="${KAIROS_LLM_MODEL:-qwen2.5-coder:7b-instruct-q5_K_M}"
 KAIROS_LLM_PROVIDER="${KAIROS_LLM_PROVIDER:-ollama}"
 CONFIG_PATH="${CONFIG_PATH:-}"
+config_args=()
+if [[ -n "$CONFIG_PATH" ]]; then
+  config_args=(--config "$CONFIG_PATH")
+fi
 
 KNOWLEDGE_ADDR="${KNOWLEDGE_ADDR:-:9031}"
 SPREADSHEET_ADDR="${SPREADSHEET_ADDR:-:9032}"
@@ -53,10 +57,6 @@ check_port "Qdrant gRPC" "$QDRANT_URL" || log "Hint: Qdrant gRPC defaults to loc
 check_http "Ollama HTTP" "$OLLAMA_URL" || log "Hint: Ollama defaults to http://localhost:11434."
 
 log "Starting knowledge agent..."
-config_args=()
-if [[ -n "$CONFIG_PATH" ]]; then
-  config_args=(--config "$CONFIG_PATH")
-fi
 ( cd "$ROOT_DIR" && \
   OLLAMA_URL="$OLLAMA_URL" KAIROS_LLM_PROVIDER="$KAIROS_LLM_PROVIDER" KAIROS_LLM_MODEL="$KAIROS_LLM_MODEL" \
   go run ./cmd/knowledge --addr "$KNOWLEDGE_ADDR" --qdrant "$QDRANT_URL" --embed-model "$EMBED_MODEL" \
