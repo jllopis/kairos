@@ -259,6 +259,37 @@ func TestPushNotificationConfigCRUD(t *testing.T) {
 	}
 }
 
+func TestPushConfig_MismatchedTaskName(t *testing.T) {
+	store := NewMemoryTaskStore()
+	task, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "hello"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+
+	handler := &SimpleHandler{
+		Store:    store,
+		PushCfgs: NewMemoryPushConfigStore(),
+	}
+
+	req := &a2av1.SetTaskPushNotificationConfigRequest{
+		Parent:   fmt.Sprintf("tasks/%s", task.Id),
+		ConfigId: "cfg-1",
+		Config: &a2av1.TaskPushNotificationConfig{
+			Name: "tasks/other/pushNotificationConfigs/cfg-1",
+			PushNotificationConfig: &a2av1.PushNotificationConfig{
+				Url: "https://example.com/hook",
+			},
+		},
+	}
+	if _, err := handler.SetTaskPushNotificationConfig(context.Background(), req); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", status.Code(err))
+	}
+}
+
 func TestSubscribeToTask_UpdatesAndArtifacts(t *testing.T) {
 	store := NewMemoryTaskStore()
 	task, err := store.CreateTask(context.Background(), &a2av1.Message{
