@@ -2337,6 +2337,28 @@ func TestGetTask_PlainIDName(t *testing.T) {
 		t.Fatalf("expected task id %s, got %s", task.Id, resp.GetId())
 	}
 }
+
+func TestCancelTask_PlainIDName(t *testing.T) {
+	store := NewMemoryTaskStore()
+	handler := &SimpleHandler{Store: store}
+
+	task, err := store.CreateTask(context.Background(), &a2av1.Message{
+		MessageId: "msg-1",
+		Role:      a2av1.Role_ROLE_USER,
+		Parts:     []*a2av1.Part{{Part: &a2av1.Part_Text{Text: "alpha"}}},
+	})
+	if err != nil {
+		t.Fatalf("CreateTask error: %v", err)
+	}
+
+	resp, err := handler.CancelTask(context.Background(), &a2av1.CancelTaskRequest{Name: task.Id})
+	if err != nil {
+		t.Fatalf("CancelTask error: %v", err)
+	}
+	if resp.GetStatus().GetState() != a2av1.TaskState_TASK_STATE_CANCELLED {
+		t.Fatalf("expected cancelled state, got %v", resp.GetStatus().GetState())
+	}
+}
 func TestGetTask_NotFound(t *testing.T) {
 	handler := &SimpleHandler{Store: NewMemoryTaskStore()}
 
