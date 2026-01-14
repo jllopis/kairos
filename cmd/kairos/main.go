@@ -1038,7 +1038,7 @@ func printVersion() {
 }
 
 func printUsage() {
-	fmt.Println(`Kairos CLI (Phase 8.1 MVP)
+	fmt.Print(`Kairos CLI (Phase 8.1 MVP)
 
 Usage:
   kairos [global flags] <command> [args]

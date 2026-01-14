@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -45,6 +46,7 @@ type Agent struct {
 	warnOnActionFallback  bool
 	policyEngine          governance.PolicyEngine
 	eventEmitter          core.EventEmitter
+	agentsDoc             *governance.AgentInstructions
 }
 
 // Option configures an Agent instance.
@@ -71,6 +73,17 @@ func New(id string, llmProvider llm.Provider, opts ...Option) (*Agent, error) {
 		if err := opt(a); err != nil {
 			return nil, err
 		}
+	}
+	if a.agentsDoc == nil {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+		doc, err := governance.LoadAGENTS(cwd)
+		if err != nil {
+			return nil, err
+		}
+		a.agentsDoc = doc
 	}
 	return a, nil
 }
@@ -218,6 +231,14 @@ func WithEventEmitter(emitter core.EventEmitter) Option {
 	}
 }
 
+// WithAGENTSInstructions sets the AGENTS.md instructions explicitly.
+func WithAGENTSInstructions(doc *governance.AgentInstructions) Option {
+	return func(a *Agent) error {
+		a.agentsDoc = doc
+		return nil
+	}
+}
+
 // ID returns the agent identifier.
 func (a *Agent) ID() string { return a.id }
 
@@ -293,6 +314,12 @@ func (a *Agent) Run(ctx context.Context, input any) (any, error) {
 
 	// Construct system prompt with tool instructions if tools are present
 	systemPrompt := a.role
+	if a.agentsDoc != nil && strings.TrimSpace(a.agentsDoc.Raw) != "" {
+		if systemPrompt != "" {
+			systemPrompt += "\n\n"
+		}
+		systemPrompt += "AGENTS.md:\n" + a.agentsDoc.Raw
+	}
 	if len(toolset) > 0 {
 		systemPrompt += "\n\nYou have access to the following tools:\n"
 		for _, t := range toolset {
