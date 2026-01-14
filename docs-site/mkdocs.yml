@@ -36,6 +36,7 @@ nav:
   - Referencia:
       - CLI: CLI.md
       - Configuración: CONFIGURATION.md
+      - API: API.md
       - A2A Task: TASKS.md
   - Roadmap:
       - Roadmap: ROADMAP.md
