@@ -2,3 +2,9 @@
 .env
 tools/bin/
 tools/
+.DS_Store
+.AppleDouble
+._*
+Icon?
+.Spotlight-V100
+.Trashes
