@@ -1,9 +1,15 @@
-# Event Taxonomy
+# Taxonomía de eventos
 
-Kairos emits semantic events to make streaming and logs human-friendly and
-UI-ready. These events are stable, minimal, and extensible via payloads.
+Kairos emite eventos semánticos para que el streaming y los logs sean legibles
+por humanos y fáciles de consumir por una UI. Son eventos estables, mínimos y
+ampliables vía `payload`.
 
-## Event types (stable)
+## Tipos de evento (estables)
+
+Los tipos base son cinco y no deberían crecer sin necesidad. Úsalos como un
+vocabulario común y mete el detalle en `payload`.
+
+Tipos disponibles:
 
 - `agent.thinking`
 - `agent.task.started`
@@ -11,9 +17,9 @@ UI-ready. These events are stable, minimal, and extensible via payloads.
 - `agent.delegation`
 - `agent.error`
 
-## Minimal fields
+## Campos mínimos
 
-Each event carries the following fields:
+Cada evento incluye estos campos:
 
 ```json
 {
@@ -24,15 +30,14 @@ Each event carries the following fields:
   "payload": {
     "run_id": "run-abc",
     "stage": "detect_intent",
-    "task_goal": "Detect user intent"
+    "task_goal": "Detectar intención de usuario"
   }
 }
 ```
 
-## Streaming representation (A2A)
+## Representación en streaming (A2A)
 
-For A2A streaming, events are encoded in the `TaskStatusUpdateEvent.Metadata`
-as:
+En A2A, los eventos se envían dentro de `TaskStatusUpdateEvent.Metadata`:
 
 ```json
 {
@@ -41,11 +46,13 @@ as:
 }
 ```
 
-The message itself still carries the agent text, and the task state tracks the
-runtime lifecycle.
+El mensaje sigue llevando el texto del agente y el estado de la tarea refleja
+el ciclo de vida del runtime.
 
-## Usage guidelines
+## Recomendaciones de uso
 
-- Use **event type** for stable semantics.
-- Use **payload** for details such as `stage`, `target`, `tool`, or `intent`.
-- Avoid adding new event types unless absolutely necessary.
+Usa `type` para la semántica estable y `payload` para detalles como `stage`,
+`target`, `tool` o `intent`. Evita crear tipos nuevos salvo que sea necesario.
+
+Si necesitas más semántica, define un campo nuevo en `payload` antes de
+inventar otro `type`.

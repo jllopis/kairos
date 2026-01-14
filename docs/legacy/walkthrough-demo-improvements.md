@@ -42,7 +42,7 @@ Que un developer vea la demo y piense:
 3) Narrativa y docs
    - Aclarar “lo que NO es / lo que SI es”.
    - Comparativa directa con frameworks Python.
-   - Implementado en `docs/NARRATIVE_GUIDE.md`.
+   - Implementado en `docs/internal/NARRATIVE_GUIDE.md`.
 
 ## Fase 2: Task como entidad de primer nivel (libreria)
 

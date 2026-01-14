@@ -1,0 +1,59 @@
+site_name: Kairos
+site_description: Framework de agentes IA en Go, interoperable y observable.
+docs_dir: ../docs
+
+repo_name: kairos
+exclude_docs: |
+  legacy/**
+  internal/**
+
+nav:
+  - Bienvenido a Kairos: index.md
+  - Visión:
+      - Especificación Funcional: "EspecificaciónFuncional.md"
+  - Conceptos:
+      - Arquitectura: ARCHITECTURE.md
+      - Observabilidad y eventos: EVENT_TAXONOMY.md
+      - Planner: Conceptos_Planner.md
+      - Agent loop: Conceptos_AgentLoop.md
+      - Memoria: Conceptos_Memoria.md
+      - Governance (HITL): governance-hitl.md
+      - Governance (Uso): governance-usage.md
+  - Primeros pasos:
+      - Inicio rapido: Inicio_Rapido.md
+      - Demo Kairos: Demo_Kairos.md
+  - Protocolos:
+      - A2A:
+          - Resumen: protocols/A2A/Overview.md
+          - Qué es A2A: protocols/A2A/topics/what-is-a2a.md
+          - Conceptos clave: protocols/A2A/topics/key-concepts.md
+          - Listo para empresa: protocols/A2A/topics/enterprise-ready.md
+          - Descubrimiento de agentes: protocols/A2A/topics/agent-discovery.md
+          - Bindings HTTP+JSON y JSON-RPC: protocols/A2A/topics/bindings.md
+          - A2A y MCP: protocols/A2A/topics/a2a-and-mcp.md
+      - MCP: protocols/MCP.md
+      - AGENTS.md: agents-md.md
+  - Referencia:
+      - CLI: CLI.md
+      - Configuración: CONFIGURATION.md
+      - A2A Task: TASKS.md
+  - Roadmap:
+      - Roadmap: ROADMAP.md
+
+theme:
+  name: material
+  language: es
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true

@@ -1,54 +1,73 @@
-# Architecture - Kairos Framework
+# Arquitectura - Kairos
 
-## Goals
-- Go-native runtime with first-class SDK.
-- Interoperability by standards: MCP, A2A/ACP, AgentSkills, AGENTS.md.
-- Observability by default with OpenTelemetry traces, metrics, and logs.
-- Multi-agent distributed execution with governance and production readiness.
+## Objetivos
 
-## Layered Architecture
-1) Interfaces (UI/CLI)
-2) Control Plane (API, auth, policies, governance)
-3) Multi-Agent Runtime Core (Go)
-4) Planner + Memory + Tools
-5) Interop: MCP + A2A/ACP + AGENTS.md
-6) Observability + Storage
+- Runtime Go-first con SDK de primera clase.
+- Interoperabilidad por estándares: MCP, A2A/ACP, AgentSkills, AGENTS.md.
+- Observabilidad por defecto con OpenTelemetry (trazas, métricas y logs).
+- Ejecución multiagente distribuida con governance y foco en producción.
 
-## Core Components (Go)
-- Agent runtime: lifecycle, scheduling, context propagation, tool execution.
-- Planner: explicit graphs + emergent planner, single internal model.
-- Memory: short, long, shared, persistent.
-- Tools/Skills: AgentSkills as semantic layer; binding to MCP tools.
-- Policy engine: scopes, allow/deny, audit events.
+## Arquitectura por capas
 
-## Interoperability
-- MCP client and server.
-- A2A/ACP for discovery, delegation, and remote execution.
-- AGENTS.md auto-loading on startup to enforce repo rules.
+1. Interfaces (UI/CLI)
+2. Control Plane (API, auth, políticas, governance)
+3. Runtime multiagente (Go)
+4. Planner + Memoria + Tools
+5. Interop: MCP + A2A/ACP + AGENTS.md
+6. Observabilidad + Storage
 
-### A2A implementation (current)
-- gRPC binding with streaming (SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask).
-- Go types generated directly from `pkg/a2a/proto/a2a.proto` (`scripts/gen-a2a.sh`).
-- AgentCard publishing + discovery, plus A2AService server/client.
-- Task/Message/Artifact mapping with streaming responses.
-- HTTP+JSON and JSON-RPC server bindings (`pkg/a2a/httpjson`, `pkg/a2a/jsonrpc`) with SSE for streaming.
-- Task store + push config store backends (in-memory + SQLite).
-- Demo multi-agent flow (demoKairos) exercising delegation (orchestrator -> knowledge/spreadsheet).
+## Componentes core (Go)
 
-### A2A storage backends
-- In-memory stores: `MemoryTaskStore`, `MemoryPushConfigStore` (default in handlers).
-- SQLite stores (no CGO): `SQLiteTaskStore`, `SQLitePushConfigStore` via `modernc.org/sqlite`.
-- Schema is created automatically on startup; tasks/configs are stored as JSON blobs with indexes for status, context, and updated time.
-- Pagination uses stable ordering: `updated_at DESC`, then `id ASC`.
+- Runtime de agente: ciclo de vida, scheduling, contexto, ejecución de tools.
+- Planner: grafos explícitos y planner emergente con un modelo interno común.
+- Memoria: corta, larga, compartida, persistente.
+- Tools/Skills: AgentSkills como capa semántica; binding a tools MCP.
+- Policy engine: scopes, allow/deny y eventos de auditoría.
 
-## Observability
-- OpenTelemetry tracing for agent runs, planner steps, tool calls, A2A hops (trace propagation over A2A is implemented).
-- Metrics: latency per step, errors per agent, token usage.
-- Structured logs with trace/span ids and decision summaries (rationale + inputs/outputs).
-- Decision events emitted per iteration, including tool-call outcomes for auditing.
+## Interoperabilidad
 
-### Telemetry Configuration (OTLP)
-Example config block for OTLP exporter:
+- Cliente y servidor MCP.
+- A2A/ACP para discovery, delegación y ejecución remota.
+- AGENTS.md cargado automáticamente al inicio para aplicar reglas del repo.
+
+## Integraciones enterprise
+
+La idea es que las integraciones con APIs externas y sistemas corporativos
+puedan declararse de forma estándar. En la práctica, esto encaja con MCP como
+puente de tools y con especificaciones tipo OpenAPI para describir servicios.
+
+## Depuración y control visual
+
+Además del CLI, el objetivo es una interfaz visual para ver flujos, trazas y
+estado en tiempo real, con capacidad de intervenir cuando haga falta.
+
+### Implementación A2A (estado actual)
+
+- Binding gRPC con streaming (SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask).
+- Tipos Go generados desde `pkg/a2a/proto/a2a.proto` (`scripts/gen-a2a.sh`).
+- Publicación de AgentCard + discovery, con servidor/cliente A2AService.
+- Mapeo de Task/Message/Artifact con respuestas por streaming.
+- Bindings HTTP+JSON y JSON-RPC (`pkg/a2a/httpjson`, `pkg/a2a/jsonrpc`) con SSE.
+- Task store + push config store (in-memory + SQLite).
+- Demo multiagente (demoKairos) con delegación (orchestrator -> knowledge/spreadsheet).
+
+### Backends de almacenamiento A2A
+
+- Stores in-memory: `MemoryTaskStore`, `MemoryPushConfigStore` (por defecto en handlers).
+- Stores SQLite (sin CGO): `SQLiteTaskStore`, `SQLitePushConfigStore` via `modernc.org/sqlite`.
+- Esquema creado al inicio; tasks/configs como JSON con índices por estado, contexto y update time.
+- Paginación con orden estable: `updated_at DESC`, luego `id ASC`.
+
+## Observabilidad
+
+- Trazas OpenTelemetry para ejecuciones de agente, pasos del planner, tools y hops A2A.
+- Métricas: latencia por paso, errores por agente, uso de tokens.
+- Logs estructurados con ids de trace/span y resúmenes de decisión.
+- Eventos por iteración, incluyendo resultados de tool calls para auditoría.
+
+### Configuración de telemetría (OTLP)
+
+Ejemplo de config para exporter OTLP:
 
 ```json
 {
@@ -60,16 +79,17 @@ Example config block for OTLP exporter:
 }
 ```
 
-Equivalent environment variables:
+Variables de entorno equivalentes:
 
 - `KAIROS_TELEMETRY_EXPORTER`
 - `KAIROS_TELEMETRY_OTLP_ENDPOINT`
 - `KAIROS_TELEMETRY_OTLP_INSECURE`
 - `KAIROS_TELEMETRY_OTLP_TIMEOUT_SECONDS`
 
-#### Verification Steps
-1) Start an OTLP-compatible backend (e.g., local collector on `localhost:4317`).
-2) Run an example with OTLP enabled:
+#### Verificación
+
+1) Levanta un backend OTLP compatible (por ejemplo `localhost:4317`).
+2) Ejecuta un ejemplo con OTLP habilitado:
 
 ```bash
 KAIROS_TELEMETRY_EXPORTER=otlp \
@@ -78,9 +98,10 @@ KAIROS_TELEMETRY_OTLP_INSECURE=true \
 go run ./examples/basic-agent
 ```
 
-3) Confirm traces and metrics arrive in the backend.
+3) Confirma que las trazas y métricas llegan al backend.
 
-Optional OTLP smoke test:
+Smoke test opcional:
+
 ```bash
 KAIROS_OTLP_SMOKE_TEST=1 \
 KAIROS_TELEMETRY_OTLP_ENDPOINT=localhost:4317 \
@@ -89,66 +110,78 @@ KAIROS_TELEMETRY_OTLP_TIMEOUT_SECONDS=30 \
 go test ./pkg/telemetry -run TestOTLPSmoke -count=1
 ```
 
-## Data Model (high level)
+## Modelo de datos (alto nivel)
+
 - Agent: id, role, skills, tools, memory, policies.
-- Skill: semantic capability (AgentSkills spec).
-- Tool: MCP implementation that fulfills skills.
-- Plan: graph or emergent plan state.
-- Memory: interface Store/Retrieve with pluggable backends.
+- Skill: capacidad semántica (AgentSkills spec).
+- Tool: implementación MCP que cumple una skill.
+- Plan: grafo o estado emergente.
+- Memory: interfaz Store/Retrieve con backends plugables.
 
-## Explicit planner groundwork
-- Graph schema (`pkg/planner`): nodes, edges, and optional start node.
-- JSON/YAML parsers with validation for well-formed graphs.
-- Executor supports per-node tracing with branching/conditions and multi-edge evaluation.
+## Base del planner explícito
 
-## Execution Flow (runtime)
-1) Load AGENTS.md and apply repository rules.
-2) Initialize agent with skills, memory, tools, policies.
-3) Build plan (explicit graph or emergent).
-4) Execute steps with context propagation.
-5) Emit traces/metrics/logs and audit events.
+- Esquema de grafos (`pkg/planner`): nodos, edges y start opcional.
+- Parsers JSON/YAML con validación.
+- Executor con trazas por nodo, branching y evaluación multi-edge.
 
-## Configuration sources
-- File: `~/.kairos/settings.json` or `./.kairos/settings.json`.
-- Env: `KAIROS_*` (maps to config keys).
-- CLI: `--config=/path/to/settings.json` and repeatable `--set key=value`.
-Precedence: defaults < file < env < CLI.
-Examples:
+## Flujo de ejecución (runtime)
+
+1) Cargar AGENTS.md y aplicar reglas del repo.
+2) Inicializar agente con skills, memoria, tools y políticas.
+3) Construir plan (grafo explícito o emergente).
+4) Ejecutar pasos con propagación de contexto.
+5) Emitir trazas/métricas/logs y eventos de auditoría.
+
+## Fuentes de configuración
+
+- Archivo: `~/.kairos/settings.json` o `./.kairos/settings.json`.
+- Env: `KAIROS_*` (mapea a keys de config).
+- CLI: `--config=/ruta/a/settings.json` y `--set key=value` (repetible).
+
+Precedencia: valores por defecto < archivo < env < CLI.
+
+Ejemplo:
+
 ```bash
 go run ./examples/basic-agent --config=./.kairos/settings.json \
   --set llm.provider=ollama \
   --set telemetry.exporter=stdout
 ```
-See `docs/CONFIGURATION.md` for the full guide.
 
-## Event taxonomy
-- Stable semantic events for streaming/logs: `docs/EVENT_TAXONOMY.md`.
+Ver `docs/CONFIGURATION.md` para la guía completa.
 
-## Narrative guide
-- Demo positioning and messaging: `docs/NARRATIVE_GUIDE.md`.
+## Taxonomía de eventos
+
+Eventos semánticos para streaming/logs: `docs/EVENT_TAXONOMY.md`.
 
 ## Tasks
-- Task core API and lifecycle: `docs/TASKS.md`.
+
+API core de Task y ciclo de vida: `docs/TASKS.md`.
 
 ## Discovery
-- Agent discovery patterns and order: `docs/adr/0004-agent-discovery-patterns.md`.
 
-## Agent loop options
-- `agent.WithDisableActionFallback(true)` disables legacy "Action:" parsing in the ReAct loop when tool calls are supported.
-- `agent.WithActionFallbackWarning(true)` emits a warning log when legacy Action parsing is used.
-- Config: `agent.disable_action_fallback` or `KAIROS_AGENT_DISABLE_ACTION_FALLBACK=true` (default: true).
-- Per-agent overrides can be defined under `agents.<agent_id>`.
+Patrones de discovery: `docs/protocols/A2A/topics/agent-discovery.md`.
 
-### Action fallback deprecation plan
-- Phase 1 (current): fallback is disabled by default; enable explicitly via config/env.
-- Phase 2 (next minor): warning on every fallback use + doc/changelog note.
-- Phase 3 (following minor): legacy-only; requires explicit flag and logs a startup warning.
-- Phase 4 (next major): remove fallback path and related flags.
+## Opciones del agent loop
 
-Activation summary:
-- Enable fallback only by setting `agent.disable_action_fallback=false` (or `KAIROS_AGENT_DISABLE_ACTION_FALLBACK=false`).
+- `agent.WithDisableActionFallback(true)` desactiva el parsing legacy "Action:".
+- `agent.WithActionFallbackWarning(true)` emite un aviso cuando se usa el fallback.
+- Config: `agent.disable_action_fallback` o `KAIROS_AGENT_DISABLE_ACTION_FALLBACK=true` (por defecto: true).
+- Sobrescrituras por agente bajo `agents.<agent_id>`.
 
-Example config:
+### Plan de deprecación del fallback
+
+- Fase 1 (actual): fallback desactivado por defecto; habilitar explícitamente.
+- Fase 2 (siguiente minor): aviso en cada uso + nota en docs/changelog.
+- Fase 3 (siguiente minor): requiere flag explícito y aviso al arranque.
+- Fase 4 (siguiente major): eliminar fallback y flags asociados.
+
+Activación:
+
+- Habilita fallback solo con `agent.disable_action_fallback=false`.
+
+Ejemplo de config:
+
 ```json
 {
   "agent": {
@@ -163,7 +196,8 @@ Example config:
 }
 ```
 
-Example config (full, with telemetry):
+Ejemplo completo con telemetría:
+
 ```json
 {
   "agent": {
@@ -182,17 +216,20 @@ Example config (full, with telemetry):
 }
 ```
 
-## Governance and Security
-- Policy enforcement on tool usage and agent delegation.
-- Human-in-the-loop points.
-- Auditing for every action and tool call.
+## Governance y seguridad
 
-## Deployment
-- Single Go binary.
+- Enforcement de políticas en tools y delegación.
+- Puntos human-in-the-loop.
+- Auditoría de cada acción y tool call.
+
+## Despliegue
+
+- Binario Go único.
 - Docker/Kubernetes ready.
-- Horizontal scaling with A2A federation.
+- Escalado horizontal con federación A2A.
 
-## Suggested Package Layout (initial)
+## Layout de paquetes (inicial)
+
 - core/agent
 - core/runtime
 - core/planner
@@ -204,17 +241,9 @@ Example config (full, with telemetry):
 - controlplane/api
 - ui (future)
 
-## Explicit planner walkthrough
-- `docs/walkthrough-explicit-planner.md`
+## Enlaces relacionados
 
-## Demo A2A agents walkthrough
-- `docs/walkthrough-demo-a2a-agents.md`
-
-## A2A HTTP+JSON and JSON-RPC walkthrough
-- `docs/walkthrough-a2a-httpjson-jsonrpc.md`
-
-## Governance walkthrough
-- `docs/walkthrough-governance-agentsmd.md`
-
-## Governance usage
-- `docs/governance-usage.md`
+- Planner: `docs/Conceptos_Planner.md`
+- Demo: `docs/Demo_Kairos.md`
+- A2A bindings: `docs/protocols/A2A/topics/bindings.md`
+- Governance: `docs/governance-usage.md`

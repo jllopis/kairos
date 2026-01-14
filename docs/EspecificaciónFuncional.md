@@ -1,14 +1,17 @@
-# Especificación del Framework de Agentes IA `Kairos`
+# Kairos: framework de agentes IA
 
-## 1. Visión y posicionamiento
+## Visión y posicionamiento
 
-El framework será un **framework de agentes IA de propósito general**, con **foco prioritario en agentes corporativos y de desarrollo**, pero **sin excluir** otros dominios (asistentes, automatización, data, DevOps, etc.).
+Kairos es un framework de agentes IA de propósito general. Empezamos por el
+lado corporativo y de desarrollo, pero sin cerrar puertas a otros dominios
+(asistentes, automatización, data, DevOps, etc.).
 
-Se posiciona como:
+Idea fuerza:
 
-> **“El framework de referencia para agentes IA en Go, interoperable, observable, distribuido y gobernable desde el diseño.”**
+> **El framework de referencia para agentes IA en Go, interoperable, observable,
+> distribuido y gobernable desde el diseño.**
 
-Sus pilares diferenciales serán:
+Pilares diferenciales:
 
 * **Implementación en Go** (core + SDK)
 * **Interoperabilidad nativa** (MCP, A2A, AGENTS.md)
@@ -19,13 +22,29 @@ Sus pilares diferenciales serán:
 
 ---
 
-## 2. Lenguaje y SDK: Go como decisión estratégica
+## Líneas de producto a integrar
 
-### 2.1 Core del framework en Go
+Estas ideas vienen de los documentos iniciales y conviene mantenerlas como
+objetivo de producto, aunque todavía no estén completas:
 
-El **core del framework se implementa en Go**, no como accidente, sino como decisión estratégica:
+* **Depuración y monitorización visual**: ver flujos, estado y trazas en tiempo real.
+* **Integraciones enterprise**: conectar APIs externas y sistemas corporativos de forma
+  declarativa (por ejemplo, a partir de OpenAPI).
+* **Seguridad y IA responsable**: guardrails, mitigación de prompt injection, control
+  de PII y permisos finos.
+* **Pruebas y simulación**: poder validar agentes y flujos antes de producción.
 
-**Justificación técnica:**
+Estas líneas no cambian la arquitectura actual, pero guían las siguientes fases.
+
+---
+
+## Lenguaje y SDK: Go primero
+
+### Core del framework en Go
+
+El core se implementa en Go por una decisión clara.
+
+Por qué:
 
 * Vacío real en el ecosistema de agentes IA en Go
 
@@ -36,7 +55,7 @@ El **core del framework se implementa en Go**, no como accidente, sino como deci
   * workloads de larga duración
   * binarios autosuficientes (edge / on-prem / cloud)
 
-* Encaja perfectamente con:
+* Encaja bien con:
 
   * Kubernetes
   * observabilidad
@@ -47,9 +66,9 @@ El framework **no depende de Python para funcionar**.
 
 ---
 
-### 2.2 SDK inicial en Go (first-class citizen)
+### SDK inicial en Go (first-class citizen)
 
-El **SDK oficial inicial será Go**, con:
+El SDK oficial inicial es Go, con:
 
 * API tipada
 * composición explícita
@@ -67,16 +86,16 @@ agent := agent.New(
 )
 ```
 
-Otros SDKs (Python / TS) **podrán existir después**, pero:
+Otros SDKs (Python / TS) **pueden existir después**, pero:
 
 * el core **no dependerá de ellos**
 * no habrá “core en Python + wrapper en Go”
 
 ---
 
-## 3. Arquitectura general
+## Arquitectura general
 
-### 3.1 Arquitectura modular por capas
+### Arquitectura modular por capas
 
 ```
 ┌──────────────────────────────┐
@@ -96,9 +115,9 @@ Otros SDKs (Python / TS) **podrán existir después**, pero:
 
 ---
 
-## 4. Observabilidad: OpenTelemetry como estándar obligatorio
+## Observabilidad: OpenTelemetry como estándar obligatorio
 
-### 4.1 Decisión explícita
+### Decisión explícita
 
 > **Toda la observabilidad del framework se implementa con OpenTelemetry (OTel).**
 
@@ -117,7 +136,7 @@ Y, lo más importante:
 
 ---
 
-### 4.2 Qué se instrumenta
+### Qué se instrumenta
 
 Cada agente y cada ejecución genera:
 
@@ -153,7 +172,7 @@ Esto permite integración directa con:
 
 ---
 
-### 4.3 Observabilidad multiagente
+### Observabilidad multiagente
 
 Se soporta **trazado distribuido entre agentes**:
 
@@ -165,9 +184,9 @@ Esto **resuelve uno de los mayores vacíos actuales** en frameworks de agentes.
 
 ---
 
-## 5. Interoperabilidad nativa (no “adaptadores”)
+## Interoperabilidad nativa (no “adaptadores”)
 
-### 5.1 MCP (Model Context Protocol)
+### MCP (Model Context Protocol)
 
 El framework:
 
@@ -188,7 +207,7 @@ El framework:
 
 ---
 
-### 5.2 A2A / ACP (Agent-to-Agent)
+### A2A / ACP (Agent-to-Agent)
 
 El framework implementa **A2A / ACP como protocolo nativo**:
 
@@ -207,7 +226,7 @@ Todo al mismo tiempo.
 
 ---
 
-### 5.3 AGENTS.md (soporte automático)
+### AGENTS.md (soporte automático)
 
 En el arranque, el framework:
 
@@ -231,9 +250,9 @@ Esto habilita:
 * agentes de revisión
 * agentes infra
 
-### 5.4 Modelo de Tools / Skills (estándares first)
+### Modelo de Tools / Skills (estándares first)
 
-#### 5.4.1 Principio rector
+#### Principio rector
 
 > KAIROS implementa las herramientas de los agentes exclusivamente sobre estándares abiertos y consolidados.
 
@@ -248,7 +267,7 @@ No existen “helpers mágicos” fuera de estos estándares.
 
 ---
 
-#### 5.4.2 Tres niveles de herramientas (compatibles entre sí)
+#### Tres niveles de herramientas (compatibles entre sí)
 
 El framework soporta **tres tipos de herramientas**, todas **nativas**, todas **interoperables**:
 
@@ -315,7 +334,7 @@ Esto habilita:
 
 ---
 
-#### 5.4.3 Resumen del modelo de tools
+#### Resumen del modelo de tools
 
 | Nivel | Qué es                  | Estándar |
 | ----- | ----------------------- | -------- |
@@ -342,9 +361,9 @@ Esto complementa el uso de la descripción proporcionada por los MCP.
 
 ---
 
-## 6. Planificación (Planner)
+## Planificación (Planner)
 
-### 6.1 Planner explícito + emergente
+### Planner explícito + emergente
 
 El framework soporta **dos modelos simultáneos**:
 
@@ -363,7 +382,7 @@ Ambos pueden **combinarse**.
 
 ---
 
-### 6.2 Definición por código + por ficheros
+### Definición por código + por ficheros
 
 * Go (API tipada)
 * YAML / JSON (declarativo)
@@ -373,9 +392,9 @@ Todo representa **el mismo modelo interno**.
 
 ---
 
-## 7. Memoria y contexto
+## Memoria y contexto
 
-### 7.1 Memoria de múltiples niveles
+### Memoria de múltiples niveles
 
 * memoria corta (session)
 * memoria larga (vectorial)
@@ -393,9 +412,9 @@ type Memory interface {
 
 ---
 
-## 8. Herramientas visuales (sin traicionar lo técnico)
+## Herramientas visuales (sin traicionar lo técnico)
 
-### 8.1 UI web de observación y control
+### UI web de observación y control
 
 Incluye:
 
@@ -407,7 +426,7 @@ Incluye:
 
 ---
 
-### 8.2 Editor visual de grafos
+### Editor visual de grafos
 
 * definir flujos complejos
 * exportar a YAML / Go
@@ -419,7 +438,7 @@ No sustituye el código:
 
 ---
 
-## 9. Seguridad y gobierno corporativo
+## Seguridad y gobierno corporativo
 
 Incluye de serie:
 
@@ -437,7 +456,7 @@ Todo alineado con:
 
 ---
 
-## 10. Despliegue y operación
+## Despliegue y operación
 
 * binario único Go
 * Docker / Kubernetes
@@ -453,7 +472,7 @@ Agentes como:
 
 ---
 
-## 11. Qué huecos reales rellena este framework
+## Qué huecos reales rellena este framework
 
 | Hueco actual                            | Cómo se resuelve                   |
 | --------------------------------------- | ---------------------------------- |
@@ -467,7 +486,7 @@ Agentes como:
 
 ---
 
-## 12. Resumen ejecutivo
+## Resumen ejecutivo
 
 Este framework sería:
 

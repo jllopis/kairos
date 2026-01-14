@@ -1,22 +1,22 @@
-# Configuration Guide
+# Guía de configuración
 
-Kairos configuration can be provided via file, environment variables, and CLI
-flags. The final configuration follows this precedence order:
+La configuración de Kairos se puede definir por archivo, variables de entorno y
+flags de CLI. La precedencia es la siguiente:
 
-1) Defaults
-2) File (`~/.kairos/settings.json`, `./.kairos/settings.json`, or `XDG_CONFIG_HOME/kairos/settings.json`)
-3) Environment variables (`KAIROS_*`)
-4) CLI overrides (`--config`, `--set`)
+1) Valores por defecto
+2) Archivo (`~/.kairos/settings.json`, `./.kairos/settings.json` o `XDG_CONFIG_HOME/kairos/settings.json`)
+3) Variables de entorno (`KAIROS_*`)
+4) Sobrescrituras de CLI (`--config`, `--set`)
 
-## File configuration
+## Configuración por archivo
 
-Create a `settings.json` file in one of the supported paths:
+Crea un `settings.json` en una de las rutas soportadas:
 
 - `./.kairos/settings.json`
 - `$HOME/.kairos/settings.json`
 - `$XDG_CONFIG_HOME/kairos/settings.json`
 
-Example:
+Ejemplo (mínimo):
 
 ```json
 {
@@ -26,14 +26,14 @@ Example:
   },
   "telemetry": {
     "exporter": "stdout"
-  },
-  "runtime": {
-    "approval_sweep_interval_seconds": 30,
-    "approval_sweep_timeout_seconds": 5
-  },
-  "governance": {
-    "approval_timeout_seconds": 300
-  },
+  }
+}
+```
+
+Ejemplo (con MCP y discovery):
+
+```json
+{
   "discovery": {
     "order": ["config", "well_known", "registry"],
     "registry_url": "http://localhost:9900",
@@ -57,19 +57,26 @@ Example:
       "http_url": "http://127.0.0.1:8080",
       "labels": {"env": "local", "tier": "core"}
     }
+  },
+  "runtime": {
+    "approval_sweep_interval_seconds": 30,
+    "approval_sweep_timeout_seconds": 5
+  },
+  "governance": {
+    "approval_timeout_seconds": 300
   }
 }
 ```
 
-## Environment variables
+## Variables de entorno
 
-Environment variables map to config keys by:
+Las variables de entorno se mapean a claves de configuración así:
 
-1) Prefix: `KAIROS_`
-2) Lowercase
-3) `_` becomes `.`
+1) Prefijo: `KAIROS_`
+2) Minúsculas
+3) `_` se convierte en `.`
 
-Examples:
+Ejemplos de variables:
 
 ```bash
 KAIROS_LLM_PROVIDER=ollama
@@ -79,14 +86,14 @@ KAIROS_RUNTIME_APPROVAL_SWEEP_INTERVAL_SECONDS=30
 KAIROS_GOVERNANCE_APPROVAL_TIMEOUT_SECONDS=300
 ```
 
-## CLI overrides
+## Sobrescrituras de CLI
 
-CLI supports a config path and repeatable key overrides:
+El CLI soporta una ruta de config y sobrescrituras repetibles:
 
-- `--config=/path/to/settings.json`
+- `--config=/ruta/a/settings.json`
 - `--set key=value`
 
-Examples:
+Ejemplo de CLI:
 
 ```bash
 go run ./examples/basic-agent --config=./.kairos/settings.json \
@@ -94,14 +101,14 @@ go run ./examples/basic-agent --config=./.kairos/settings.json \
   --set telemetry.exporter=stdout
 ```
 
-JSON values can be passed with `--set`:
+Valores JSON con `--set`:
 
 ```bash
 go run ./examples/mcp-agent \
   --set mcp.servers='{"fetch":{"transport":"http","url":"http://localhost:8080/mcp"}}'
 ```
 
-## Key reference (selected)
+## Referencia de keys (selección)
 
 - `llm.provider`, `llm.model`, `llm.base_url`, `llm.api_key`
 - `agent.disable_action_fallback`, `agent.warn_on_action_fallback`
@@ -111,8 +118,8 @@ go run ./examples/mcp-agent \
 - `telemetry.exporter`, `telemetry.otlp_endpoint`, `telemetry.otlp_insecure`
 - `runtime.approval_sweep_interval_seconds`, `runtime.approval_sweep_timeout_seconds`
 - `governance.approval_timeout_seconds`
-- `discovery.order` (opcional; default: `config, well_known, registry`)
+- `discovery.order` (opcional; por defecto: `config, well_known, registry`)
 - `discovery.registry_url` (opcional; habilita RegistryProvider)
-- `discovery.registry_token` (opcional; bearer token)
-- `discovery.auto_register` (opcional; registra el agente en registry si esta habilitado)
-- `discovery.heartbeat_seconds` (opcional; intervalo para auto-register, default interno 10s)
+- `discovery.registry_token` (opcional; token bearer)
+- `discovery.auto_register` (opcional; registra el agente en registry si está habilitado)
+- `discovery.heartbeat_seconds` (opcional; intervalo para auto-register, por defecto interno 10s)

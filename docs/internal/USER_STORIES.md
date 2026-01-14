@@ -47,7 +47,7 @@ Current implementation:
 - Graph schema with nodes/edges and validation.
 - JSON/YAML parsers for graph definitions.
 - Executor with per-node tracing, branching conditions, and audit hooks.
-- Walkthrough and example usage in `docs/walkthrough-explicit-planner.md` and `examples/explicit-planner`.
+- Walkthrough and example usage in `docs/legacy/walkthrough-explicit-planner.md` and `examples/explicit-planner`.
 Follow-ups:
 - Optional policy evaluation per planner node.
 Acceptance criteria:
@@ -104,7 +104,7 @@ As an operator, I want AGENTS.md to load automatically on startup.
 Status: [x] Done
 Current implementation:
 - AGENTS.md loader that walks upward to find repo instructions.
-- Documentation for loader usage in `docs/walkthrough-governance-agentsmd.md`.
+- Documentation for loader usage in `docs/legacy/walkthrough-governance-agentsmd.md`.
 Acceptance criteria:
 - AGENTS.md is detected and parsed at startup.
 - Rules are applied to agent base context.

@@ -11,7 +11,7 @@ Usuarios/ambito: Equipo de diseno/arquitectura y futuros contribuidores del fram
 - Raiz: especificacion y Go module.
 - Codigo: `pkg/`, `examples/`.
 - Tests: `pkg/**` con `*_test.go`.
-- Docs: `docs/`, `EspecificacionFuncional.md`, `Caracteristicas Ideales de un Nuevo Framework de Agentes IA.docx`.
+- Docs: `docs/`, `docs/EspecificaciónFuncional.md`, `Caracteristicas Ideales de un Nuevo Framework de Agentes IA.docx`.
 - Config/scripts: TODO: no hay.
 
 ## STACK Y HERRAMIENTAS
@@ -36,7 +36,7 @@ Usuarios/ambito: Equipo de diseno/arquitectura y futuros contribuidores del fram
 
 ## USO DEL AGENT
 
-- Que hacer: leer primero `EspecificacionFuncional.md` y mantener consistencia con la vision.
+- Que hacer: leer primero `docs/EspecificaciónFuncional.md` y mantener consistencia con la vision.
 - Que evitar: inventar componentes, comandos o tooling no descritos.
 - Como proponer cambios: sugerir updates pequeños y alineados con la arquitectura; marcar TODOs si falta informacion.
 

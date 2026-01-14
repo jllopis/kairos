@@ -1,11 +1,11 @@
-# Task Core API
+# Task (API core)
 
-Kairos exposes tasks as first-class entities at the library level without
-modifying the A2A proto or stores.
+En Kairos, Task es una entidad de primer nivel en la librería sin tocar el
+proto A2A ni los stores.
 
-## Task model
+## Modelo de Task
 
-`pkg/core.Task` provides:
+`pkg/core.Task` expone:
 
 - `ID`, `Goal`, `AssignedTo`
 - `Status` (`pending`, `running`, `completed`, `failed`, `cancelled`, `rejected`)
@@ -13,9 +13,9 @@ modifying the A2A proto or stores.
 - `CreatedAt`, `StartedAt`, `FinishedAt`
 - `Metadata`
 
-## Lifecycle helpers
+## Ciclo de vida
 
-Use helpers to drive task status:
+Helpers disponibles:
 
 - `Start()`
 - `Complete(result)`
@@ -23,22 +23,22 @@ Use helpers to drive task status:
 - `Reject(reason)`
 - `Cancel(reason)`
 
-## Context propagation
+## Contexto y propagación
 
-Attach a task to context to propagate `task_id` and `task_goal`:
+Puedes adjuntar una Task al contexto para propagar `task_id` y `task_goal`:
 
 ```go
-task := core.NewTask("Summarize sales", "orchestrator")
+task := core.NewTask("Resumir ventas", "orchestrator")
 ctx = core.WithTask(ctx, task)
 ```
 
-When an agent runs with a task in context, it updates task status and result
-automatically.
+Cuando un agente corre con una Task en contexto, actualiza estado y resultado
+automáticamente.
 
-## Interop with A2A
+## Interop con A2A
 
-Task tracking is independent of A2A proto/stores:
+El tracking de Task es independiente del proto/store A2A:
 
-- No changes to A2A types or TaskStore.
-- `task_id`/`task_goal` are carried in events and logs.
-- Streaming events include `event_type` + payload metadata.
+- No hay cambios en tipos A2A ni en TaskStore.
+- `task_id`/`task_goal` viajan en eventos y logs.
+- Los eventos de streaming incluyen `event_type` y metadata de payload.

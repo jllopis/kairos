@@ -41,4 +41,4 @@ A2A-native, estandar y serio."
 
 - docs/EVENT_TAXONOMY.md
 - docs/TASKS.md
-- docs/walkthrough-demo-improvements.md
+- docs/legacy/walkthrough-demo-improvements.md

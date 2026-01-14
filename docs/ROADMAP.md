@@ -1,38 +1,42 @@
-# Roadmap and Phases
+# Roadmap y fases
 
-## Status Legend
-- [ ] Planned
-- [~] In progress
-- [x] Done
+## Leyenda de estado
 
-## Milestones
-- M0: Go SDK skeleton + hello agent (Phase 0) [x]
-- M1: Agent can call external MCP tool (Phase 1) [x]
-- M2: OTel traces visible in backend (Phase 2) [x]
-- M3: YAML/JSON graph executes end-to-end (Phase 3) [x]
-- M4: Emergent flow runs with decision logs (Phase 4) [x]
-- M5: Two agents delegate with distributed traces (Phase 5) [x]
-- M6: Per-agent memory with short/long backends (Phase 6) [x]
-- M7: AGENTS.md and policies enforced with audit trail (Phase 7) [~]
-- M8: Operator UI with agents, flows, and traces (Phase 8) [ ]
+- [ ] Planificado
+- [~] En progreso
+- [x] Hecho
 
-## Phase 0: Core foundations (Estimate: M)
-Goals: core interfaces and minimal runtime.
-Dependencies: none.
-Milestone: Go SDK skeleton + hello agent.
-Tasks:
+## Hitos
+
+- M0: Go SDK skeleton + hello agent (Fase 0) [x]
+- M1: Agent can call external MCP tool (Fase 1) [x]
+- M2: OTel traces visible in backend (Fase 2) [x]
+- M3: YAML/JSON graph executes end-to-end (Fase 3) [x]
+- M4: Emergent flow runs with decision logs (Fase 4) [x]
+- M5: Two agents delegate with distributed traces (Fase 5) [x]
+- M6: Per-agent memory with short/long backends (Fase 6) [x]
+- M7: AGENTS.md and policies enforced with audit trail (Fase 7) [~]
+- M8: Operator UI with agents, flows, and traces (Fase 8) [ ]
+
+## Fase 0: Core foundations (Estimación: M)
+Objetivos: core interfaces and minimal runtime.
+Dependencias: none.
+Hito: Go SDK skeleton + hello agent.
+Tareas:
+
 - [x] Define core interfaces (Agent, Tool, Skill, Plan, Memory).
 - [x] Create runtime lifecycle (start, run, stop).
 - [x] Add minimal context propagation support.
 - [x] Provide hello agent example.
 - [x] Align public agent options with examples (model selection).
-Acceptance: US-01 (partial), US-06 (interface).
+Aceptación: US-01 (partial), US-06 (interface).
 
-## Phase 1: MCP interoperability (Estimate: M)
-Goals: MCP client/server and tool binding.
-Dependencies: Phase 0.
-Milestone: Agent can call external MCP tool.
-Tasks:
+## Fase 1: MCP interoperability (Estimación: M)
+Objetivos: MCP client/server and tool binding.
+Dependencias: Fase 0.
+Hito: Agent can call external MCP tool.
+Tareas:
+
 - [x] MCP client with tool invocation.
 - [x] MCP server for exposing tools.
 - [x] Skill -> MCP tool binding (Agent tool adapter).
@@ -40,64 +44,73 @@ Tasks:
 - [x] Example: MCP agent loads tools from config and runs a tool call.
 - [x] Error handling, retries, and timeout policy for tool calls.
 - [x] Tool discovery caching and refresh strategy.
-Follow-ups (post-milestone):
+Pendientes (post-hito):
+
 - [x] Expose MCP retry/timeout/cache policy in config.
 - [x] Add end-to-end MCP smoke tests for stdio + HTTP.
-Acceptance: US-01 complete.
-Notes:
+Aceptación: US-01 complete.
+Notas:
+
 - Core MCP path works via config + stdio/http client/server; hardening now defaults in the client.
 - MCP retry/timeout/cache policy is configurable in `mcp.servers` settings.
 
-## Phase 2: Observability baseline (Estimate: M)
-Goals: OTel traces/metrics/logs from runtime.
-Dependencies: Phase 0.
-Milestone: traces visible in OTel backend.
-Tasks:
+## Fase 2: Observability baseline (Estimación: M)
+Objetivos: OTel traces/metrics/logs from runtime.
+Dependencias: Fase 0.
+Hito: traces visible in OTel backend.
+Tareas:
+
 - [x] OTel tracer and span propagation in runtime (Agent/Runtime + tool/memory/LLM spans).
 - [x] Metrics for latency and error counts (stdout exporter).
 - [x] Structured logs with trace/span ids.
 - [x] Configurable OTLP exporter (traces + metrics) and resource attributes.
 - [x] Example config for OTLP backend.
 - [x] Validate OTLP export against a backend and document a smoke-test.
-Acceptance: US-05 (partial).
-Notes:
+Aceptación: US-05 (partial).
+Notas:
+
 - OTLP smoke test is opt-in via environment variables to avoid default test dependencies.
 
-## Phase 3: Explicit planner (Estimate: L)
-Goals: deterministic graph execution.
-Dependencies: Phase 0, Phase 1.
-Milestone: YAML/JSON graph executes end-to-end.
-Tasks:
+## Fase 3: Explicit planner (Estimación: L)
+Objetivos: deterministic graph execution.
+Dependencias: Fase 0, Fase 1.
+Hito: YAML/JSON graph executes end-to-end.
+Tareas:
+
 - [x] Graph model and executor.
 - [x] YAML/JSON parser and serializer.
 - [x] Per-node tracing (spans).
 - [x] Audit events for node execution.
 - [x] Documentation and example for graph usage.
-Follow-ups (post-milestone):
+Pendientes (post-hito):
+
 - [x] Branching/conditions and multi-edge evaluation.
 - [x] Graph serialization helpers (emit JSON/YAML).
-Acceptance: US-03 complete.
+Aceptación: US-03 complete.
 
-## Phase 4: Emergent planner (Estimate: M)
-Goals: dynamic next-step decisions.
-Dependencies: Phase 0, Phase 1.
-Milestone: emergent flow runs with decision logs.
-Tasks:
+## Fase 4: Emergent planner (Estimación: M)
+Objetivos: dynamic next-step decisions.
+Dependencias: Fase 0, Fase 1.
+Hito: emergent flow runs with decision logs.
+Tareas:
+
 - [x] Decision engine with tool selection (basic ReAct loop).
 - [x] Logging of decisions and outcomes (decision rationale + inputs/outputs).
 - [x] Structured tool-call parsing (LLM tool calls + JSON args).
 - [x] Provide tool definitions to LLM (function schema) for native tool calls.
 - [x] Prefer tool calls over "Action:" parsing when available (deprecate string parsing path).
 - [x] Optional warning when legacy "Action:" parsing is used.
-Acceptance: US-04 complete.
-Notes:
+Aceptación: US-04 complete.
+Notas:
+
 - Fallback "Action:" parsing is configurable and disabled by default; deprecation path remains documented.
 
-## Phase 5: A2A distributed runtime (Estimate: L)
-Goals: discovery, delegation, and trace continuity.
-Dependencies: Phase 0, Phase 2.
-Milestone: two agents delegate with distributed traces.
-Tasks:
+## Fase 5: A2A distributed runtime (Estimación: L)
+Objetivos: discovery, delegation, and trace continuity.
+Dependencias: Fase 0, Fase 2.
+Hito: two agents delegate with distributed traces.
+Tareas:
+
 - [x] Pin A2A proto version and generate Go types from `pkg/a2a/proto/a2a.proto`.
 - [x] Implement gRPC binding with streaming (SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask).
 - [x] AgentCard publishing (well-known) + discovery client.
@@ -110,78 +123,95 @@ Tasks:
 - [x] SQLite-backed TaskStore/PushConfigStore (no CGO) for persistence.
 - [x] Planner-driven multi-agent demo (demoKairos) with A2A + MCP + OTLP.
 - [ ] Agent discovery patterns (Config / WellKnown / Registry) with configurable order.
-Acceptance: US-02 (MVP) complete with trace continuity.
-Notes:
+Aceptación: US-02 (MVP) complete with trace continuity.
+Notas:
+
 - MVP binding is gRPC-first for streaming stability; HTTP+JSON/JSON-RPC server bindings are implemented.
- - HTTP+JSON/JSON-RPC client helpers are available for parity with server bindings.
+- HTTP+JSON/JSON-RPC client helpers are available for parity with server bindings.
 - Demo feedback:
   - Add a bootstrap helper for agents (config + telemetry + llm + mcp) to reduce boilerplate.
   - Provide a lightweight in-process MCP server helper for tool-only agents.
   - Ship a planner-driven multi-agent demo template (A2A + MCP + OTLP) as reference.
   - Add explicit run docs and minimal examples for manual debugging.
 
-## Phase 6: Multi-level memory (Estimate: M)
-Goals: short and long-term memory backends.
-Dependencies: Phase 0.
-Milestone: per-agent memory configuration.
-Tasks:
+## Fase 6: Multi-level memory (Estimación: M)
+Objetivos: short and long-term memory backends.
+Dependencias: Fase 0.
+Hito: per-agent memory configuration.
+Tareas:
+
 - [x] In-memory backend.
 - [x] Persistent backend (file store, vector store).
 - [x] Configuration per agent.
 - [x] Agent loop reads/writes memory in runtime.
-Acceptance: US-06 complete.
+Aceptación: US-06 complete.
 
-## Phase 7: Governance and AGENTS.md (Estimate: M)
-Goals: policy enforcement and AGENTS.md loading.
-Dependencies: Phase 0, Phase 1.
-Milestone: policy and AGENTS.md rules enforced.
-Tasks:
+## Fase 7: Governance and AGENTS.md (Estimación: M)
+Objetivos: policy enforcement and AGENTS.md loading.
+Dependencias: Fase 0, Fase 1.
+Hito: policy and AGENTS.md rules enforced.
+Tareas:
+
 - [x] AGENTS.md loader and parser.
 - [x] Policy engine (scopes, allow/deny).
 - [x] Audit event store.
-Follow-ups (post-milestone):
+Pendientes (post-hito):
+
 - [x] Config-driven policy rule loading.
 - [x] Policy enforcement for A2A/MCP calls (beyond tool gating).
 - [x] Server-side policy enforcement for A2A handlers.
 - [x] Human-in-the-loop policy flow (approvals + endpoints).
-Acceptance: US-07 complete; US-08 complete.
+Aceptación: US-07 complete; US-08 complete.
 
-## Phase 8: UI/CLI (Estimate: L)
-Goals: operator visibility and control.
-Dependencies: Phase 2, Phase 5.
-Milestone: dashboard with agents and traces.
-Tasks:
-- [x] Phase 8.1 CLI MVP: status, agents, tasks, approvals, mcp list, streaming follow, JSON output.
-- [x] Phase 8.2 CLI advanced: traces tail, retry/cancel tasks, approvals tail, export events.
-- [x] Phase 8.3 UI skeleton: Agents/Tasks/Approvals/Traces screens and endpoint wiring.
-- [x] Phase 8.4 UI operational: streaming, filters, history, audit trail.
-Acceptance: US-09 complete.
-Notes:
-- Phase 8.1 CLI MVP completed (`cmd/kairos`).
-- Phase 8.2 CLI advanced completed (traces/tasks/approvals + export).
-- Phase 8.3 UI skeleton completed (`cmd/kairos --web`).
+## Fase 8: UI/CLI (Estimación: L)
+Objetivos: operator visibility and control.
+Dependencias: Fase 2, Fase 5.
+Hito: dashboard with agents and traces.
+Tareas:
 
-## Core UX Track (Library + Demo)
-Goals: make Kairos approachable to developers from Python agent frameworks while keeping standards.
-Dependencies: Phase 5, Phase 7.
-Core tasks (library):
+- [x] Fase 8.1 CLI MVP: status, agents, tasks, approvals, mcp list, streaming follow, JSON output.
+- [x] Fase 8.2 CLI advanced: traces tail, retry/cancel tasks, approvals tail, export events.
+- [x] Fase 8.3 UI skeleton: Agents/Tasks/Approvals/Traces screens and endpoint wiring.
+- [x] Fase 8.4 UI operational: streaming, filters, history, audit trail.
+Aceptación: US-09 complete.
+Notas:
+
+- Fase 8.1 CLI MVP completed (`cmd/kairos`).
+- Fase 8.2 CLI advanced completed (traces/tasks/approvals + export).
+- Fase 8.3 UI skeleton completed (`cmd/kairos --web`).
+
+## Línea UX core (biblioteca + demo)
+Objetivos: make Kairos approachable to developers from Python agent frameworks while keeping standards.
+Dependencias: Fase 5, Fase 7.
+Tareas core (biblioteca):
+
 - [x] Role/manifest metadata API (coexists with AgentCard).
 - [x] Task entity in core with traceable IDs/status/result (no proto/store changes).
 - [x] Event taxonomy for semantic streaming/logs (stable types + minimal fields).
-Demo tasks:
+Tareas demo:
+
 - [x] Role YAML files to feed core role metadata (`demoKairos/docs/role-*.yaml`).
-- [x] Narrative guide: “what it is / what it is not” (`docs/NARRATIVE_GUIDE.md`).
+- [x] Narrative guide: “what it is / what it is not” (`docs/internal/NARRATIVE_GUIDE.md`).
 - [x] Demo builder facade (`NewSystem` + `WithAgent` + `WithFlow`), revisit for core after Task/Role/Event stabilize.
 - [x] Single entrypoint script for running demo.
-Notes:
-- No changes to A2A proto or stores in this track.
-- See `docs/walkthrough-demo-improvements.md` for the detailed plan.
+Notas:
 
-## Milestone Dependencies (summary)
+- No changes to A2A proto or stores in this track.
+- See `docs/legacy/walkthrough-demo-improvements.md` for the detailed plan.
+
+## Pendientes de visión (no implementados)
+
+- [ ] UI visual para depuración y control de flujos en tiempo real.
+- [ ] Conectores declarativos a APIs corporativas (p. ej., OpenAPI).
+- [ ] Guardrails de seguridad (prompt injection, PII, permisos finos).
+- [ ] Banco de pruebas y simulación de agentes/flows antes de producción.
+
+## Dependencias entre hitos (resumen)
+
 - P0 -> P1, P2, P3, P4, P6, P7
 - P2 -> P5, P8
 - P5 -> P8
 
-## Tracking Updates
+## Actualización de seguimiento
 Update checkboxes per task and add brief notes under each phase if needed.
 See `docs/CONFIGURATION.md` for configuration sources and precedence.

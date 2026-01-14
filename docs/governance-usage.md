@@ -1,8 +1,11 @@
-# Governance Usage Guide
+# Guía de governance
 
-This guide shows how to enable AGENTS.md loading and policy enforcement in your own projects.
+Esta guía explica cómo activar AGENTS.md y aplicar políticas en Kairos.
 
-## Load AGENTS.md
+## Carga de AGENTS.md
+
+`LoadAGENTS` busca el archivo subiendo desde el directorio actual y devuelve su
+contenido si existe.
 
 ```go
 package main
@@ -29,7 +32,10 @@ func main() {
 }
 ```
 
-## Add a policy engine to an agent
+## Política en un agente
+
+Un `RuleSet` controla qué acciones se permiten o se bloquean. Se adjunta al
+agente en la creación.
 
 ```go
 package main
@@ -66,7 +72,7 @@ func main() {
 }
 ```
 
-## Configure policies via config
+## Políticas vía config
 
 ```json
 {
@@ -91,7 +97,7 @@ func main() {
 }
 ```
 
-Then load them:
+Y luego:
 
 ```go
 package main
@@ -110,26 +116,28 @@ func buildPolicyFromConfig(path string) (*governance.RuleSet, error) {
 }
 ```
 
-## Policy deny example
+## Reglas y efectos
 
-See `examples/mcp-remote-policy-forbid` for a complete, runnable example that
-denies a real MCP tool call via policy rules.
+Las reglas se evalúan en orden, con glob matching en `Name` (por ejemplo,
+`calc.*`, `db.query` o `*`). La primera coincidencia gana y, si no hay reglas,
+la decisión por defecto es permitir. Puedes usar `effect: "pending"` para
+disparar un flujo HITL.
 
-## Rule notes
+## Ejemplo completo
 
-- Rules are evaluated in order.
-- `Name` uses glob matching (e.g., `calc.*`, `db.query`, `*`).
-- First match wins.
-- If no rules match, the default decision is allow.
-- `effect: "pending"` can be used to trigger HITL approval flows.
+Ver `examples/mcp-remote-policy-forbid` para un ejemplo ejecutable que bloquea
+una tool MCP real mediante políticas.
 
-## Design notes
+## Notas de diseño
 
-- Server-side A2A enforcement and HITL proposals: `docs/governance-hitl.md`.
-- To enable approvals, configure `SimpleHandler.ApprovalStore` and use `effect: "pending"` in rules.
-- To expire approvals, set `SimpleHandler.ApprovalTimeout` and call `ExpireApprovals`.
+La parte de enforcement server-side y el flujo HITL están descritos en
+`docs/governance-hitl.md`.
 
-Example: sweep expirations from the runtime loop:
+Para habilitar aprobaciones, configura `SimpleHandler.ApprovalStore` y usa
+`effect: "pending"` en las reglas. Para expirar aprobaciones, ajusta
+`SimpleHandler.ApprovalTimeout` y llama a `ExpireApprovals`.
+
+Ejemplo de sweep desde el runtime:
 
 ```go
 rt := runtime.NewLocalFromConfig(cfg.Runtime)
@@ -137,14 +145,14 @@ rt.AddApprovalExpirer(handler)
 _ = rt.Start(context.Background())
 ```
 
-Metrics emitted by the sweeper:
-- `kairos.runtime.approval.sweep.count`
-- `kairos.runtime.approval.sweep.error.count`
-- `kairos.runtime.approval.expired.count`
-- `kairos.runtime.approval.sweep.latency_ms`
-- `kairos.runtime.approval.sweep.total_latency_ms`
+Métricas emitidas por el sweeper:
+`kairos.runtime.approval.sweep.count`,
+`kairos.runtime.approval.sweep.error.count`,
+`kairos.runtime.approval.expired.count`,
+`kairos.runtime.approval.sweep.latency_ms`,
+`kairos.runtime.approval.sweep.total_latency_ms`.
 
-Config example:
+Config de ejemplo:
 
 ```json
 {
@@ -158,16 +166,16 @@ Config example:
 }
 ```
 
-Wiring example:
+Wiring de ejemplo:
 
 ```go
 if cfg.Governance.ApprovalTimeoutSeconds > 0 {
-    handler.ApprovalTimeout = time.Duration(cfg.Governance.ApprovalTimeoutSeconds) * time.Second
+	handler.ApprovalTimeout = time.Duration(cfg.Governance.ApprovalTimeoutSeconds) * time.Second
 }
 if cfg.Runtime.ApprovalSweepIntervalSeconds > 0 {
-    rt.SetApprovalSweepInterval(time.Duration(cfg.Runtime.ApprovalSweepIntervalSeconds) * time.Second)
+	rt.SetApprovalSweepInterval(time.Duration(cfg.Runtime.ApprovalSweepIntervalSeconds) * time.Second)
 }
 if cfg.Runtime.ApprovalSweepTimeoutSeconds > 0 {
-    rt.SetApprovalSweepTimeout(time.Duration(cfg.Runtime.ApprovalSweepTimeoutSeconds) * time.Second)
+	rt.SetApprovalSweepTimeout(time.Duration(cfg.Runtime.ApprovalSweepTimeoutSeconds) * time.Second)
 }
 ```
