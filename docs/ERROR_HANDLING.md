@@ -363,9 +363,12 @@ CodeUnauthorized   → PERMISSION_DENIED
 ## Related
 
 - [ADR 0005: Production-Grade Error Handling](internal/adr/0005-error-handling-strategy.md)
+- [Observability Guide: Dashboards & Monitoring](../OBSERVABILITY.md) - Complete guide to dashboards, alerts, and SLOs
 - [OTEL Semantic Conventions](https://opentelemetry.io/docs/specs/otel/trace/semantic_conventions/)
 - [Go Error Handling](https://go.dev/blog/error-handling-and-go)
 
 ---
 
-**Next**: Review ADR 0005 for detailed technical design.
+**Next**: 
+1. Review ADR 0005 for detailed technical design
+2. See [Observability Guide](../OBSERVABILITY.md) for setting up dashboards and alerts

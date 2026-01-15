@@ -91,6 +91,8 @@ go run ./examples/hello-agent
 
 - **[Functional Specification](docs/EspecificaciónFuncional.md)** - Complete feature specification (Spanish)
 - **[Architecture](docs/ARCHITECTURE.md)** - System architecture and design
+- **[Error Handling Strategy](docs/ERROR_HANDLING.md)** - Production-grade error handling patterns
+- **[Observability Guide](docs/OBSERVABILITY.md)** - Dashboards, alerts, and monitoring setup
 - **[API Guide](docs/API.md)** - API reference
 - **[CLI Guide](docs/CLI.md)** - Command-line interface documentation
 - **[AGENTS.md](AGENTS.md)** - Guidelines for contributing to this AI-driven project
@@ -121,11 +123,11 @@ See [Architecture Documentation](docs/ARCHITECTURE.md) for details.
 
 ### Current Limitations
 - 🔴 APIs are unstable and may change without warning
-- 🔴 Limited production-level error handling ([see analysis](docs/ERROR_HANDLING.md))
 - 🔴 Tool ecosystem is minimal
 - 🔴 No security hardening (use with caution)
 - 🟡 Documentation is incomplete
 - 🟡 Performance not optimized
+- ✅ Production-grade error handling and observability ([see docs](docs/ERROR_HANDLING.md) and [observability guide](docs/OBSERVABILITY.md))
 
 ### Roadmap
 - [ ] Stabilize core APIs
