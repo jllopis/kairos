@@ -8,3 +8,21 @@ tools/
 Icon?
 .Spotlight-V100
 .Trashes
+
+# Build artifacts and binaries
+/cmd/*/cmd
+/examples/*/example
+*.exe
+*.dll
+*.so
+*.dylib
+dist/
+build/
+bin/
+*.o
+*.a
+
+# Go
+vendor/
+go.sum
+*.test
