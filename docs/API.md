@@ -19,6 +19,7 @@ Opciones comunes:
 
 - `agent.WithRole(...)`: rol corto del agente.
 - `agent.WithSkills(...)`: habilidades semánticas (skills).
+- `agent.WithSkillsFromDir(...)`: carga skills desde un directorio con subcarpetas `SKILL.md`.
 - `agent.WithTools(...)`: tools concretas.
 - `agent.WithMCPClients(...)`: tools remotas vía MCP.
 - `agent.WithMemory(...)`: memoria para recuperar contexto.
@@ -121,3 +122,23 @@ if err != nil {
 ```
 
 Para overrides por CLI, ver `docs/CONFIGURATION.md`.
+## Skills (AgentSkills)
+
+Un skill se define con un `SKILL.md` en un directorio con el mismo nombre:
+
+```
+skills/
+  pdf-processing/
+    SKILL.md
+```
+
+Carga desde el agente:
+
+```go
+agent.New("demo-agent", llmProvider,
+  agent.WithSkillsFromDir("./skills"),
+)
+```
+
+El frontmatter usa `name`, `description`, `license`, `compatibility`,
+`metadata` y `allowed-tools`.

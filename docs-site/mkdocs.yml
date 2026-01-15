@@ -37,6 +37,7 @@ nav:
       - CLI: CLI.md
       - Configuración: CONFIGURATION.md
       - API: API.md
+      - Skills: Skills.md
       - A2A Task: TASKS.md
   - Roadmap:
       - Roadmap: ROADMAP.md

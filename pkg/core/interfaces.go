@@ -4,8 +4,13 @@ import "context"
 
 // Skill represents a semantic capability as defined by AgentSkills.
 type Skill struct {
-	Name        string
-	Description string
+	Name          string
+	Description   string
+	License       string
+	Compatibility string
+	Metadata      map[string]string
+	AllowedTools  []string
+	Body          string
 }
 
 // Tool is a concrete implementation, typically backed by MCP.

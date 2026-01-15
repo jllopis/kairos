@@ -18,6 +18,7 @@ import (
 	"github.com/jllopis/kairos/pkg/governance"
 	"github.com/jllopis/kairos/pkg/llm"
 	kmcp "github.com/jllopis/kairos/pkg/mcp"
+	"github.com/jllopis/kairos/pkg/skills"
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -108,6 +109,20 @@ func WithRoleManifest(manifest core.RoleManifest) Option {
 func WithSkills(skills []core.Skill) Option {
 	return func(a *Agent) error {
 		a.skills = append([]core.Skill(nil), skills...)
+		return nil
+	}
+}
+
+// WithSkillsFromDir loads AgentSkills from a directory containing skill subdirectories.
+func WithSkillsFromDir(dir string) Option {
+	return func(a *Agent) error {
+		specs, err := skills.LoadDir(dir)
+		if err != nil {
+			return err
+		}
+		for _, spec := range specs {
+			a.skills = append(a.skills, skillFromSpec(spec))
+		}
 		return nil
 	}
 }
@@ -806,12 +821,23 @@ func (a *Agent) skillAllowList() map[string]bool {
 	if len(a.skills) == 0 {
 		return nil
 	}
-	allowed := make(map[string]bool, len(a.skills))
+	allowed := make(map[string]bool)
 	for _, skill := range a.skills {
-		if strings.TrimSpace(skill.Name) == "" {
-			continue
+		for _, tool := range skill.AllowedTools {
+			if strings.TrimSpace(tool) == "" {
+				continue
+			}
+			allowed[tool] = true
 		}
-		allowed[skill.Name] = true
+	}
+	if len(allowed) == 0 {
+		allowed = make(map[string]bool, len(a.skills))
+		for _, skill := range a.skills {
+			if strings.TrimSpace(skill.Name) == "" {
+				continue
+			}
+			allowed[skill.Name] = true
+		}
 	}
 	return allowed
 }
@@ -863,6 +889,18 @@ func toolDefinitions(tools []core.Tool) []llm.Tool {
 		defs = append(defs, definer.ToolDefinition())
 	}
 	return defs
+}
+
+func skillFromSpec(spec skills.SkillSpec) core.Skill {
+	return core.Skill{
+		Name:          spec.Name,
+		Description:   spec.Description,
+		License:       spec.License,
+		Compatibility: spec.Compatibility,
+		Metadata:      spec.Metadata,
+		AllowedTools:  spec.AllowedTools,
+		Body:          spec.Body,
+	}
 }
 
 func (a *Agent) handleToolCalls(ctx context.Context, log *slog.Logger, runID, traceID, spanID string, toolset []core.Tool, calls []llm.ToolCall, messages *[]llm.Message, rationale string) {
