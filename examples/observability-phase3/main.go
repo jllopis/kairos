@@ -68,7 +68,7 @@ func main() {
 		return
 	}
 
-	fmt.Println("=== Phase 3: Observability & Monitoring ===\n")
+	fmt.Println("=== Phase 3: Observability & Monitoring ===")
 
 	// Example 1: Error Rate Tracking
 	fmt.Println("--- Example 1: Error Rate Tracking ---")
@@ -193,7 +193,7 @@ func main() {
 
 	// Example 6: Real-Time Monitoring Scenario
 	fmt.Println("--- Example 6: Real-Time Monitoring Scenario ---")
-	fmt.Println("Simulating service degradation and recovery:\n")
+	fmt.Println("Simulating service degradation and recovery:")
 
 	// Simulate LLM service degradation
 	fmt.Println("T=0s: LLM service running normally")
@@ -290,7 +290,7 @@ func main() {
 
 	// Example 8: Integration with Resilience Patterns
 	fmt.Println("--- Example 8: Observability + Resilience Integration ---")
-	fmt.Println("Demonstrating error metrics with retry/fallback patterns:\n")
+	fmt.Println("Demonstrating error metrics with retry/fallback patterns:")
 
 	retryConfig := resilience.DefaultRetryConfig().
 		WithMaxAttempts(3).

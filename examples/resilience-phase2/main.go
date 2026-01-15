@@ -62,7 +62,7 @@ func main() {
 	_, span := tracer.Start(ctx, "Phase2Example")
 	defer span.End()
 
-	fmt.Println("=== Phase 2: Resilience Patterns ===\n")
+	fmt.Println("=== Phase 2: Resilience Patterns ===")
 
 	// Example 1: Health Checks
 	fmt.Println("--- Example 1: Health Checks ---")

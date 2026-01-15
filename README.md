@@ -91,7 +91,9 @@ go run ./examples/hello-agent
 
 - **[Functional Specification](docs/EspecificaciónFuncional.md)** - Complete feature specification (Spanish)
 - **[Architecture](docs/ARCHITECTURE.md)** - System architecture and design
-- **[Error Handling Strategy](docs/ERROR_HANDLING.md)** - Production-grade error handling patterns
+- **[Error Handling](docs/ERROR_HANDLING.md)** - Production-grade error handling patterns
+  - Phase 1-3: Complete ✅ | Phase 4: Planned 🔄
+  - See [Roadmap](docs/internal/error-handling/ROADMAP.md) and [Status](docs/internal/error-handling/STATUS.md)
 - **[Observability Guide](docs/OBSERVABILITY.md)** - Dashboards, alerts, and monitoring setup
 - **[API Guide](docs/API.md)** - API reference
 - **[CLI Guide](docs/CLI.md)** - Command-line interface documentation

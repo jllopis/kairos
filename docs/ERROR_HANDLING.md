@@ -1,13 +1,50 @@
 # Error Handling in Kairos
 
-**Status**: 🟡 **In Progress** - Foundation phase  
-**Last Updated**: 2026-01-15
+**Status**: ✅ **Phases 1-3 Complete** | Phase 4 in planning  
+**Last Updated**: 2026-01-15  
+**Production Ready**: 90% (Phase 4 pending)
+
+---
+
+## 🎯 Start Here
+
+**New to error handling in Kairos?**  
+→ Read [NARRATIVE_GUIDE](internal/error-handling/NARRATIVE_GUIDE.md) (why it matters, how it works)
+
+**Want to implement?**  
+→ See examples and quick reference below
+
+**Want to operate?**  
+→ Go to [OBSERVABILITY.md](OBSERVABILITY.md) for dashboards and alerts
+
+**Looking for docs index?**  
+→ See [Error Handling Documentation Index](internal/error-handling/INDEX.md)
+
+---
+
+## Quick Links
+
+- **[Narrative Guide](internal/error-handling/NARRATIVE_GUIDE.md)**: Vision, architecture, and impact
+- **[Roadmap](internal/error-handling/ROADMAP.md)**: 4-phase implementation plan
+- **[Status](internal/error-handling/STATUS.md)**: What's built, what's planned
+- **[Observability Guide](OBSERVABILITY.md)**: Dashboards, alerts, monitoring
+- **[ADR 0005](internal/adr/0005-error-handling-strategy.md)**: Architecture decisions
+- **[Docs Index](internal/error-handling/INDEX.md)**: Full documentation map
 
 ---
 
 ## Overview
 
-This document explains Kairos's approach to error handling and observability through OpenTelemetry integration.
+Kairos implements **production-grade error handling** with full OTEL integration across 4 phases:
+
+| Phase | Status | Focus |
+|-------|--------|-------|
+| 1 | ✅ Complete | Typed errors, retry, circuit breaker |
+| 2 | ✅ Complete | Health checks, timeouts, fallback strategies |
+| 3 | ✅ Complete | Observability, metrics, dashboards, alerts |
+| 4 | 🔄 Planning | Production migration to existing codebase |
+
+---
 
 ## Current State Analysis
 
@@ -360,15 +397,31 @@ CodeTimeout        → DEADLINE_EXCEEDED
 CodeUnauthorized   → PERMISSION_DENIED
 ```
 
-## Related
+## Related Documentation
 
-- [ADR 0005: Production-Grade Error Handling](internal/adr/0005-error-handling-strategy.md)
-- [Observability Guide: Dashboards & Monitoring](../OBSERVABILITY.md) - Complete guide to dashboards, alerts, and SLOs
-- [OTEL Semantic Conventions](https://opentelemetry.io/docs/specs/otel/trace/semantic_conventions/)
-- [Go Error Handling](https://go.dev/blog/error-handling-and-go)
+- **[Roadmap](internal/error-handling/ROADMAP.md)**: Full 4-phase implementation plan
+- **[Status](internal/error-handling/STATUS.md)**: Current implementation details
+- **[ADR 0005](internal/adr/0005-error-handling-strategy.md)**: Architectural decisions
+- **[OTEL Semantic Conventions](https://opentelemetry.io/docs/specs/otel/trace/semantic_conventions/)**
+- **[Go Error Handling](https://go.dev/blog/error-handling-and-go)**
 
 ---
 
-**Next**: 
-1. Review ADR 0005 for detailed technical design
-2. See [Observability Guide](../OBSERVABILITY.md) for setting up dashboards and alerts
+## Implementation Status
+
+See [Status Document](internal/error-handling/STATUS.md) for:
+- Phase 1-3 deliverables (complete ✅)
+- Phase 4 roadmap (planned for v0.3.0 🔄)
+- Quick reference for developers, operators, and product
+
+See [Observability Guide](OBSERVABILITY.md) for:
+- Dashboard setup and configuration
+- Alert rules with runbooks
+- Integration with monitoring backends
+- SLO definitions
+
+---
+
+**Updated**: 2026-01-15  
+**Status**: Phases 1-3 complete, Phase 4 in planning
+
