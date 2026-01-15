@@ -121,7 +121,7 @@ See [Architecture Documentation](docs/ARCHITECTURE.md) for details.
 
 ### Current Limitations
 - 🔴 APIs are unstable and may change without warning
-- 🔴 Limited production-level error handling
+- 🔴 Limited production-level error handling ([see analysis](docs/ERROR_HANDLING.md))
 - 🔴 Tool ecosystem is minimal
 - 🔴 No security hardening (use with caution)
 - 🟡 Documentation is incomplete
