@@ -38,3 +38,7 @@ agent.New("demo-agent", llmProvider,
 ```
 
 Si `allowed-tools` está presente, se usa como allowlist de tools.
+
+## Ejemplo completo
+
+Ver `examples/skills-agent` para un ejemplo runnable con un directorio de skills.
