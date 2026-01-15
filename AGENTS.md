@@ -5,6 +5,13 @@
 Cometido: Definir el framework de agentes IA "Kairos" y su vision tecnica.
 Descripcion: Especificacion funcional y principios de arquitectura para un framework Go-native interoperable y observable.
 Usuarios/ambito: Equipo de diseno/arquitectura y futuros contribuidores del framework.
+Licencia: El proyecto se libera bajo la licencia Apache License, Version 2.0. Todos los ficheros de código fuente creados en este proyecto, excepto scripts con shebang o ficheros especiales en los que no sea posible, deben incluir obligatoriamente en las primeras líneas la referencia a la licencia y el Copyright
+
+```
+# Copyright 2026 © The Kairos Authors
+# SPDX-License-Identifier: Apache-2.0
+```
+
 
 ## ESTRUCTURA DEL PROYECTO
 

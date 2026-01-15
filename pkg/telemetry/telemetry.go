@@ -1,12 +1,16 @@
+// SPDX-License-Identifier: Apache-2.0
 // Package telemetry configures OpenTelemetry exporters and propagators.
+// See docs/ERROR_HANDLING.md for error handling integration.
 package telemetry
 
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
@@ -14,8 +18,11 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
-	"go.opentelemetry.io/otel/sdk/trace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	"go.opentelemetry.io/otel/trace"
+
+	"github.com/jllopis/kairos/pkg/errors"
 )
 
 // ShutdownFunc releases telemetry resources created by Init or InitWithConfig.
@@ -74,7 +81,7 @@ func InitWithConfig(serviceName, version string, cfg Config) (ShutdownFunc, erro
 	}, nil
 }
 
-func initProviders(res *resource.Resource, cfg Config) (*trace.TracerProvider, *metric.MeterProvider, error) {
+func initProviders(res *resource.Resource, cfg Config) (*sdktrace.TracerProvider, *metric.MeterProvider, error) {
 	switch cfg.Exporter {
 	case "", "stdout":
 		return initStdout(res)
@@ -90,14 +97,14 @@ func initProviders(res *resource.Resource, cfg Config) (*trace.TracerProvider, *
 	}
 }
 
-func initStdout(res *resource.Resource) (*trace.TracerProvider, *metric.MeterProvider, error) {
+func initStdout(res *resource.Resource) (*sdktrace.TracerProvider, *metric.MeterProvider, error) {
 	traceExporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
-	tp := trace.NewTracerProvider(
-		trace.WithBatcher(traceExporter, trace.WithBatchTimeout(time.Second)),
-		trace.WithResource(res),
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(traceExporter, sdktrace.WithBatchTimeout(time.Second)),
+		sdktrace.WithResource(res),
 	)
 	otel.SetTracerProvider(tp)
 
@@ -113,15 +120,15 @@ func initStdout(res *resource.Resource) (*trace.TracerProvider, *metric.MeterPro
 	return tp, mp, nil
 }
 
-func initNoop(res *resource.Resource) (*trace.TracerProvider, *metric.MeterProvider, error) {
-	tp := trace.NewTracerProvider(trace.WithResource(res))
+func initNoop(res *resource.Resource) (*sdktrace.TracerProvider, *metric.MeterProvider, error) {
+	tp := sdktrace.NewTracerProvider(sdktrace.WithResource(res))
 	otel.SetTracerProvider(tp)
 	mp := metric.NewMeterProvider(metric.WithResource(res))
 	otel.SetMeterProvider(mp)
 	return tp, mp, nil
 }
 
-func initOTLP(res *resource.Resource, cfg Config) (*trace.TracerProvider, *metric.MeterProvider, error) {
+func initOTLP(res *resource.Resource, cfg Config) (*sdktrace.TracerProvider, *metric.MeterProvider, error) {
 	timeout := 10 * time.Second
 	if cfg.OTLPTimeoutSeconds > 0 {
 		timeout = time.Duration(cfg.OTLPTimeoutSeconds) * time.Second
@@ -143,9 +150,9 @@ func initOTLP(res *resource.Resource, cfg Config) (*trace.TracerProvider, *metri
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create otlp trace exporter: %w", err)
 	}
-	tp := trace.NewTracerProvider(
-		trace.WithBatcher(traceExporter, trace.WithBatchTimeout(time.Second)),
-		trace.WithResource(res),
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(traceExporter, sdktrace.WithBatchTimeout(time.Second)),
+		sdktrace.WithResource(res),
 	)
 	otel.SetTracerProvider(tp)
 
@@ -159,4 +166,43 @@ func initOTLP(res *resource.Resource, cfg Config) (*trace.TracerProvider, *metri
 	)
 	otel.SetMeterProvider(mp)
 	return tp, mp, nil
+}
+
+// RecordError records a Kairos error with full context to the span.
+// This integrates error handling with OTEL observability.
+func RecordError(span trace.Span, err error) {
+	if err == nil || span == nil {
+		return
+	}
+
+	// Record the base error
+	span.RecordError(err)
+
+	// Extract KairosError for rich context
+	if ke, ok := err.(*errors.KairosError); ok {
+		// Add error code and recoverable flag as attributes
+		span.SetAttributes(
+			attribute.String("error.code", string(ke.Code)),
+			attribute.Bool("error.recoverable", ke.Recoverable),
+		)
+
+		// Add custom attributes from the error
+		for k, v := range ke.Attributes {
+			span.SetAttributes(attribute.String("error."+k, v))
+		}
+
+		// Add context data as span attributes for detailed debugging
+		for k, v := range ke.Context {
+			span.SetAttributes(attribute.String("error.context."+k, fmt.Sprintf("%v", v)))
+		}
+
+		// Log structured error data
+		slog.Error("KairosError recorded",
+			"code", ke.Code,
+			"message", ke.Message,
+			"recoverable", ke.Recoverable,
+			"context", ke.Context,
+			"status_code", ke.StatusCode,
+		)
+	}
 }

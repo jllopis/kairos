@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Package telemetry configures OpenTelemetry exporters and propagators.
+// See docs/ERROR_HANDLING.md for error handling integration.
 package telemetry
 
 import (
