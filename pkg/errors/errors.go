@@ -138,6 +138,14 @@ func AsKairosError(err error) *KairosError {
 	return New(CodeInternal, "wrapped error", err)
 }
 
+// RecoverableString returns "true" or "false" as a string for observability.
+func (e *KairosError) RecoverableString() string {
+	if e.Recoverable {
+		return "true"
+	}
+	return "false"
+}
+
 // codeToStatusCode maps error codes to gRPC/HTTP status codes.
 func codeToStatusCode(code ErrorCode) int {
 	switch code {
