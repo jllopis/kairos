@@ -87,18 +87,46 @@ go run ./examples/hello-agent
 
 ---
 
+## 📖 Documentation Status
+
+**Production-Grade Components** (Phases 1-3 Complete ✅):
+- Error Handling: Typed errors, retry logic, circuit breaker
+- Resilience Patterns: Health checks, timeouts, fallbacks
+- Observability: 5 OTEL metrics, 6 alerts, 3 dashboards
+- **62 tests, 100% pass rate | Zero compiler warnings**
+
+See [Error Handling Guide](docs/ERROR_HANDLING.md) for details and examples.
+
+---
+
 ## 📚 Documentation
 
+### Quick Start by Role
+
+- **👨‍💻 Developers**: Start with [Error Handling Guide](docs/ERROR_HANDLING.md) → [Examples](examples/)
+- **👨‍💼 Operators**: Go to [Observability Guide](docs/OBSERVABILITY.md) (dashboards, alerts)
+- **🏗️ Architects**: Read [Narrative Guide](docs/internal/error-handling/NARRATIVE_GUIDE.md) → [ADR 0005](docs/internal/adr/0005-error-handling-strategy.md)
+
+### All Documentation
+
+- **[Error Handling Guide](docs/ERROR_HANDLING.md)** - Production-grade error handling (Phase 1-3 ✅ | Phase 4 🔄)
+  - Quick reference: [Status](docs/internal/error-handling/STATUS.md) | [Roadmap](docs/internal/error-handling/ROADMAP.md) | [Index](docs/internal/error-handling/INDEX.md)
+  - For executives/architects: [Narrative Guide](docs/internal/error-handling/NARRATIVE_GUIDE.md)
+
+- **[Observability Guide](docs/OBSERVABILITY.md)** - Dashboards, alerts, monitoring setup
+  - 5 metrics, 6 alert rules, 3 dashboards, PromQL queries included
+
 - **[Functional Specification](docs/EspecificaciónFuncional.md)** - Complete feature specification (Spanish)
-- **[Architecture](docs/ARCHITECTURE.md)** - System architecture and design
-- **[Error Handling](docs/ERROR_HANDLING.md)** - Production-grade error handling patterns
-  - Phase 1-3: Complete ✅ | Phase 4: Planned 🔄
-  - See [Roadmap](docs/internal/error-handling/ROADMAP.md) and [Status](docs/internal/error-handling/STATUS.md)
-- **[Observability Guide](docs/OBSERVABILITY.md)** - Dashboards, alerts, and monitoring setup
-- **[API Guide](docs/API.md)** - API reference
-- **[CLI Guide](docs/CLI.md)** - Command-line interface documentation
-- **[AGENTS.md](AGENTS.md)** - Guidelines for contributing to this AI-driven project
+
+- **[Architecture Guide](docs/ARCHITECTURE.md)** - System design and components
+
+- **[API Reference](docs/API.md)** - API documentation
+
+- **[CLI Guide](docs/CLI.md)** - Command-line interface
+
 - **[Architecture Decision Records](docs/internal/adr/)** - Design decisions and rationale
+
+- **[AGENTS.md](AGENTS.md)** - Contributing guidelines for AI-driven development
 
 ---
 
