@@ -28,6 +28,7 @@
 ## Quick Links
 
 - **[Integration Guide](INTEGRATION_GUIDE.md)**: ⭐ How to use error handling with agents
+- **[Metrics Export Guide](METRICS_EXPORT.md)**: ⭐ OTLP configuration and metric flow
 - **[Narrative Guide](internal/error-handling/NARRATIVE_GUIDE.md)**: Vision, architecture, and impact
 - **[Roadmap](internal/error-handling/ROADMAP.md)**: 4-phase implementation plan
 - **[Status](internal/error-handling/STATUS.md)**: What's built, what's planned

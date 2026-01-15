@@ -104,7 +104,7 @@ See [Error Handling Guide](docs/ERROR_HANDLING.md) for details and examples.
 ### Quick Start by Role
 
 - **👨‍💻 Developers**: Start with [Error Handling Guide](docs/ERROR_HANDLING.md) → [Integration Guide](docs/INTEGRATION_GUIDE.md) for agents → [Examples](examples/)
-- **👨‍💼 Operators**: Go to [Observability Guide](docs/OBSERVABILITY.md) (dashboards, alerts)
+- **👨‍💼 Operators**: Go to [Observability Guide](docs/OBSERVABILITY.md) (dashboards, alerts) → [Metrics Export Guide](docs/METRICS_EXPORT.md) (OTLP setup)
 - **🏗️ Architects**: Read [Narrative Guide](docs/internal/error-handling/NARRATIVE_GUIDE.md) → [ADR 0005](docs/internal/adr/0005-error-handling-strategy.md)
 
 ### All Documentation
@@ -115,6 +115,7 @@ See [Error Handling Guide](docs/ERROR_HANDLING.md) for details and examples.
   - For executives/architects: [Narrative Guide](docs/internal/error-handling/NARRATIVE_GUIDE.md)
 
 - **[Observability Guide](docs/OBSERVABILITY.md)** - Dashboards, alerts, monitoring setup
+  - **For operators**: [Metrics Export Guide](docs/METRICS_EXPORT.md) - OTLP configuration and where metrics go
   - 5 metrics, 6 alert rules, 3 dashboards, PromQL queries included
 
 - **[Functional Specification](docs/EspecificaciónFuncional.md)** - Complete feature specification (Spanish)

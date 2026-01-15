@@ -1,6 +1,7 @@
 # Kairos Observability Guide: Dashboards, Alerts & Monitoring
 
 > **Status:** Production-ready observability infrastructure for error handling, resilience patterns, and system health monitoring.
+> **Metrics Export**: See [METRICS_EXPORT.md](METRICS_EXPORT.md) for OTLP configuration and where metrics go.
 
 ## Table of Contents
 
