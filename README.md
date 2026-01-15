@@ -103,13 +103,14 @@ See [Error Handling Guide](docs/ERROR_HANDLING.md) for details and examples.
 
 ### Quick Start by Role
 
-- **👨‍💻 Developers**: Start with [Error Handling Guide](docs/ERROR_HANDLING.md) → [Examples](examples/)
+- **👨‍💻 Developers**: Start with [Error Handling Guide](docs/ERROR_HANDLING.md) → [Integration Guide](docs/INTEGRATION_GUIDE.md) for agents → [Examples](examples/)
 - **👨‍💼 Operators**: Go to [Observability Guide](docs/OBSERVABILITY.md) (dashboards, alerts)
 - **🏗️ Architects**: Read [Narrative Guide](docs/internal/error-handling/NARRATIVE_GUIDE.md) → [ADR 0005](docs/internal/adr/0005-error-handling-strategy.md)
 
 ### All Documentation
 
 - **[Error Handling Guide](docs/ERROR_HANDLING.md)** - Production-grade error handling (Phase 1-3 ✅ | Phase 4 🔄)
+  - **For agents**: [Integration Guide](docs/INTEGRATION_GUIDE.md) - How to use error handling in agent loops
   - Quick reference: [Status](docs/internal/error-handling/STATUS.md) | [Roadmap](docs/internal/error-handling/ROADMAP.md) | [Index](docs/internal/error-handling/INDEX.md)
   - For executives/architects: [Narrative Guide](docs/internal/error-handling/NARRATIVE_GUIDE.md)
 

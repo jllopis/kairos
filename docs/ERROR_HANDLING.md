@@ -11,8 +11,11 @@
 **New to error handling in Kairos?**  
 → Read [NARRATIVE_GUIDE](internal/error-handling/NARRATIVE_GUIDE.md) (why it matters, how it works)
 
-**Want to implement?**  
-→ See examples and quick reference below
+**Want to implement in agents?**  
+→ Go to [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) - How to use error handling with agent loops
+
+**Want to see examples?**  
+→ Check `examples/error-handling/`, `examples/resilience-phase2/`, `examples/observability-phase3/`
 
 **Want to operate?**  
 → Go to [OBSERVABILITY.md](OBSERVABILITY.md) for dashboards and alerts
@@ -24,6 +27,7 @@
 
 ## Quick Links
 
+- **[Integration Guide](INTEGRATION_GUIDE.md)**: ⭐ How to use error handling with agents
 - **[Narrative Guide](internal/error-handling/NARRATIVE_GUIDE.md)**: Vision, architecture, and impact
 - **[Roadmap](internal/error-handling/ROADMAP.md)**: 4-phase implementation plan
 - **[Status](internal/error-handling/STATUS.md)**: What's built, what's planned
