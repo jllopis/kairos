@@ -64,6 +64,12 @@ estado en tiempo real, con capacidad de intervenir cuando haga falta.
 - Métricas: latencia por paso, errores por agente, uso de tokens.
 - Logs estructurados con ids de trace/span y resúmenes de decisión.
 - Eventos por iteración, incluyendo resultados de tool calls para auditoría.
+- **Error Handling**: Typed errors con clasificación automática, retry, circuit breaker
+- **Production Monitoring**: 5 OTEL metrics, 6 alert rules, 3 dashboards
+
+**Para más detalles sobre error handling y observabilidad:**
+- Ver [Error Handling Guide](ERROR_HANDLING.md) (Phase 1-3 complete)
+- Ver [Observability Guide](OBSERVABILITY.md) (dashboards, alerts, SLOs)
 
 ### Configuración de telemetría (OTLP)
 
