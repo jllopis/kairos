@@ -220,6 +220,102 @@ Son complementarios: un agente puede delegar vía A2A y ejecutar tools vía MCP.
 
 ---
 
+## Pool de Conexiones MCP (Enterprise)
+
+En escenarios multi-agente o enterprise, crear conexiones MCP individuales por agente es ineficiente. Kairos proporciona un **pool de conexiones compartido** que permite:
+
+- **Reutilización de conexiones**: Múltiples agentes comparten las mismas conexiones MCP
+- **Gestión centralizada del lifecycle**: Start/stop/health check unificados
+- **Conteo de referencias**: Limpieza automática cuando no hay agentes usando una conexión
+- **Observabilidad unificada**: Métricas agregadas de todas las conexiones
+
+### Uso Básico
+
+```go
+import "github.com/jllopis/kairos/pkg/mcp/pool"
+
+// Crear el pool compartido
+mcpPool := pool.New(
+    pool.WithMaxConnectionsPerServer(5),
+    pool.WithHealthCheckInterval(30 * time.Second),
+)
+defer mcpPool.Close()
+
+// Registrar servidores MCP
+mcpPool.RegisterStdio("filesystem", "npx", []string{"-y", "@anthropic/mcp-server-filesystem"})
+mcpPool.RegisterHTTP("github", "http://localhost:8080/mcp")
+
+// Los agentes obtienen conexiones del pool
+client, err := mcpPool.Get(ctx, "filesystem")
+if err != nil {
+    // handle error
+}
+
+// Usar el cliente...
+tools, _ := client.ListTools(ctx)
+
+// Liberar cuando termine (no cierra la conexión, solo decrementa ref count)
+mcpPool.Release("filesystem", client)
+```
+
+### Arquitectura
+
+```
+┌─────────────────────────────────────────┐
+│           Kairos Runtime                │
+│  ┌─────────────────────────────────┐    │
+│  │     MCP Connection Pool         │    │
+│  │  ┌─────────┐  ┌─────────┐       │    │
+│  │  │filesystem│ │ github  │  ...  │    │
+│  │  └─────────┘  └─────────┘       │    │
+│  └─────────────────────────────────┘    │
+│                  ▲                       │
+│     ┌────────────┼────────────┐         │
+│     │            │            │         │
+│  ┌──┴───┐   ┌────┴───┐   ┌───┴───┐     │
+│  │Agent1│   │Agent2  │   │Agent3 │     │
+│  └──────┘   └────────┘   └───────┘     │
+└─────────────────────────────────────────┘
+```
+
+### Configuración Avanzada
+
+```go
+// Configuración completa de un servidor
+mcpPool.Register(pool.ServerConfig{
+    Name:           "enterprise-api",
+    Type:           pool.ServerTypeHTTP,
+    URL:            "https://api.internal/mcp",
+    MaxConnections: 10,
+    ClientOptions: []mcp.ClientOption{
+        mcp.WithTimeout(30 * time.Second),
+        mcp.WithRetry(3, 500 * time.Millisecond),
+    },
+})
+```
+
+### Métricas del Pool
+
+```go
+stats := mcpPool.Stats()
+fmt.Printf("Servers: %d, Active: %d, Errors: %d\n",
+    stats.RegisteredServers,
+    stats.ActiveConnections,
+    stats.ConnectionErrors,
+)
+```
+
+### Cuándo Usar el Pool
+
+| Escenario | Recomendación |
+|-----------|---------------|
+| Un solo agente | Conexión directa (`mcp.NewClientWithStdio`) |
+| Múltiples agentes, mismo servidor | **Pool compartido** |
+| Microservicios con agentes | **Pool compartido** |
+| Tests unitarios | Conexión directa o mock |
+
+---
+
 ## Especificación Oficial
 
 https://modelcontextprotocol.io/
