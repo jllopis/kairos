@@ -42,6 +42,7 @@ Genera un nuevo proyecto Kairos con estructura recomendada.
 - `-llm <provider>`: Proveedor LLM (default: `ollama`). Opciones: `ollama`, `mock`
 - `-mcp`: Incluir configuración MCP
 - `-a2a`: Incluir endpoint A2A
+- `-corporate`: Incluir infraestructura enterprise (CI/CD, Docker, observabilidad)
 - `-overwrite`: Sobreescribir archivos existentes
 
 **Ejemplos:**
@@ -54,6 +55,9 @@ kairos init -module github.com/myorg/my-agent -type tool-agent -mcp my-agent
 
 # Coordinador multi-agente
 kairos init -module github.com/myorg/my-agent -type coordinator -a2a my-agent
+
+# Proyecto enterprise con CI/CD y observabilidad
+kairos init -module github.com/myorg/my-agent -corporate my-agent
 ```
 
 **Estructura generada:**

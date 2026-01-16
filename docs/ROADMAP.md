@@ -15,8 +15,9 @@
 - M4: Emergent flow runs with decision logs (Fase 4) [x]
 - M5: Two agents delegate with distributed traces (Fase 5) [x]
 - M6: Per-agent memory with short/long backends (Fase 6) [x]
-- M7: AGENTS.md and policies enforced with audit trail (Fase 7) [~]
-- M8: Operator UI with agents, flows, and traces (Fase 8) [ ]
+- M7: AGENTS.md and policies enforced with audit trail (Fase 7) [x]
+- M8: Operator UI with agents, flows, and traces (Fase 8) [x]
+- M9: Developer Experience improvements (Fase 9 - DX) [x]
 
 ## Fase 0: Core foundations (Estimación: M)
 Objetivos: core interfaces and minimal runtime.
@@ -122,7 +123,7 @@ Tareas:
 - [x] Implement ListTasks pagination with page tokens.
 - [x] SQLite-backed TaskStore/PushConfigStore (no CGO) for persistence.
 - [x] Planner-driven multi-agent demo (demoKairos) with A2A + MCP + OTLP.
-- [ ] Agent discovery patterns (Config / WellKnown / Registry) with configurable order.
+- [x] Agent discovery patterns (Config / WellKnown / Registry) with configurable order.
 Aceptación: US-02 (MVP) complete with trace continuity.
 Notas:
 
@@ -199,14 +200,47 @@ Notas:
 - No changes to A2A proto or stores in this track.
 - See `docs/legacy/walkthrough-demo-improvements.md` for the detailed plan.
 
-## Pendientes de visión (no implementados)
+## Fase 9: Developer Experience (DX) (Estimación: L)
+Objetivos: reducir fricción para nuevos usuarios y equipos enterprise.
+Dependencias: Fase 8.
+Hito: time-to-first-agent < 5 minutos.
+Tareas:
 
-- [ ] UI visual para depuración y control de flujos en tiempo real.
-- [ ] Conectores declarativos a APIs corporativas (p. ej., OpenAPI).
-- [ ] Guardrails de seguridad (prompt injection, PII, permisos finos).
-- [ ] Banco de pruebas y simulación de agentes/flows antes de producción.
+- [x] Reorganizar examples con numeración progresiva (01-13).
+- [x] README.md en cada ejemplo con objetivos de aprendizaje.
+- [x] CLI scaffolding: `kairos init` con arquetipos (assistant, tool-agent, coordinator, policy-heavy).
+- [x] CLI operativo: `kairos run`, `kairos validate`.
+- [x] CLI introspección: `kairos explain`, `kairos graph`, `kairos adapters`.
+- [x] MCP Connection Pool para escenarios multi-agente (`pkg/mcp/pool`).
+- [x] Config layering con perfiles de entorno (`--profile dev|prod`).
+- [x] Corporate templates: CI/CD, Dockerfile, docker-compose, observability stack.
+- [x] Documentación: CORPORATE_TEMPLATES.md, actualización de CLI.md y CONFIGURATION.md.
+Aceptación: DX_PLAN.md complete.
+Notas:
 
-## kairosctl - Orquestador (Proceso Separado - Post M8)
+- Ver `docs/internal/DX_PLAN.md` para el plan detallado.
+- Corporate templates incluyen GitHub Actions, OTEL Collector, Prometheus, Grafana.
+
+## Pendientes de visión (Fase 10+)
+
+### Prioritarios (próximos hitos)
+
+- [ ] **Guardrails de seguridad**: prompt injection detection, PII filtering, permisos granulares.
+- [ ] **Testing framework**: banco de pruebas y simulación de agentes/flows antes de producción.
+- [ ] **Hot-reload de configuración**: `kairos run` con watch mode para desarrollo.
+
+### Medio plazo
+
+- [ ] **Conectores declarativos**: OpenAPI → tools automáticos, GraphQL adapter.
+- [ ] **UI visual para debugging**: timeline de ejecución, inspector de memoria, trace explorer.
+- [ ] **Skill marketplace**: registry de skills compartidos con versionado.
+
+### Largo plazo (kairosctl)
+
+- [ ] **kairosctl MVP**: repo separado, control plane API, workflow store, agent registry.
+- [ ] **kairosctl Avanzado**: scheduler, queue distribuida, editor visual de workflows.
+
+## kairosctl - Orquestador (Proceso Separado - Post M9)
 
 Plataforma de orquestación estilo n8n para workflows, agentes e interacciones LLM.
 Ver diseño completo en `docs/internal/ORCHESTRATION_PLATFORM.md`.
@@ -224,7 +258,7 @@ Interfaces a mantener estables en Kairos (forward compatibility):
 - `planner.Executor` (Execute)
 - `core.EventEmitter` (streaming de eventos)
 
-Fases futuras (post M8):
+Fases futuras (post M9):
 - [ ] kairosctl MVP: repo separado, control plane API, workflow store, agent registry.
 - [ ] kairosctl Avanzado: scheduler, queue distribuida, editor visual.
 
@@ -233,6 +267,7 @@ Fases futuras (post M8):
 - P0 -> P1, P2, P3, P4, P6, P7
 - P2 -> P5, P8
 - P5 -> P8
+- P8 -> P9
 
 ## Actualización de seguimiento
 Update checkboxes per task and add brief notes under each phase if needed.
