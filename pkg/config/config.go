@@ -130,22 +130,39 @@ var k = koanf.New(".")
 
 // Load resolves configuration from defaults, files, and environment variables.
 func Load(path string) (*Config, error) {
-	return loadWithOverrides(path, nil)
+	return loadWithOverrides(path, "", nil)
+}
+
+// LoadWithProfile resolves configuration with environment-specific layering.
+// It loads the base config file, then merges the profile-specific override file.
+//
+// Example with profile="dev":
+//   - config.yaml (base)
+//   - config.dev.yaml (override, merged on top)
+//
+// Example with profile="prod":
+//   - config.yaml (base)
+//   - config.prod.yaml (override, merged on top)
+//
+// Profile-specific files are optional; if not found, only the base is used.
+func LoadWithProfile(path, profile string) (*Config, error) {
+	return loadWithOverrides(path, profile, nil)
 }
 
 // LoadWithCLI resolves configuration and applies CLI overrides from args.
 // Supported flags:
 // - --config=/path/to/settings.json
+// - --profile=dev (or --env=dev)
 // - --set key=value (repeatable)
 func LoadWithCLI(args []string) (*Config, error) {
-	path, overrides, err := parseCLIOverrides(args)
+	path, profile, overrides, err := parseCLIOverrides(args)
 	if err != nil {
 		return nil, err
 	}
-	return loadWithOverrides(path, overrides)
+	return loadWithOverrides(path, profile, overrides)
 }
 
-func loadWithOverrides(path string, overrides map[string]any) (*Config, error) {
+func loadWithOverrides(path, profile string, overrides map[string]any) (*Config, error) {
 	// Defaults
 	k.Set("log.level", "info")
 	k.Set("log.format", "text")
@@ -177,19 +194,27 @@ func loadWithOverrides(path string, overrides map[string]any) (*Config, error) {
 	k.Set("discovery.heartbeat_seconds", 0)
 
 	// 1. Load from file
-	if path != "" {
-		if err := loadFromFile(path); err != nil {
+	configPath := path
+	if configPath == "" {
+		configPath = defaultConfigPath()
+	}
+	if configPath != "" {
+		if err := loadFromFile(configPath); err != nil {
 			return nil, err
 		}
-	} else {
-		if defaultPath := defaultConfigPath(); defaultPath != "" {
-			if err := loadFromFile(defaultPath); err != nil {
+	}
+
+	// 2. Load profile-specific override file (config.dev.yaml, config.prod.yaml, etc.)
+	if profile != "" && configPath != "" {
+		profilePath := profileConfigPath(configPath, profile)
+		if profilePath != "" {
+			if err := loadFromFile(profilePath); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	// 2. Load from ENV (KAIROS_LLM_PROVIDER -> llm.provider)
+	// 3. Load from ENV (KAIROS_LLM_PROVIDER -> llm.provider)
 	if err := k.Load(env.Provider("KAIROS_", ".", func(s string) string {
 		return strings.Replace(strings.ToLower(
 			strings.TrimPrefix(s, "KAIROS_")), "_", ".", -1)
@@ -215,9 +240,9 @@ func loadWithOverrides(path string, overrides map[string]any) (*Config, error) {
 	return &cfg, nil
 }
 
-func parseCLIOverrides(args []string) (string, map[string]any, error) {
+func parseCLIOverrides(args []string) (string, string, map[string]any, error) {
 	overrides := make(map[string]any)
-	var path string
+	var path, profile string
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "--" {
@@ -225,7 +250,7 @@ func parseCLIOverrides(args []string) (string, map[string]any, error) {
 		}
 		if arg == "--config" {
 			if i+1 >= len(args) {
-				return "", nil, fmt.Errorf("missing value for --config")
+				return "", "", nil, fmt.Errorf("missing value for --config")
 			}
 			path = args[i+1]
 			i++
@@ -235,13 +260,30 @@ func parseCLIOverrides(args []string) (string, map[string]any, error) {
 			path = strings.TrimPrefix(arg, "--config=")
 			continue
 		}
+		// Support both --profile and --env for environment layering
+		if arg == "--profile" || arg == "--env" {
+			if i+1 >= len(args) {
+				return "", "", nil, fmt.Errorf("missing value for %s", arg)
+			}
+			profile = args[i+1]
+			i++
+			continue
+		}
+		if strings.HasPrefix(arg, "--profile=") {
+			profile = strings.TrimPrefix(arg, "--profile=")
+			continue
+		}
+		if strings.HasPrefix(arg, "--env=") {
+			profile = strings.TrimPrefix(arg, "--env=")
+			continue
+		}
 		if arg == "--set" {
 			if i+1 >= len(args) {
-				return "", nil, fmt.Errorf("missing value for --set")
+				return "", "", nil, fmt.Errorf("missing value for --set")
 			}
 			key, value, err := parseKeyValue(args[i+1])
 			if err != nil {
-				return "", nil, err
+				return "", "", nil, err
 			}
 			overrides[key] = value
 			i++
@@ -250,13 +292,13 @@ func parseCLIOverrides(args []string) (string, map[string]any, error) {
 		if strings.HasPrefix(arg, "--set=") {
 			key, value, err := parseKeyValue(strings.TrimPrefix(arg, "--set="))
 			if err != nil {
-				return "", nil, err
+				return "", "", nil, err
 			}
 			overrides[key] = value
 			continue
 		}
 	}
-	return path, overrides, nil
+	return path, profile, overrides, nil
 }
 
 func parseKeyValue(raw string) (string, any, error) {
@@ -353,6 +395,28 @@ func defaultConfigPath() string {
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
 		}
+	}
+	return ""
+}
+
+// profileConfigPath returns the path to a profile-specific config file.
+// For "config.yaml" with profile "dev", it returns "config.dev.yaml".
+// Returns empty string if the profile config file doesn't exist.
+func profileConfigPath(basePath, profile string) string {
+	if basePath == "" || profile == "" {
+		return ""
+	}
+
+	dir := filepath.Dir(basePath)
+	base := filepath.Base(basePath)
+	ext := filepath.Ext(base)
+	name := strings.TrimSuffix(base, ext)
+
+	// Build profile path: config.yaml -> config.dev.yaml
+	profilePath := filepath.Join(dir, name+"."+profile+ext)
+
+	if _, err := os.Stat(profilePath); err == nil {
+		return profilePath
 	}
 	return ""
 }

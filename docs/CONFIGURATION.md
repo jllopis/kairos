@@ -121,6 +121,106 @@ go run ./examples/mcp-agent \
   --set mcp.servers='{"fetch":{"transport":"http","url":"http://localhost:8080/mcp"}}'
 ```
 
+## Config Layering (Perfiles de entorno)
+
+Para proyectos enterprise, Kairos soporta **config layering** con perfiles de entorno. Esto permite mantener una configuración base y sobrescribirla según el entorno (dev, staging, prod).
+
+### Estructura de archivos
+
+```
+config/
+├── config.yaml           # Configuración base
+├── config.dev.yaml       # Sobrescrituras para desarrollo
+├── config.staging.yaml   # Sobrescrituras para staging
+└── config.prod.yaml      # Sobrescrituras para producción
+```
+
+### Ejemplo de configuración
+
+**config.yaml (base)**:
+```yaml
+llm:
+  provider: "ollama"
+  model: "llama3.1"
+  base_url: "http://localhost:11434"
+
+log:
+  level: "info"
+
+telemetry:
+  exporter: "stdout"
+```
+
+**config.dev.yaml**:
+```yaml
+llm:
+  provider: "mock"  # Sin LLM real en desarrollo
+
+log:
+  level: "debug"
+```
+
+**config.prod.yaml**:
+```yaml
+llm:
+  provider: "openai"
+  api_key: "${OPENAI_API_KEY}"  # Usar variable de entorno
+
+log:
+  level: "warn"
+
+telemetry:
+  exporter: "otlp"
+  otlp_endpoint: "collector.internal:4317"
+```
+
+### Uso desde CLI
+
+```bash
+# Cargar config.yaml + config.dev.yaml
+kairos run --config config/config.yaml --profile dev
+
+# Equivalente con --env
+kairos run --config config/config.yaml --env dev
+
+# Producción
+kairos run --config config/config.yaml --profile prod
+```
+
+### Uso programático
+
+```go
+import "github.com/jllopis/kairos/pkg/config"
+
+// Cargar con perfil específico
+cfg, err := config.LoadWithProfile("config/config.yaml", "dev")
+
+// O desde argumentos CLI
+cfg, err := config.LoadWithCLI(os.Args[1:])
+```
+
+### Orden de precedencia
+
+Con layering, el orden completo es:
+
+1. Valores por defecto del framework
+2. Archivo base (`config.yaml`)
+3. Archivo de perfil (`config.dev.yaml`, `config.prod.yaml`, etc.)
+4. Variables de entorno (`KAIROS_*`)
+5. Sobrescrituras CLI (`--set key=value`)
+
+El merge es **profundo**: las claves del perfil sobrescriben las del base, pero las claves no especificadas se heredan.
+
+### Buenas prácticas
+
+| Archivo | Qué incluir |
+|---------|-------------|
+| `config.yaml` | Valores por defecto sensatos para todos los entornos |
+| `config.dev.yaml` | Mock providers, debug logging, endpoints locales |
+| `config.prod.yaml` | Providers reales, warn logging, endpoints de producción |
+
+**Consejo**: No incluyas secrets en archivos. Usa variables de entorno o un gestor de secrets.
+
 ## Referencia de keys (selección)
 
 - `llm.provider`, `llm.model`, `llm.base_url`, `llm.api_key`

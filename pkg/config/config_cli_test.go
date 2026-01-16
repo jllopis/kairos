@@ -63,13 +63,19 @@ func TestLoadWithCLIOverrides(t *testing.T) {
 
 func TestParseCLIOverridesErrors(t *testing.T) {
 	resetKoanf(t)
-	if _, _, err := parseCLIOverrides([]string{"--config"}); err == nil {
+	if _, _, _, err := parseCLIOverrides([]string{"--config"}); err == nil {
 		t.Fatalf("expected error for missing --config value")
 	}
-	if _, _, err := parseCLIOverrides([]string{"--set"}); err == nil {
+	if _, _, _, err := parseCLIOverrides([]string{"--set"}); err == nil {
 		t.Fatalf("expected error for missing --set value")
 	}
-	if _, _, err := parseCLIOverrides([]string{"--set", "invalid"}); err == nil {
+	if _, _, _, err := parseCLIOverrides([]string{"--set", "invalid"}); err == nil {
 		t.Fatalf("expected error for invalid --set value")
+	}
+	if _, _, _, err := parseCLIOverrides([]string{"--profile"}); err == nil {
+		t.Fatalf("expected error for missing --profile value")
+	}
+	if _, _, _, err := parseCLIOverrides([]string{"--env"}); err == nil {
+		t.Fatalf("expected error for missing --env value")
 	}
 }
