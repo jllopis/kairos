@@ -225,7 +225,7 @@ Notas:
 
 ### Prioritarios (próximos hitos)
 
-- [ ] **Guardrails de seguridad**: prompt injection detection, PII filtering, permisos granulares.
+- [x] **Guardrails de seguridad**: prompt injection detection, PII filtering, content filtering (`pkg/guardrails`).
 - [ ] **Testing framework**: banco de pruebas y simulación de agentes/flows antes de producción.
 - [ ] **Hot-reload de configuración**: `kairos run` con watch mode para desarrollo.
 

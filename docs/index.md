@@ -42,6 +42,7 @@ Ver [CLI completo](CLI.md) para todos los comandos.
 | [Configuración](CONFIGURATION.md)             | Config layering, perfiles dev/prod    |
 | [Manejo de errores](ERROR_HANDLING.md)        | Errores tipados, retry y recuperación |
 | [Observabilidad](OBSERVABILITY.md)            | Métricas, dashboards y alertas        |
+| [Guardrails de Seguridad](GUARDRAILS.md)      | Prompt injection, PII filtering       |
 | [Templates Corporativos](CORPORATE_TEMPLATES.md) | CI/CD, Docker, observabilidad      |
 
 ## 📦 Instalación
