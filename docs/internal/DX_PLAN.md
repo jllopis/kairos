@@ -65,37 +65,45 @@ En lugar de una capa adicional, mejorar DX mediante:
 
 ## Roadmap DX Propuesto
 
-### Fase 0: Fundamentos (1-2 semanas)
+### Fase 0: Fundamentos ✅ COMPLETADA
 
 **Objetivo**: Reducir fricción inicial sin añadir código.
 
-| Tarea | Descripción | Impacto |
-|-------|-------------|---------|
-| README renovado | Quick start honesto + diagrama de arquitectura | Alto |
-| "Qué es / Qué no es" | Sección clara de posicionamiento | Medio |
-| Organizar `/examples` | Numeración progresiva (01-hello, 02-memory, etc.) | Alto |
+**Estado**: Implementado en commit `b4c008e`.
 
-**Estructura propuesta de examples:**
+| Tarea | Descripción | Estado |
+|-------|-------------|--------|
+| README renovado | Quick start honesto + diagrama de arquitectura | ✅ |
+| "Qué es / Qué no es" | Sección clara de posicionamiento | ✅ |
+| Organizar `/examples` | Numeración progresiva (01-hello, 02-memory, etc.) | ✅ |
+
+**Estructura implementada de examples:**
 ```
 examples/
-├── 01-hello-agent/                                       # Mínimo viable
-├── 02-agent-with-memory/                                 # + memoria semántica
-├── 03-agent-with-tools/                                  # + tools locales, SKILLs y AGENTS.md
-├── 04-agent-with-mcp/                                    # + tools MCP
-├── 05-agent-with-policies/                               # + governance
-├── 06-agent-with-planner/                                # + planner explícito
-├── 07-multi-agent-a2a/                                   # + comunicación entre agentes
-├── 08-multi-agent-a2a-with-telemetry-observability/      # + comunicación entre agentes
-└── 09-production-layout/                                 # Estructura enterprise completa
+├── 01-hello-agent/           # Mínimo viable
+├── 02-basic-agent/           # + configuración básica
+├── 03-memory-agent/          # + memoria semántica
+├── 04-skills-agent/          # + SKILLs
+├── 05-mcp-agent/             # + tools MCP
+├── 06-explicit-planner/      # + planner explícito
+├── 07-multi-agent-mcp/       # + multi-agente
+├── 08-governance-policies/   # + governance
+├── 09-error-handling/        # + manejo de errores
+├── 10-resilience-patterns/   # + patrones de resiliencia
+├── 11-observability/         # + observabilidad
+├── 12-production-layout/     # Estructura enterprise
+└── 13-mcp-pool/              # Pool de conexiones MCP
 ```
 
-Cada ejemplo: <200 líneas, README con "qué aprender aquí", sin helpers ocultos.
+Cada ejemplo incluye README.md con objetivos de aprendizaje.
 
 ---
 
-### Fase 1: CLI Scaffolding (2-3 semanas)
+### Fase 1: CLI Scaffolding ✅ COMPLETADA
 
 **Objetivo**: `kairos init` que genera proyectos aprendibles.
+
+**Estado**: Implementado en `cmd/kairos/init.go` y `cmd/kairos/scaffold/`.
 
 #### Comando: `kairos init`
 
@@ -137,9 +145,11 @@ my-agent/
 
 ---
 
-### Fase 2: CLI Operativo (2-3 semanas)
+### Fase 2: CLI Operativo ✅ COMPLETADA
 
 **Objetivo**: Comandos para desarrollo y debugging.
+
+**Estado**: Implementado en `cmd/kairos/run.go` y `cmd/kairos/validate.go`.
 
 #### `kairos run`
 
@@ -147,7 +157,7 @@ my-agent/
 kairos run [--config config.yaml] [--profile dev|prod]
 ```
 
-Ejecuta un agente con hot-reload de config (útil para desarrollo).
+Ejecuta un agente con soporte para config layering.
 
 #### `kairos validate`
 
@@ -213,69 +223,84 @@ Catálogo de providers disponibles con detalles de configuración.
 
 ---
 
-### Fase 4: DX Enterprise (4-6 semanas)
+### Fase 4: DX Enterprise ✅ COMPLETADA
 
 **Objetivo**: Facilitar adopción en equipos grandes.
 
-#### MCP Runtime Compartido
+**Estado**: Implementado en múltiples commits:
+- MCP Pool: `pkg/mcp/pool/` (commit `7014742`)
+- Config Layering: `pkg/config/` (commit `7d22404`)
+- Corporate Templates: `cmd/kairos/scaffold/templates_corporate.go` (commit `374caac`)
 
-Actualmente cada agente gestiona sus propias conexiones MCP. En escenarios multi-agente o enterprise, esto genera:
+#### MCP Runtime Compartido ✅
 
-- **Duplicación de procesos**: N agentes → N instancias del mismo MCP server
-- **Ineficiencia de recursos**: Cada agente inicia/cierra conexiones
-- **Complejidad operativa**: Difícil gestionar lifecycle de MCPs distribuidos
+Implementado en `pkg/mcp/pool/pool.go`.
 
-**Propuesta**: Runtime de Kairos que gestione MCPs compartidos entre agentes.
+```go
+// Crear pool compartido
+mcpPool := pool.New(
+    pool.WithMaxConnectionsPerServer(5),
+    pool.WithHealthCheckInterval(30 * time.Second),
+)
 
-```
-┌─────────────────────────────────────────┐
-│           Kairos Runtime                │
-│  ┌─────────────────────────────────┐    │
-│  │     MCP Connection Pool         │    │
-│  │  ┌─────────┐  ┌─────────┐       │    │
-│  │  │filesystem│ │ github  │  ...  │    │
-│  │  └─────────┘  └─────────┘       │    │
-│  └─────────────────────────────────┘    │
-│                  ▲                       │
-│     ┌────────────┼────────────┐         │
-│     │            │            │         │
-│  ┌──┴───┐   ┌────┴───┐   ┌───┴───┐     │
-│  │Agent1│   │Agent2  │   │Agent3 │     │
-│  └──────┘   └────────┘   └───────┘     │
-└─────────────────────────────────────────┘
+// Registrar servidores
+mcpPool.RegisterStdio("filesystem", "npx", []string{...})
+mcpPool.RegisterHTTP("github", "http://localhost:8080/mcp")
+
+// Usar desde agentes
+client, _ := mcpPool.Get(ctx, "filesystem")
+defer mcpPool.Release("filesystem", client)
 ```
 
-**Beneficios:**
-- Un proceso MCP compartido por múltiples agentes
-- Lifecycle gestionado centralmente (start/stop/health)
-- Posibilidad de pooling de conexiones HTTP
-- Métricas y observabilidad unificadas
+Características:
+- Reference counting para conexiones
+- Health checks automáticos
+- Cleanup de conexiones idle
+- Métricas del pool
 
-**Consideraciones de diseño:**
-- Backward compatible: agentes individuales siguen funcionando igual
-- Opt-in: el runtime compartido es opcional
-- El comportamiento por defecto no cambia
+Ver `examples/13-mcp-pool/` y `docs/protocols/MCP.md`.
 
-**Impacto**: Estratégico para escenarios enterprise y multi-agente.
+#### Config Layering ✅
 
-#### Config layering
+Implementado en `pkg/config/config.go`.
 
-```
-config/
-├── config.yaml           # Base
-├── config.dev.yaml       # Override desarrollo
-└── config.prod.yaml      # Override producción
+```bash
+# Uso desde CLI
+kairos run --config config/config.yaml --profile dev
+kairos run --config config/config.yaml --env prod
 ```
 
-Con merge explícito y documentado.
+```go
+// Uso programático
+cfg, _ := config.LoadWithProfile("config.yaml", "dev")
+```
 
-#### Templates corporativos
+Orden de precedencia:
+1. Defaults del framework
+2. config.yaml (base)
+3. config.dev.yaml (profile)
+4. Variables de entorno (KAIROS_*)
+5. CLI overrides (--set)
 
-Repo template con:
-- Observabilidad preconfigurada (Grafana Cloud/Grafana Alloy/Datadog/New Relic)
-- Policies de compliance
-- CI/CD (GitHub Actions/Bitbucket Pipelines/AWS Code Pipelines)
-- Dockerfile optimizado
+Ver `docs/CONFIGURATION.md`.
+
+#### Templates Corporativos ✅
+
+Implementado con flag `--corporate` en `kairos init`.
+
+```bash
+kairos init my-agent --module github.com/org/agent --corporate
+```
+
+Genera:
+- `.github/workflows/ci.yaml`: CI/CD pipeline
+- `Dockerfile`: Multi-stage optimizado
+- `docker-compose.yaml`: Stack de desarrollo
+- `deploy/otel-collector-config.yaml`: OTEL config
+- `deploy/prometheus.yaml`: Prometheus config
+- `.golangci.yaml`: Linters config
+
+Ver `docs/CORPORATE_TEMPLATES.md`.
 
 ---
 
@@ -349,13 +374,13 @@ func generateProject(dir string, opts Options) error {
 
 ## Priorización
 
-| Fase | Esfuerzo | Impacto | Prioridad |
-|------|----------|---------|-----------|
-| 0 - Fundamentos | Bajo | Alto | 🔴 Inmediata |
-| 1 - Scaffolding | Medio | Muy alto | 🔴 Inmediata |
-| 2 - CLI Operativo | Medio | Alto | 🟡 Corto plazo |
-| 3 - Introspección | Alto | Muy alto | 🟡 Corto plazo |
-| 4 - Enterprise | Alto | Estratégico | 🟢 Medio plazo |
+| Fase | Esfuerzo | Impacto | Estado |
+|------|----------|---------|--------|
+| 0 - Fundamentos | Bajo | Alto | ✅ Completada |
+| 1 - Scaffolding | Medio | Muy alto | ✅ Completada |
+| 2 - CLI Operativo | Medio | Alto | ✅ Completada |
+| 3 - Introspección | Alto | Muy alto | ✅ Completada |
+| 4 - Enterprise | Alto | Estratégico | ✅ Completada |
 
 ---
 
@@ -382,4 +407,16 @@ El DX de Kairos puede mejorar significativamente sin sacrificar su filosofía:
 
 **Autor**: Plan generado tras análisis de feedback de usuarios  
 **Fecha**: 2026-01-15  
-**Estado**: Propuesta para revisión
+**Estado**: ✅ COMPLETADO (2026-01-16)
+
+## Commits Relacionados
+
+| Fase | Commit | Descripción |
+|------|--------|-------------|
+| 0 | `b4c008e` | Examples reorganization, error handling |
+| 1 | `b4c008e` | kairos init scaffolding |
+| 2 | `b4c008e` | kairos run, validate commands |
+| 3 | `b4c008e` | kairos explain, graph, adapters |
+| 4 | `7014742` | MCP Connection Pool |
+| 4 | `7d22404` | Config Layering |
+| 4 | `374caac` | Corporate Templates |
