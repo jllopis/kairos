@@ -1,17 +1,21 @@
-# Kairos Observability Guide: Dashboards, Alerts & Monitoring
+# Guía de Observabilidad
 
-> **Status:** Production-ready observability infrastructure for error handling, resilience patterns, and system health monitoring.
-> **Metrics Export**: See [METRICS_EXPORT.md](METRICS_EXPORT.md) for OTLP configuration and where metrics go.
+Kairos integra **OpenTelemetry (OTEL)** desde el inicio, proporcionando visibilidad completa en:
+
+- **Errores**: Clasificación por tipo, componente, recoverabilidad
+- **Resiliencia**: Reintentos, circuit breaker, fallbacks, timeouts
+- **Salud**: Estado de componentes, degradación, recuperación
+- **Rendimiento**: Tasa de errores, latencia de recuperación
 
 ## Table of Contents
 
-1. [Introducción](#introducción)
+1. [Introducción](#introduccion)
 2. [Arquitectura de Observabilidad](#arquitectura-de-observabilidad)
-3. [Métricas Disponibles](#métricas-disponibles)
+3. [Métricas Disponibles](#metricas-disponibles)
 4. [Dashboards](#dashboards)
 5. [Reglas de Alerta](#reglas-de-alerta)
 6. [Ejemplos de Uso](#ejemplos-de-uso)
-7. [Integración con Backends](#integración-con-backends)
+7. [Integración con Backends](#integracion-con-backends)
 8. [SLOs y Recomendaciones](#slos-y-recomendaciones)
 
 ---
@@ -29,10 +33,10 @@ Kairos integra **OpenTelemetry (OTEL)** desde el inicio, proporcionando visibili
 
 Sin observabilidad, no sabes si tus patrones de resiliencia funcionan. Con Kairos:
 
-✅ **Visibilidad Real**: Cada error se registra con contexto completo  
-✅ **Detección Temprana**: Alertas antes de que se propague el problema  
-✅ **Debugging Rápido**: Dashboards con correlaciones error ↔ recuperación  
-✅ **SLOs Medibles**: Datos para definir y cumplir SLOs de confiabilidad
+- ✅ **Visibilidad Real**: Cada error se registra con contexto completo
+- ✅ **Detección Temprana**: Alertas antes de que se propague el problema
+- ✅ **Debugging Rápido**: Dashboards con correlaciones error ↔ recuperación
+- ✅ **SLOs Medibles**: Datos para definir y cumplir SLOs de confiabilidad
 
 ---
 
@@ -937,7 +941,7 @@ avg(rate(kairos.errors.total[5m])) over (10m) > 5
 
 ## Referencias
 
-- [Kairos Error Handling Strategy](../ERROR_HANDLING.md)
-- [OTEL Documentation](https://opentelemetry.io/)
+- [Manejo de Errores en Kairos](ERROR_HANDLING.md)
+- [Documentación OTEL](https://opentelemetry.io/)
 - [Prometheus Query Language](https://prometheus.io/docs/prometheus/latest/querying/basics/)
 - [Grafana Dashboard Best Practices](https://grafana.com/docs/grafana/latest/dashboards/)

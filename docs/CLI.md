@@ -1,30 +1,188 @@
-# Kairos CLI (Fase 8.1 MVP)
+# Kairos CLI
 
-Este documento define la interfaz del CLI MVP y los endpoints base que consume.
+Este documento define la interfaz del CLI de Kairos y los comandos disponibles.
 
 ## Objetivos
 
-- Operación básica: status, agents, tasks, aprobaciones, MCP tools.
-- Salida humana por defecto con opción JSON (`--json`).
-- Reutilizar APIs existentes sin tocar proto ni stores.
+- Scaffolding de proyectos con `kairos init`
+- Operación básica: status, agents, tasks, aprobaciones, MCP tools
+- Salida humana por defecto con opción JSON (`--json`)
 
 ## Flags globales
 
-- `--config` ruta a `settings.json` (mismo cargador que runtime).
-- `--set key=value` overrides (igual que `config.LoadWithCLI`).
-- `--grpc` dirección A2A gRPC (por defecto: `localhost:8080`).
-- `--http` base URL A2A HTTP+JSON (por defecto: `http://localhost:8080`).
-- `--json` salida JSON.
-- `--timeout` timeout de llamadas (por defecto: `30s`).
-- `--web` inicia la UI web mínima (HTMX).
-- `--web-addr` dirección de bind para la UI (por defecto `:8088`).
+- `--config` ruta a `settings.json` (mismo cargador que runtime)
+- `--set key=value` overrides (igual que `config.LoadWithCLI`)
+- `--grpc` dirección A2A gRPC (por defecto: `localhost:8080`)
+- `--http` base URL A2A HTTP+JSON (por defecto: `http://localhost:8080`)
+- `--json` salida JSON
+- `--timeout` timeout de llamadas (por defecto: `30s`)
+- `--web` inicia la UI web mínima (HTMX)
+- `--web-addr` dirección de bind para la UI (por defecto `:8088`)
 
 Variables de entorno sugeridas:
 - `KAIROS_GRPC_ADDR`
 - `KAIROS_HTTP_URL`
 - `KAIROS_AGENT_CARD_URLS` (lista separada por comas)
 
-## Comandos MVP
+---
+
+## Comandos de Scaffolding
+
+### `kairos init <directory>`
+
+Genera un nuevo proyecto Kairos con estructura recomendada.
+
+**Flags:**
+- `-module <path>` (requerido): Go module path (ej: `github.com/myorg/my-agent`)
+- `-type <archetype>`: Tipo de proyecto (default: `assistant`)
+  - `assistant`: Agente básico con memoria y conversación
+  - `tool-agent`: Agente con tools locales y MCP
+  - `coordinator`: Coordinador multi-agente con planner
+  - `policy-heavy`: Agente con governance estricto
+- `-llm <provider>`: Proveedor LLM (default: `ollama`). Opciones: `ollama`, `mock`
+- `-mcp`: Incluir configuración MCP
+- `-a2a`: Incluir endpoint A2A
+- `-overwrite`: Sobreescribir archivos existentes
+
+**Ejemplos:**
+```bash
+# Proyecto básico
+kairos init -module github.com/myorg/my-agent my-agent
+
+# Con tools MCP
+kairos init -module github.com/myorg/my-agent -type tool-agent -mcp my-agent
+
+# Coordinador multi-agente
+kairos init -module github.com/myorg/my-agent -type coordinator -a2a my-agent
+```
+
+**Estructura generada:**
+```
+my-agent/
+├── cmd/agent/main.go           # Entrypoint
+├── internal/
+│   ├── app/app.go              # Wiring de componentes
+│   ├── config/config.go        # Loader de configuración
+│   └── observability/otel.go   # Setup OTEL
+├── config/
+│   ├── config.yaml             # Config base
+│   ├── config.dev.yaml         # Override desarrollo
+│   └── config.prod.yaml        # Override producción
+├── Makefile
+├── go.mod
+└── README.md
+```
+
+---
+
+## Comandos de Validación
+
+### `kairos validate`
+
+Valida la configuración actual y verifica conectividad con servicios externos.
+
+**Verificaciones:**
+- ✓ Config: Carga correcta del archivo de configuración
+- ✓ LLM: Conectividad con el proveedor (Ollama, OpenAI, etc.)
+- ✓ MCP: Servidores HTTP alcanzables y con tools disponibles
+- ✓ Governance: Políticas bien formadas
+- ✓ Skills: Directorios de skills válidos
+
+**Ejemplos:**
+```bash
+# Validación básica
+kairos validate
+
+# Salida JSON (útil para CI/CD)
+kairos --json validate
+
+# Validar con config específica
+kairos --config ./my-config.json validate
+```
+
+**Salida ejemplo:**
+```
+Kairos Configuration Validation
+================================
+
+✓ config
+✓ llm: ollama (llama3.2)
+✓ mcp:filesystem: http: 14 tools available
+✓ governance: 2 policies configured
+✓ skill:pdf-processing: Extract text and tables from PDFs...
+
+✓ All checks passed
+```
+
+**Códigos de salida:**
+- `0`: Todas las verificaciones pasaron
+- `1`: Al menos una verificación falló
+
+---
+
+## Comandos de Ejecución
+
+### `kairos run`
+
+Ejecuta un agente de forma interactiva o con un prompt único.
+
+**Flags:**
+- `--prompt <text>`: Ejecutar con un único prompt (no interactivo)
+- `--profile <name>`: Cargar perfil de config (busca `./config/config.<name>.yaml`)
+- `--agent <id>`: ID del agente (default: `kairos-agent`)
+- `--role <text>`: Rol del agente (default: `Helpful Assistant`)
+- `--skills <dir>`: Directorio de skills a cargar
+- `--interactive=false`: Modo pipe (lee de stdin)
+- `--no-telemetry`: Deshabilitar salida de telemetría
+
+**Modos de ejecución:**
+
+1. **Prompt único** - Ejecuta y termina:
+```bash
+kairos run --prompt "Explain AI agents"
+```
+
+2. **Interactivo (REPL)** - Conversación continua:
+```bash
+kairos run
+# > Hello
+# > /tools
+# > /help
+# > exit
+```
+
+3. **Modo pipe** - Lee de stdin:
+```bash
+echo "What is 2+2?" | kairos run --interactive=false
+```
+
+**Comandos REPL:**
+- `/help` - Mostrar ayuda
+- `/tools` - Listar herramientas disponibles
+- `/skills` - Listar skills cargados
+- `/exit` - Salir
+
+**Ejemplos:**
+```bash
+# Prompt único con output limpio
+kairos run --no-telemetry --prompt "What is Kairos?"
+
+# JSON output para scripting
+kairos --json run --no-telemetry --prompt "List 3 colors"
+
+# Con perfil de desarrollo
+kairos run --profile dev
+
+# Con skills personalizados
+kairos run --skills ./my-skills
+
+# REPL interactivo
+kairos run --no-telemetry
+```
+
+---
+
+## Comandos Operativos
 
 ### `kairos status`
 Muestra versión del CLI, endpoints configurados y resultado de healthcheck básico.
@@ -52,6 +210,111 @@ Salida: id, status, reason, created_at, expires_at.
 ### `kairos mcp list`
 Lee `mcp.servers` desde config y lista tools por servidor. La salida incluye
 nombre/URL del servidor y tools (name/description/input schema).
+
+---
+
+## Comandos de Introspección
+
+### `kairos explain`
+
+Muestra la configuración y componentes del agente en forma de árbol.
+
+**Flags:**
+- `--agent <id>`: Agent ID a inspeccionar (default: `kairos-agent`)
+- `--skills <dir>`: Directorio de skills a cargar
+
+**Ejemplo:**
+```bash
+kairos explain
+```
+
+**Salida:**
+```
+Agent: kairos-agent
+├── LLM: ollama (llama3.2)
+├── Memory: inmemory
+├── Governance: enabled
+│   ├── Policy: be-brief
+│   └── Policy: no-secrets
+├── Tools: 3
+│   ├── get_weather (MCP: weather-server)
+│   ├── search_docs (MCP: filesystem)
+│   └── send_email (MCP: email-server)
+├── Skills: 2
+│   ├── pdf-processing: Extract text and tables from PDFs
+│   └── summarization: Summarize long documents
+└── A2A: disabled
+```
+
+### `kairos graph`
+
+Genera visualizaciones del grafo del planner en varios formatos.
+
+**Flags:**
+- `--path <file>`: Ruta al archivo YAML/JSON del grafo (requerido)
+- `--output <format>`: Formato de salida: `mermaid`, `dot`, `json` (default: `mermaid`)
+
+**Ejemplos:**
+```bash
+# Generar diagrama Mermaid
+kairos graph --path workflow.yaml
+
+# Generar Graphviz DOT
+kairos graph --path workflow.yaml --output dot
+
+# Exportar como JSON
+kairos graph --path workflow.yaml --output json
+```
+
+**Salida Mermaid:**
+```
+graph TD
+    detect_intent[detect_intent: detect_intent]
+    knowledge[knowledge: knowledge]
+    detect_intent --> knowledge
+    style detect_intent fill:#90EE90
+```
+
+### `kairos adapters list`
+
+Lista los adaptadores disponibles (providers y backends).
+
+**Flags:**
+- `--type <type>`: Filtrar por tipo: `llm`, `memory`, `mcp`, `a2a`, `telemetry`
+
+**Ejemplos:**
+```bash
+# Listar todos los adapters
+kairos adapters list
+
+# Solo LLM providers
+kairos adapters list --type llm
+```
+
+### `kairos adapters info <name>`
+
+Muestra detalles de configuración de un adapter específico.
+
+**Ejemplo:**
+```bash
+kairos adapters info ollama
+```
+
+**Salida:**
+```
+Adapter: ollama
+Type: llm
+Description: Local LLM inference with Ollama
+
+Configuration:
+  • llm.provider=ollama
+  • llm.base_url
+  • llm.model
+
+Documentation: https://ollama.ai
+```
+
+---
 
 ## UI mínima (Fase 8.3)
 

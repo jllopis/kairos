@@ -1,0 +1,28 @@
+# Base configuration for Kairos agent
+# Override with config.dev.yaml or config.prod.yaml
+
+app:
+  name: "kairos-agent"
+  log_level: "info"
+
+llm:
+  provider: "ollama"
+  model: "llama3.1"
+  base_url: "http://localhost:11434"
+
+memory:
+  backend: "inmemory"
+
+governance:
+  enable: true
+  policies:
+    - "tool:*"  # Allow all tools by default
+
+telemetry:
+  exporter: "stdout"
+  endpoint: ""
+  service_name: "kairos-agent"
+
+mcp:
+  enable: false
+  servers: []

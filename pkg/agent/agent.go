@@ -15,6 +15,7 @@ import (
 
 	"github.com/jllopis/kairos/pkg/config"
 	"github.com/jllopis/kairos/pkg/core"
+	kerrors "github.com/jllopis/kairos/pkg/errors"
 	"github.com/jllopis/kairos/pkg/governance"
 	"github.com/jllopis/kairos/pkg/llm"
 	kmcp "github.com/jllopis/kairos/pkg/mcp"
@@ -397,12 +398,17 @@ Final Answer: the final answer to the original input question
 		llmLatencyMs.Record(ctx, time.Since(llmStart).Seconds()*1000)
 		if err != nil {
 			agentErrorCounter.Add(ctx, 1)
+			ke := WrapLLMError(err, a.model)
+			if em := GetErrorMetrics(); em != nil {
+				em.RecordError(ctx, ke, "agent-llm")
+			}
 			log.Error("agent.llm.error",
 				slog.String("agent_id", a.id),
 				slog.String("run_id", runID),
 				slog.String("trace_id", traceID),
 				slog.String("span_id", spanID),
 				slog.String("error", err.Error()),
+				slog.String("error_code", string(kerrors.CodeLLMError)),
 			)
 			a.emitEvent(ctx, core.EventAgentError, map[string]any{
 				"run_id": runID,
@@ -412,7 +418,7 @@ Final Answer: the final answer to the original input question
 			if task, ok := core.TaskFromContext(ctx); ok && task != nil {
 				task.Fail(err.Error())
 			}
-			return nil, fmt.Errorf("llm chat failed: %w", err)
+			return nil, ke
 		}
 
 		content := resp.Content
@@ -583,6 +589,10 @@ Final Answer: the final answer to the original input question
 						attribute.String("tool.name", action),
 					))
 					if err != nil {
+						ke := WrapToolError(err, action, "")
+						if em := GetErrorMetrics(); em != nil {
+							em.RecordError(ctx, ke, "agent-tool")
+						}
 						observation = fmt.Sprintf("Error executing tool: %v", err)
 						agentErrorCounter.Add(ctx, 1)
 						log.Error("agent.tool.error",
@@ -592,6 +602,7 @@ Final Answer: the final answer to the original input question
 							slog.String("span_id", spanID),
 							slog.String("tool", action),
 							slog.String("error", err.Error()),
+							slog.String("error_code", string(kerrors.CodeToolFailure)),
 						)
 						a.emitEvent(ctx, core.EventAgentError, map[string]any{
 							"run_id": runID,
@@ -655,12 +666,17 @@ Final Answer: the final answer to the original input question
 	}
 
 	agentErrorCounter.Add(ctx, 1)
+	ke := WrapTimeoutError(fmt.Errorf("max iterations exceeded"), "agent-loop", a.maxIterations)
+	if em := GetErrorMetrics(); em != nil {
+		em.RecordError(ctx, ke, "agent-loop")
+	}
 	log.Error("agent.run.timeout",
 		slog.String("agent_id", a.id),
 		slog.String("run_id", runID),
 		slog.String("trace_id", traceID),
 		slog.String("span_id", spanID),
 		slog.Int("iterations", a.maxIterations),
+		slog.String("error_code", string(kerrors.CodeTimeout)),
 	)
 	a.emitEvent(ctx, core.EventAgentError, map[string]any{
 		"run_id": runID,
@@ -670,7 +686,7 @@ Final Answer: the final answer to the original input question
 	if task, ok := core.TaskFromContext(ctx); ok && task != nil {
 		task.Fail("max iterations exceeded")
 	}
-	return nil, fmt.Errorf("agent exceeded max iterations (%d) without final answer", a.maxIterations)
+	return nil, ke
 }
 
 // Close releases MCP client resources if configured.
@@ -762,6 +778,10 @@ func (a *Agent) storeMemory(ctx context.Context, mem core.Memory, input, output 
 	entry := fmt.Sprintf("Timestamp: %s\nUser: %s\nAgent: %s", time.Now().UTC().Format(time.RFC3339), input, output)
 	if err := mem.Store(memCtx, entry); err != nil {
 		memSpan.End()
+		ke := WrapMemoryError(err, "store")
+		if em := GetErrorMetrics(); em != nil {
+			em.RecordError(ctx, ke, "agent-memory")
+		}
 		agentErrorCounter.Add(ctx, 1)
 		slog.Default().Error("agent.memory.store.error",
 			slog.String("agent_id", a.id),
@@ -769,6 +789,7 @@ func (a *Agent) storeMemory(ctx context.Context, mem core.Memory, input, output 
 			slog.String("trace_id", traceIDFromContext(ctx)),
 			slog.String("span_id", spanIDFromContext(ctx)),
 			slog.String("error", err.Error()),
+			slog.String("error_code", string(kerrors.CodeMemoryError)),
 		)
 		return
 	}
@@ -978,6 +999,10 @@ func (a *Agent) handleToolCalls(ctx context.Context, log *slog.Logger, runID, tr
 				attribute.String("tool.name", toolName),
 			))
 			if err != nil {
+				ke := WrapToolError(err, toolName, call.ID)
+				if em := GetErrorMetrics(); em != nil {
+					em.RecordError(ctx, ke, "agent-tool")
+				}
 				observation = fmt.Sprintf("Error executing tool: %v", err)
 				logDecisionOutcome(log, decisionPayload{
 					AgentID:       a.id,
@@ -998,6 +1023,7 @@ func (a *Agent) handleToolCalls(ctx context.Context, log *slog.Logger, runID, tr
 					slog.String("tool", toolName),
 					slog.String("tool_call_id", call.ID),
 					slog.String("error", err.Error()),
+					slog.String("error_code", string(kerrors.CodeToolFailure)),
 				)
 				a.emitEvent(ctx, core.EventAgentError, map[string]any{
 					"run_id": runID,

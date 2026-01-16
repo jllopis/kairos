@@ -1,9 +1,7 @@
-# SPDX-License-Identifier: Apache-2.0
+# Arquitectura de Exportación de Métricas OTEL
 
-# OTEL Metrics Export Architecture
-
-> How Kairos metrics are collected, exported, and made available to monitoring systems  
-> Technical guide for operators and DevOps
+> Cómo se recopilan, exportan y hacen disponibles las métricas de Kairos para sistemas de monitorización.  
+> Guía técnica para operadores y DevOps.
 
 ---
 
@@ -720,19 +718,11 @@ export KAIROS_TELEMETRY_OTLP_ENDPOINT=datadog-agent:4317
 
 ---
 
-## Resources
+## Recursos
 
-- **[OBSERVABILITY.md](OBSERVABILITY.md)** - Dashboard setup
-- **[INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)** - How to use in agents
-- **[OTEL Docs](https://opentelemetry.io/docs/specs/otel/protocol/)** - OTLP specification
-- **[Collector Config Guide](https://opentelemetry.io/docs/collector/configuration/)** - How to configure collector
-- **[Datadog OTLP Integration](https://docs.datadoghq.com/opentelemetry/otlp_ingest_in_the_agent/)** - Datadog setup
-- **[New Relic OTLP](https://docs.newrelic.com/docs/more-integrations/open-source-integrations/opentelemetry-integrations/opentelemetry-intro/)** - New Relic setup
-
----
-
-**Version**: 1.0  
-**Status**: Ready to use  
-**Last Updated**: 2026-01-15
-
-*Métricas en Kairos se exportan automáticamente vía OTEL sin necesidad de endpoints adicionales.*
+- **[Guía de Observabilidad](OBSERVABILITY.md)** - Dashboards y alertas
+- **[Guía de Integración](INTEGRATION_GUIDE.md)** - Uso con agentes
+- **[OTEL Docs](https://opentelemetry.io/docs/specs/otel/protocol/)** - Especificación OTLP
+- **[Collector Config Guide](https://opentelemetry.io/docs/collector/configuration/)** - Configuración del collector
+- **[Datadog OTLP Integration](https://docs.datadoghq.com/opentelemetry/otlp_ingest_in_the_agent/)** - Setup Datadog
+- **[New Relic OTLP](https://docs.newrelic.com/docs/more-integrations/open-source-telemetry-integrations/opentelemetry-integrations/opentelemetry-intro/)** - Setup New Relic

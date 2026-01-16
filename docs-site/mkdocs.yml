@@ -33,6 +33,11 @@ nav:
           - A2A y MCP: protocols/A2A/topics/a2a-and-mcp.md
       - MCP: protocols/MCP.md
       - AGENTS.md: agents-md.md
+  - Operaciones:
+      - Error Handling: ERROR_HANDLING.md
+      - Observabilidad: OBSERVABILITY.md
+      - Métricas y OTLP: METRICS_EXPORT.md
+      - Guía de Integración: INTEGRATION_GUIDE.md
   - Referencia:
       - CLI: CLI.md
       - Configuración: CONFIGURATION.md
@@ -45,17 +50,50 @@ nav:
 theme:
   name: material
   language: es
+  font:
+    text: Merriweather
+    code: JetBrains Mono
   features:
     - navigation.instant
     - navigation.tracking
     - navigation.sections
+    - navigation.expand
+    - navigation.indexes
     - navigation.top
+    - toc.follow
     - content.code.copy
+  palette:
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Cambiar a modo claro
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Cambiar a modo oscuro
 
 plugins:
   - search
 
+extra_css:
+  - stylesheets/extra.css
+
 markdown_extensions:
   - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
   - toc:
       permalink: true
+  - tables
+  - attr_list
+  - md_in_html

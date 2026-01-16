@@ -206,6 +206,28 @@ Notas:
 - [ ] Guardrails de seguridad (prompt injection, PII, permisos finos).
 - [ ] Banco de pruebas y simulación de agentes/flows antes de producción.
 
+## kairosctl - Orquestador (Proceso Separado - Post M8)
+
+Plataforma de orquestación estilo n8n para workflows, agentes e interacciones LLM.
+Ver diseño completo en `docs/internal/ORCHESTRATION_PLATFORM.md`.
+
+Decisión de arquitectura:
+- **Dos repositorios**: `kairos` (biblioteca) + `kairosctl` (orquestador).
+- `kairosctl` importa `kairos` como dependencia Go.
+- Kairos mantiene su rol de framework (runtime, A2A, planner, governance).
+- kairosctl añade: scheduling, workflow persistence, registry centralizado, UI visual.
+
+Interfaces a mantener estables en Kairos (forward compatibility):
+- `core.Agent`, `core.Task`, `core.Skill` (estructuras core)
+- `llm.Provider` (Complete, CompleteWithTools)
+- `a2a.Client` (SendMessage, GetTask, ListTasks, CancelTask)
+- `planner.Executor` (Execute)
+- `core.EventEmitter` (streaming de eventos)
+
+Fases futuras (post M8):
+- [ ] kairosctl MVP: repo separado, control plane API, workflow store, agent registry.
+- [ ] kairosctl Avanzado: scheduler, queue distribuida, editor visual.
+
 ## Dependencias entre hitos (resumen)
 
 - P0 -> P1, P2, P3, P4, P6, P7

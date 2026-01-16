@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jllopis/kairos/pkg/agent"
 	"github.com/jllopis/kairos/pkg/config"
@@ -16,7 +18,7 @@ import (
 	kmcp "github.com/jllopis/kairos/pkg/mcp"
 )
 
-// Example config (settings.json):
+// Example config (.kairos/settings.json):
 //
 //	{
 //	  "mcp": {
@@ -29,9 +31,17 @@ import (
 //	  }
 //	}
 //
-// Then run:
+// Run with mock provider (recommended for testing):
 //
-//	go run ./examples/mcp-remote-agent
+//	go run .
+//
+// Run with Ollama (requires ollama serve):
+//
+//	USE_OLLAMA=1 go run .
+//
+// Adjust timeout for slow models:
+//
+//	TIMEOUT_SECONDS=180 USE_OLLAMA=1 go run .
 func main() {
 	ctx := context.Background()
 
@@ -47,13 +57,16 @@ func main() {
 		log.Printf("configured MCP server: %s (%s)", name, server.Transport)
 	}
 
+	// Use mock by default unless USE_OLLAMA=1
+	useOllama := os.Getenv("USE_OLLAMA") == "1"
 	var provider llm.Provider
-	switch cfg.LLM.Provider {
-	case "ollama":
+	if useOllama {
+		log.Println("using Ollama provider")
 		provider = llm.NewOllama(cfg.LLM.BaseURL)
-	default:
+	} else {
+		log.Println("using mock provider (set USE_OLLAMA=1 for real LLM)")
 		mock := &llm.ScriptedMockProvider{}
-		mock.AddResponse("Final Answer: listo")
+		mock.AddResponse("I have access to the following tools: create_directory, list_directory, read_file, write_file, and more filesystem operations.\n\nFinal Answer: Tools listed successfully.")
 		provider = mock
 	}
 
@@ -65,6 +78,7 @@ func main() {
 		agent.WithDisableActionFallback(agentCfg.DisableActionFallback),
 		agent.WithActionFallbackWarning(agentCfg.WarnOnActionFallback),
 		agent.WithMCPServerConfigs(cfg.MCP.Servers),
+		agent.WithMaxIterations(3), // Limit iterations for demo
 	)
 	if err != nil {
 		log.Fatalf("failed to create agent: %v", err)
@@ -75,19 +89,19 @@ func main() {
 		}
 	}()
 
+	// List tools discovered via MCP
+	log.Println("--- Discovering MCP tools ---")
 	if tools, err := ag.MCPTools(ctx); err != nil {
 		log.Printf("failed to list MCP tools: %v", err)
 	} else {
+		log.Printf("discovered %d tools from MCP servers", len(tools))
 		for _, tool := range tools {
-			payload, err := json.MarshalIndent(tool, "", "  ")
-			if err != nil {
-				log.Printf("failed to marshal tool definition (%s): %v", tool.Name, err)
-				continue
-			}
-			log.Printf("tool definition: %s", string(payload))
+			log.Printf("  - %s: %s", tool.Name, truncate(tool.Description, 60))
 		}
 	}
 
+	// Demonstrate direct MCP client usage
+	log.Println("--- Direct MCP client demo ---")
 	for name, server := range cfg.MCP.Servers {
 		client, err := newMCPClient(server)
 		if err != nil {
@@ -100,27 +114,47 @@ func main() {
 			_ = client.Close()
 			continue
 		}
-		log.Printf("mcp %q tools=%d", name, len(tools))
-		if len(tools) == 0 {
-			_ = client.Close()
-			continue
-		}
-		tool := tools[0]
-		log.Printf("calling tool=%s (empty args)", tool.Name)
-		res, err := client.CallTool(ctx, tool.Name, map[string]interface{}{})
-		if err != nil {
-			log.Printf("tool call error: %v", err)
-		} else if payload, err := json.MarshalIndent(res, "", "  "); err == nil {
-			log.Printf("tool response: %s", payload)
+		log.Printf("mcp %q: %d tools available", name, len(tools))
+
+		// Call echo tool if available
+		for _, tool := range tools {
+			if tool.Name == "echo" {
+				log.Printf("calling echo tool...")
+				res, err := client.CallTool(ctx, "echo", map[string]interface{}{
+					"message": "Hello from Kairos!",
+				})
+				if err != nil {
+					log.Printf("tool call error: %v", err)
+				} else if payload, err := json.MarshalIndent(res, "", "  "); err == nil {
+					log.Printf("echo response: %s", payload)
+				}
+				break
+			}
 		}
 		_ = client.Close()
 	}
 
-	response, err := ag.Run(ctx, "List the tools you can use.")
-	if err != nil {
-		log.Fatalf("agent run failed: %v", err)
+	// Run agent with timeout
+	log.Println("--- Running agent ---")
+	timeout := 60 * time.Second // Default timeout
+	if useOllama {
+		timeout = 120 * time.Second // Longer timeout for real LLM
 	}
-	fmt.Printf("Agent response: %v\n", response)
+	if raw := os.Getenv("TIMEOUT_SECONDS"); raw != "" {
+		if secs, err := strconv.Atoi(raw); err == nil && secs > 0 {
+			timeout = time.Duration(secs) * time.Second
+		}
+	}
+	runCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	response, err := ag.Run(runCtx, "What tools do you have available?")
+	if err != nil {
+		log.Printf("agent run failed: %v", err)
+		log.Println("Tip: Try TIMEOUT_SECONDS=180 for slow models, or USE_OLLAMA=0 for mock")
+		return
+	}
+	fmt.Printf("\nAgent response:\n%v\n", response)
 }
 
 func newMCPClient(server config.MCPServerConfig) (*kmcp.Client, error) {
@@ -139,4 +173,12 @@ func newMCPClient(server config.MCPServerConfig) (*kmcp.Client, error) {
 	default:
 		return nil, fmt.Errorf("unsupported transport %q", server.Transport)
 	}
+}
+
+func truncate(s string, max int) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	if len(s) <= max {
+		return s
+	}
+	return s[:max-3] + "..."
 }

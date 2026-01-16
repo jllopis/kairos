@@ -15,24 +15,35 @@ import (
 	"github.com/jllopis/kairos/pkg/llm"
 )
 
-// Example usage with MCP configuration from kairos.json.
-// Create one of:
+// Example usage with MCP configuration.
 //
-//	./.kairos/settings.json
-//	$HOME/.kairos/settings.json
-//	$XDG_CONFIG_HOME/kairos/settings.json
+// This example includes a pre-configured .kairos/settings.json with a filesystem
+// MCP server. Kairos searches for configuration in:
 //
-// Example content:
+//   - ./.kairos/settings.json (current directory)
+//   - $HOME/.kairos/settings.json
+//   - $XDG_CONFIG_HOME/kairos/settings.json
+//
+// To run with Ollama:
+//
+//	cd examples/05-mcp-agent
+//	go run .
+//
+// To run with mock provider (no real LLM):
+//
+//	USE_OLLAMA=0 go run .
+//
+// Example settings.json for custom MCP servers:
 //
 //	{
 //	  "mcp": {
 //	    "servers": {
-//	      "fetch-stdio": {
+//	      "filesystem": {
 //	        "transport": "stdio",
-//	        "command": "docker",
-//	        "args": ["run", "-i", "--rm", "mcp/fetch"]
+//	        "command": "npx",
+//	        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
 //	      },
-//	      "fetch-http": {
+//	      "my-http-server": {
 //	        "transport": "http",
 //	        "url": "http://localhost:8080/mcp"
 //	      }
@@ -40,9 +51,8 @@ import (
 //	  }
 //	}
 //
-// Then run:
-//
-//	go run ./examples/mcp-agent
+// Note: For "stdio" transport, Kairos starts the MCP server process.
+// For "http" transport, the server must already be running.
 func main() {
 	ctx := context.Background()
 

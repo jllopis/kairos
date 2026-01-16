@@ -26,3 +26,9 @@ bin/
 vendor/
 go.sum
 *.test
+
+# Generated documentation site
+docs-site/site/
+
+# Binary
+kairos

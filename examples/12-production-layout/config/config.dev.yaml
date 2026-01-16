@@ -1,0 +1,11 @@
+# Development overrides
+# Merged on top of config.yaml when running with --env dev
+
+app:
+  log_level: "debug"
+
+llm:
+  provider: "mock"  # No real LLM needed for development
+
+telemetry:
+  exporter: "stdout"

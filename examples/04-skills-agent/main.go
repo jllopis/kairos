@@ -10,13 +10,18 @@ import (
 )
 
 func main() {
-	llmProvider := &llm.MockProvider{Response: "Final Answer: listo"}
+	llmProvider := &llm.MockProvider{Response: "Final Answer: Extracted text from PDF successfully."}
 
 	a, err := agent.New("skills-agent", llmProvider,
-		agent.WithSkillsFromDir("./examples/skills-agent/skills"),
+		agent.WithSkillsFromDir("./skills"),
 	)
 	if err != nil {
 		log.Fatalf("create agent: %v", err)
+	}
+
+	fmt.Printf("Skills loaded: %d\n", len(a.Skills()))
+	for _, skill := range a.Skills() {
+		fmt.Printf("  - %s: %s\n", skill.Name, skill.Description)
 	}
 
 	resp, err := a.Run(context.Background(), "Extrae datos de este PDF")
@@ -24,6 +29,5 @@ func main() {
 		log.Fatalf("run agent: %v", err)
 	}
 
-	fmt.Printf("Skills loaded: %d\n", len(a.Skills()))
-	fmt.Printf("Response: %v\n", resp)
+	fmt.Printf("\nResponse: %v\n", resp)
 }

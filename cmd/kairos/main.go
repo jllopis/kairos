@@ -111,9 +111,21 @@ func main() {
 	}
 
 	switch cmd {
+	case "init":
+		runInit(&global, args[1:])
+	case "validate":
+		runValidate(ctx, global, args[1:])
+	case "run":
+		runRun(ctx, global, args[1:])
 	case "status":
 		ensureNoArgs(args[1:])
 		runStatus(global)
+	case "explain":
+		runExplain(ctx, global, args[1:])
+	case "graph":
+		runGraph(global, args[1:])
+	case "adapters":
+		runAdapters(global, args[1:])
 	case "agents":
 		runAgents(ctx, global, args[1:])
 	case "tasks":
@@ -1038,7 +1050,7 @@ func printVersion() {
 }
 
 func printUsage() {
-	fmt.Print(`Kairos CLI (Phase 8.1 MVP)
+	fmt.Print(`Kairos CLI
 
 Usage:
   kairos [global flags] <command> [args]
@@ -1054,6 +1066,34 @@ Global flags:
   --web-addr <addr>    Web UI bind address (default :8088)
 
 Commands:
+  init <dir> --module <path> [--type <archetype>] [--llm <provider>]
+      Generate a new Kairos project
+      Archetypes: assistant, tool-agent, coordinator, policy-heavy
+
+  validate
+      Validate configuration, LLM connectivity, MCP servers, and policies
+
+  run [--prompt <text>] [--profile <name>] [--agent <id>] [--role <role>]
+      Run an agent interactively or with a single prompt
+      --prompt     Single prompt (non-interactive)
+      --profile    Load config profile (dev, prod)
+      --agent      Agent ID (default: kairos-agent)
+      --skills     Skills directory path
+      --interactive=false  Disable REPL, read from stdin
+
+  explain [--agent <id>] [--skills <dir>]
+      Show agent configuration and components in a tree view
+      Displays LLM, memory, planner, governance, tools, skills, and A2A status
+
+  graph [--path <file>] [--output mermaid|dot|json]
+      Visualize planner graph as Mermaid, Graphviz DOT, or JSON
+
+  adapters list [--type <type>]
+      List available adapters (llm, memory, mcp, a2a, telemetry)
+
+  adapters info <name>
+      Show detailed configuration for an adapter
+
   status
   agents list --agent-card <url>
   tasks list [--status <state>] [--context <id>] [--page-size N] [--page-token T]
@@ -1067,6 +1107,20 @@ Commands:
   approvals tail [--status <status>] [--interval 5s] [--out <path>]
   mcp list
   registry serve [--addr :9900] [--ttl 30s]
+
+Examples:
+  kairos init my-agent --module github.com/myorg/my-agent
+  kairos init my-agent --module github.com/myorg/my-agent --type tool-agent --mcp
+  kairos validate
+  kairos validate --json
+  kairos run --prompt "Explain AI agents"
+  kairos run --profile dev
+  kairos run  # Interactive REPL
+  kairos status
+  kairos explain
+  kairos graph --output mermaid
+  kairos adapters list --type llm
+  kairos tasks list --status completed
 `)
 }
 

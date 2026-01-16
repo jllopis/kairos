@@ -1,432 +1,309 @@
-# Error Handling in Kairos
+# Manejo de Errores en Kairos
 
-**Status**: ✅ **Phases 1-3 Complete** | Phase 4 in planning  
-**Last Updated**: 2026-01-15  
-**Production Ready**: 90% (Phase 4 pending)
+Kairos proporciona un sistema de manejo de errores tipado y observable que facilita la depuración, el monitoring y la recuperación automática.
 
----
-
-## 🎯 Start Here
-
-**New to error handling in Kairos?**  
-→ Read [NARRATIVE_GUIDE](internal/error-handling/NARRATIVE_GUIDE.md) (why it matters, how it works)
-
-**Want to implement in agents?**  
-→ Go to [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) - How to use error handling with agent loops
-
-**Want to see examples?**  
-→ Check `examples/error-handling/`, `examples/resilience-phase2/`, `examples/observability-phase3/`
-
-**Want to operate?**  
-→ Go to [OBSERVABILITY.md](OBSERVABILITY.md) for dashboards and alerts
-
-**Looking for docs index?**  
-→ See [Error Handling Documentation Index](internal/error-handling/INDEX.md)
-
----
-
-## Quick Links
-
-- **[Integration Guide](INTEGRATION_GUIDE.md)**: ⭐ How to use error handling with agents
-- **[Metrics Export Guide](METRICS_EXPORT.md)**: ⭐ OTLP configuration and metric flow
-- **[Narrative Guide](internal/error-handling/NARRATIVE_GUIDE.md)**: Vision, architecture, and impact
-- **[Roadmap](internal/error-handling/ROADMAP.md)**: 4-phase implementation plan
-- **[Status](internal/error-handling/STATUS.md)**: What's built, what's planned
-- **[Observability Guide](OBSERVABILITY.md)**: Dashboards, alerts, monitoring
-- **[ADR 0005](internal/adr/0005-error-handling-strategy.md)**: Architecture decisions
-- **[Docs Index](internal/error-handling/INDEX.md)**: Full documentation map
-
----
-
-## Overview
-
-Kairos implements **production-grade error handling** with full OTEL integration across 4 phases:
-
-| Phase | Status | Focus |
-|-------|--------|-------|
-| 1 | ✅ Complete | Typed errors, retry, circuit breaker |
-| 2 | ✅ Complete | Health checks, timeouts, fallback strategies |
-| 3 | ✅ Complete | Observability, metrics, dashboards, alerts |
-| 4 | 🔄 Planning | Production migration to existing codebase |
-
----
-
-## Current State Analysis
-
-### ✅ What's Good
-
-1. **OTEL Foundation Solid**
-   - `pkg/telemetry/` provides trace and metric exporters
-   - Support for stdout, OTLP gRPC, and no-op exporters
-   - Proper resource attributes and propagation
-
-2. **Tracing in Critical Paths**
-   - Agent loop uses `tracer.Start()` and `span.End()`
-   - Tool execution is traced
-   - Run IDs ensure request correlation
-
-3. **Structured Logging**
-   - Using Go's standard `log/slog` package
-   - Potential for JSON output to logs
-   - Easy integration with log aggregation
-
-4. **Context Propagation**
-   - `context.Context` threaded through all async operations
-   - `core.RunID` context value for correlation
-   - Task context attached at runtime
-
-### 🟡 What Needs Improvement
-
-1. **No Typed Error Hierarchy**
-   ```go
-   // Current: Generic errors
-   return nil, fmt.Errorf("tool %s failed: %w", name, err)
-   
-   // Needed: Structured error types
-   return nil, KairosError{
-       Code: CodeToolFailure,
-       Tool: name,
-       Err:  err,
-   }
-   ```
-   - No way to distinguish between error types programmatically
-   - Monitoring/alerting can't classify errors
-   - Recovery decisions must parse error messages
-
-2. **Limited Error Context in Traces**
-   ```go
-   // Current: Only message
-   span.RecordError(err)
-   
-   // Needed: Rich attributes
-   span.RecordError(err)
-   span.SetAttributes(
-       attribute.String("error.code", "TOOL_FAILURE"),
-       attribute.String("tool.name", toolName),
-       attribute.Bool("error.recoverable", true),
-   )
-   ```
-   - Errors recorded but not searchable
-   - No metadata for dashboards
-   - Correlation with metrics is hard
-
-3. **No Retry or Circuit Breaker Patterns**
-   - Tool failures cause immediate agent failure
-   - No graceful degradation for transient errors
-   - No protection against cascading failures
-
-4. **Missing Error Recovery**
-   - Tool timeouts not explicitly handled
-   - Network errors cause hard failures
-   - No fallback mechanisms
-
-5. **No Health Checks**
-   - Can't determine if LLM provider is healthy before use
-   - Memory system failures cause hard failures
-   - Tool availability unknown until invocation
-
-## Impact on Production Readiness
-
-| Issue | Impact | Severity |
-|-------|--------|----------|
-| No error classification | Can't monitor/alert on error types | 🔴 High |
-| Limited trace attributes | Debugging is manual and slow | 🔴 High |
-| No retries | Transient failures cause cascades | 🔴 High |
-| No timeouts | Hanging tools can freeze agent | 🟡 Medium |
-| No health checks | Failures are only discovered at runtime | 🟡 Medium |
-| No circuit breakers | Failing tools can degrade performance | 🟡 Medium |
-
-## Proposed Solution
-
-See [ADR 0005: Production-Grade Error Handling Strategy](internal/adr/0005-error-handling-strategy.md) for detailed design.
-
-### Quick Summary
-
-1. **Typed Errors with Rich Context**
-   ```go
-   type KairosError struct {
-       Code       ErrorCode           // e.g., CodeToolFailure
-       Message    string              // Human-readable
-       Err        error               // Original error
-       Context    map[string]any      // Domain context
-       Attributes map[string]string   // OTEL attributes
-       Recoverable bool               // Can retry?
-   }
-   ```
-
-2. **Automatic OTEL Integration**
-   - Errors automatically recorded to traces
-   - Context and attributes attached
-   - Searchable and monitorable
-
-3. **Resilience Patterns**
-   - Exponential backoff retries
-   - Circuit breakers for failing components
-   - Timeout boundaries per tool
-
-4. **Health Checks**
-   - Component health before use
-   - Graceful degradation
-   - Observable via metrics
-
-## Implementation Roadmap
-
-### Phase 1: Foundation (Next Sprint)
-- [ ] Implement `pkg/errors/` package
-- [ ] Create `KairosError` type
-- [ ] Add `telemetry.RecordError()` helper
-- [ ] Update agent loop with error boundaries
-- **Impact**: Errors become searchable in traces
-
-### Phase 2: Resilience (Following Sprint)
-- [ ] Implement `pkg/resilience/` package
-- [ ] Add retry mechanism
-- [ ] Add circuit breaker
-- [ ] Configure tool execution resilience
-- **Impact**: Transient failures no longer cause cascades
-
-### Phase 3: Observability (2-3 Sprints)
-- [ ] Health check interfaces
-- [ ] Error rate dashboards
-- [ ] Alert rules by error type
-- [ ] Documentation for operators
-- **Impact**: Operations team can monitor and debug
-
-### Phase 4: Migration (Ongoing)
-- [ ] Update all error handling in packages
-- [ ] Update A2A server error responses
-- [ ] Update CLI error messages
-- [ ] Complete by v0.3.0 release
-
-## Example: Before & After
-
-### Tool Execution (Before)
+## Inicio Rápido
 
 ```go
-// pkg/mcp/tool_adapter.go
-func (ta *ToolAdapter) Execute(ctx context.Context, name string, args map[string]any) (any, error) {
-    tool := ta.findTool(name)
-    if tool == nil {
-        return nil, fmt.Errorf("tool not found: %s", name)
-    }
-    
-    result, err := tool.Call(args)
-    if err != nil {
-        return nil, fmt.Errorf("tool execution failed: %w", err)
-    }
-    return result, nil
+import (
+    "github.com/jllopis/kairos/pkg/errors"
+)
+
+// Crear un error tipado
+err := errors.New(errors.CodeToolFailure, "herramienta falló").
+    WithContext("tool", "get_weather").
+    WithRecoverable(true)
+
+// Verificar tipo de error
+if errors.IsCode(err, errors.CodeToolFailure) {
+    // Manejar fallo de herramienta
 }
 
-// pkg/agent/agent.go - Usage
-result, err := a.mcpClient.Execute(ctx, toolCall.Name, toolCall.Args)
-if err != nil {
-    slog.Error("tool failed", "tool", toolCall.Name, "error", err)
-    return nil, err  // Hard failure
+// Obtener contexto
+if ke, ok := errors.AsKairosError(err); ok {
+    toolName := ke.Context["tool"]
+    canRetry := ke.Recoverable
 }
 ```
 
-**Problems**:
-- No distinction between "tool not found" and "network timeout"
-- No metadata for monitoring
-- No recovery attempt
-- Error lost in trace
+---
 
-### Tool Execution (After)
+## Tipos de Error
+
+Kairos define los siguientes códigos de error:
+
+| Código | Descripción | Recuperable |
+|--------|-------------|-------------|
+| `CodeToolFailure` | Fallo en ejecución de herramienta | Depende del error |
+| `CodeTimeout` | Timeout en operación | Sí |
+| `CodeRateLimit` | Límite de tasa excedido | Sí |
+| `CodeLLMError` | Error del proveedor LLM | Depende |
+| `CodeMemoryError` | Error en operaciones de memoria | Depende |
+| `CodeInternal` | Error interno del sistema | No |
+| `CodeNotFound` | Recurso no encontrado | No |
+| `CodeUnauthorized` | Sin autorización | No |
+| `CodeInvalidInput` | Entrada inválida | No |
+
+---
+
+## Estructura KairosError
 
 ```go
-// pkg/errors/errors.go
 type KairosError struct {
-    Code       ErrorCode
-    Message    string
-    Err        error
-    Context    map[string]any
-    Recoverable bool
+    Code        ErrorCode         // Código de error
+    Message     string            // Mensaje legible
+    Err         error             // Error original (opcional)
+    Context     map[string]any    // Contexto adicional
+    Attributes  map[string]string // Atributos OTEL
+    Recoverable bool              // ¿Se puede reintentar?
+}
+```
+
+### Métodos principales
+
+```go
+// Crear error
+err := errors.New(errors.CodeLLMError, "modelo no disponible")
+
+// Añadir contexto
+err = err.WithContext("model", "gpt-4").
+         WithContext("provider", "openai")
+
+// Marcar como recuperable
+err = err.WithRecoverable(true)
+
+// Wrap de error existente
+err = errors.Wrap(originalErr, errors.CodeToolFailure, "ejecución falló")
+
+// Verificaciones
+errors.IsCode(err, errors.CodeTimeout)      // ¿Es timeout?
+errors.IsRecoverable(err)                   // ¿Se puede reintentar?
+ke, ok := errors.AsKairosError(err)         // Obtener KairosError
+```
+
+---
+
+## Patrones de Retry
+
+Kairos incluye un sistema de retry con backoff exponencial:
+
+```go
+import "github.com/jllopis/kairos/pkg/errors"
+
+config := errors.RetryConfig{
+    MaxAttempts:  3,
+    InitialDelay: 100 * time.Millisecond,
+    MaxDelay:     5 * time.Second,
+    Multiplier:   2.0,
 }
 
-// pkg/mcp/tool_adapter.go
-func (ta *ToolAdapter) Execute(ctx context.Context, name string, args map[string]any) (any, error) {
-    tool := ta.findTool(name)
-    if tool == nil {
-        return nil, &KairosError{
-            Code:        CodeNotFound,
-            Message:     "tool not found",
-            Context:     map[string]any{"tool": name},
-            Recoverable: false, // Not recoverable
-        }
-    }
-    
-    result, err := tool.Call(args)
+result, err := errors.Retry(ctx, config, func() (string, error) {
+    return callExternalAPI()
+})
+```
+
+### Retry solo para errores recuperables
+
+```go
+result, err := errors.RetryRecoverable(ctx, config, func() (string, error) {
+    resp, err := llm.Chat(ctx, messages)
     if err != nil {
-        return nil, &KairosError{
-            Code:        CodeToolFailure,
-            Message:     "tool execution failed",
-            Err:         err,
-            Context:     map[string]any{"tool": name, "args": len(args)},
-            Recoverable: isTransient(err), // Retry on network errors
+        // Solo reintenta si es recuperable
+        return "", errors.Wrap(err, errors.CodeLLMError, "chat failed").
+            WithRecoverable(isTransientError(err))
+    }
+    return resp, nil
+})
+```
+
+---
+
+## Circuit Breaker
+
+Protege contra fallos en cascada:
+
+```go
+import "github.com/jllopis/kairos/pkg/errors"
+
+cb := errors.NewCircuitBreaker(errors.CircuitBreakerConfig{
+    FailureThreshold: 5,           // Fallos antes de abrir
+    ResetTimeout:     30 * time.Second,
+    HalfOpenRequests: 2,           // Requests en half-open
+})
+
+result, err := cb.Execute(ctx, func() (string, error) {
+    return callExternalService()
+})
+
+// Verificar estado
+state := cb.State() // Closed, Open, HalfOpen
+```
+
+---
+
+## Integración con Observabilidad
+
+Los errores se integran automáticamente con OpenTelemetry:
+
+```go
+import "github.com/jllopis/kairos/pkg/telemetry"
+
+// Registrar error en span actual
+telemetry.RecordErrorMetric(ctx, err, span)
+
+// Registrar recuperación exitosa
+telemetry.RecordRecovery(ctx, err)
+```
+
+### Métricas disponibles
+
+| Métrica | Tipo | Descripción |
+|---------|------|-------------|
+| `kairos.errors.total` | Counter | Total de errores por código |
+| `kairos.errors.recovered` | Counter | Errores recuperados exitosamente |
+| `kairos.retry.attempts` | Histogram | Intentos de retry |
+| `kairos.circuitbreaker.state` | Gauge | Estado del circuit breaker |
+
+### Atributos en trazas
+
+Los errores añaden automáticamente estos atributos a los spans:
+
+```
+error.code = "TOOL_FAILURE"
+error.recoverable = true
+error.tool = "get_weather"
+error.message = "timeout connecting to service"
+```
+
+---
+
+## Uso en Agentes
+
+El agent loop de Kairos usa errores tipados internamente:
+
+```go
+// Ejemplo: ejecutar herramienta con manejo de errores
+func (a *Agent) executeTool(ctx context.Context, call llm.ToolCall) (any, error) {
+    result, err := a.toolExecutor.Execute(ctx, call.Name, call.Args)
+    if err != nil {
+        // El error ya viene tipado desde el executor
+        if errors.IsRecoverable(err) {
+            // Intentar con herramienta alternativa si existe
+            return a.tryFallback(ctx, call)
         }
+        return nil, err
     }
     return result, nil
 }
+```
 
-// pkg/agent/agent.go - Usage with resilience
-func (a *Agent) executeToolWithRetry(ctx context.Context, toolCall llm.ToolCall) (any, error) {
-    var lastErr error
-    for attempt := 0; attempt < 3; attempt++ {
-        if attempt > 0 {
-            delay := time.Duration(math.Pow(2, float64(attempt))) * time.Second
-            select {
-            case <-ctx.Done():
-                return nil, ctx.Err()
-            case <-time.After(delay):
-            }
-        }
-        
-        result, err := a.executeToolWithTimeout(ctx, toolCall)
-        if err == nil {
-            return result, nil
-        }
-        
-        if ke, ok := err.(*KairosError); ok && !ke.Recoverable {
-            telemetry.RecordError(a.tracer.CurrentSpan(ctx), err)
-            return nil, err // Hard failure
-        }
-        
-        lastErr = err
+### Helpers del paquete agent
+
+```go
+import "github.com/jllopis/kairos/pkg/agent"
+
+// Wrappers específicos para errores comunes
+err := agent.WrapLLMError(originalErr, "chat completion failed")
+err := agent.WrapToolError(originalErr, "get_weather", args)
+err := agent.WrapMemoryError(originalErr, "store", key)
+err := agent.WrapTimeoutError(operation, duration)
+```
+
+---
+
+## Health Checks
+
+Verificar salud de componentes antes de usarlos:
+
+```go
+import "github.com/jllopis/kairos/pkg/agent"
+
+// Crear health checker para LLM
+llmHealth := agent.NewLLMHealthChecker(llmProvider)
+status := llmHealth.Check(ctx)
+
+if status.Status != core.HealthStatusHealthy {
+    // LLM no disponible, usar fallback o fallar gracefully
+}
+
+// Health checkers disponibles:
+// - AgentHealthChecker
+// - LLMHealthChecker  
+// - MemoryHealthChecker
+// - MCPHealthChecker
+```
+
+---
+
+## Mapeo a gRPC (A2A)
+
+En el servidor A2A, los errores se mapean a códigos gRPC:
+
+| KairosError Code | gRPC Status |
+|------------------|-------------|
+| `CodeNotFound` | `NOT_FOUND` |
+| `CodeInvalidInput` | `INVALID_ARGUMENT` |
+| `CodeTimeout` | `DEADLINE_EXCEEDED` |
+| `CodeUnauthorized` | `PERMISSION_DENIED` |
+| `CodeRateLimit` | `RESOURCE_EXHAUSTED` |
+| `CodeToolFailure` | `UNAVAILABLE` o `INTERNAL` |
+| `CodeLLMError` | `UNAVAILABLE` |
+| `CodeInternal` | `INTERNAL` |
+
+---
+
+## Ejemplo Completo
+
+```go
+package main
+
+import (
+    "context"
+    "time"
+    
+    "github.com/jllopis/kairos/pkg/agent"
+    "github.com/jllopis/kairos/pkg/errors"
+)
+
+func main() {
+    ctx := context.Background()
+    
+    // Configurar retry
+    retryConfig := errors.RetryConfig{
+        MaxAttempts:  3,
+        InitialDelay: 500 * time.Millisecond,
+        MaxDelay:     10 * time.Second,
+        Multiplier:   2.0,
     }
     
-    telemetry.RecordError(a.tracer.CurrentSpan(ctx), lastErr)
-    return nil, lastErr // All retries exhausted
-}
-
-// Automatic trace enrichment
-func (t *telemetry) RecordError(span trace.Span, err error) {
-    if ke, ok := err.(*KairosError); ok {
-        span.RecordError(ke.Err)
-        span.SetAttributes(
-            attribute.String("error.code", string(ke.Code)),
-            attribute.Bool("error.recoverable", ke.Recoverable),
-        )
-        for k, v := range ke.Context {
-            span.SetAttributes(attribute.String("error."+k, fmt.Sprintf("%v", v)))
+    // Ejecutar con retry automático
+    result, err := errors.RetryRecoverable(ctx, retryConfig, func() (string, error) {
+        // Tu código aquí
+        resp, err := callExternalAPI()
+        if err != nil {
+            return "", errors.Wrap(err, errors.CodeToolFailure, "API call failed").
+                WithContext("endpoint", "/api/data").
+                WithRecoverable(isNetworkError(err))
         }
-        slog.Error("KairosError",
-            "code", ke.Code,
-            "message", ke.Message,
-            "recoverable", ke.Recoverable,
-            "context", ke.Context,
-        )
+        return resp, nil
+    })
+    
+    if err != nil {
+        if ke, ok := errors.AsKairosError(err); ok {
+            log.Printf("Error [%s]: %s (recuperable: %v)", 
+                ke.Code, ke.Message, ke.Recoverable)
+        }
+        return
     }
+    
+    fmt.Println("Resultado:", result)
 }
 ```
 
-**Benefits**:
-- ✅ Distinguishable error types for monitoring
-- ✅ Context and attributes in traces
-- ✅ Automatic retry for transient errors
-- ✅ Observable: errors searchable in OTEL UI
-- ✅ Metrics: error_code + tool_name breakdown
-- ✅ Recovery: agent continues despite transient failures
-
-## Monitoring & Observability
-
-### OTEL Queries
-
-With this approach, operations teams can:
-
-```
-# Find all tool failures
-attributes["error.code"] = "TOOL_FAILURE"
-
-# Find recoverable errors
-attributes["error.recoverable"] = true AND duration > 5s
-
-# Find errors by tool
-attributes["error.tool"] = "get_weather" AND status = ERROR
-
-# Tool resilience: retries per tool
-SELECT tool, COUNT(*) as attempts, COUNT(DISTINCT span_id) as unique_calls
-WHERE attributes["error.code"] = "TOOL_FAILURE" AND attributes["error.recoverable"] = true
-```
-
-### Metrics
-
-```go
-// Counter: errors by code
-otel.Meter("kairos").NewInt64Counter("error.count",
-    metric.WithUnit("1"),
-    metric.WithDescription("Kairos errors by code"),
-).Add(ctx, 1, metric.WithAttributes(
-    attribute.String("error.code", string(ke.Code)),
-))
-
-// Histogram: tool execution time including retries
-otel.Meter("kairos").NewInt64Histogram("tool.execution.ms",
-    metric.WithUnit("ms"),
-    metric.WithDescription("Tool execution time with retries"),
-).Record(ctx, durationMs, metric.WithAttributes(
-    attribute.String("tool", toolName),
-    attribute.Int("attempts", retryCount),
-))
-```
-
-## FAQ
-
-### Q: Doesn't OTEL already capture errors?
-
-A: Yes, but without classification. The improvements add:
-- Error codes for categorization
-- Rich context for debugging
-- Recoverable flag for automation
-- Automatic metrics aggregation
-
-### Q: Why not use Go's errors.Is/As directly?
-
-A: We're not excluding that! `KairosError` implements `Unwrap()` for full `errors.Is/As` compatibility. We're just adding structure on top.
-
-### Q: What about backward compatibility?
-
-A: Phase 4 migration is careful:
-1. Keep generic `error` returns in public APIs
-2. Gradually add structured errors
-3. Document migration path
-4. Deprecate unstructured approaches
-
-### Q: How does this affect A2A protocol?
-
-A: A2A server maps `KairosError` to gRPC status codes:
-```go
-CodeNotFound       → NOT_FOUND
-CodeInvalidInput   → INVALID_ARGUMENT
-CodeToolFailure    → UNAVAILABLE (if recoverable) else INTERNAL
-CodeTimeout        → DEADLINE_EXCEEDED
-CodeUnauthorized   → PERMISSION_DENIED
-```
-
-## Related Documentation
-
-- **[Roadmap](internal/error-handling/ROADMAP.md)**: Full 4-phase implementation plan
-- **[Status](internal/error-handling/STATUS.md)**: Current implementation details
-- **[ADR 0005](internal/adr/0005-error-handling-strategy.md)**: Architectural decisions
-- **[OTEL Semantic Conventions](https://opentelemetry.io/docs/specs/otel/trace/semantic_conventions/)**
-- **[Go Error Handling](https://go.dev/blog/error-handling-and-go)**
-
 ---
 
-## Implementation Status
+## Documentación Relacionada
 
-See [Status Document](internal/error-handling/STATUS.md) for:
-- Phase 1-3 deliverables (complete ✅)
-- Phase 4 roadmap (planned for v0.3.0 🔄)
-- Quick reference for developers, operators, and product
-
-See [Observability Guide](OBSERVABILITY.md) for:
-- Dashboard setup and configuration
-- Alert rules with runbooks
-- Integration with monitoring backends
-- SLO definitions
-
----
-
-**Updated**: 2026-01-15  
-**Status**: Phases 1-3 complete, Phase 4 in planning
-
+- **[Guía de Integración](INTEGRATION_GUIDE.md)**: Uso del manejo de errores en loops de agentes
+- **[Guía de Observabilidad](OBSERVABILITY.md)**: Dashboards y alertas
+- **[Exportación de Métricas](METRICS_EXPORT.md)**: Configuración OTLP

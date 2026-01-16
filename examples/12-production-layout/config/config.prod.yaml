@@ -1,0 +1,13 @@
+# Production overrides
+# Merged on top of config.yaml when running with --env prod
+
+app:
+  log_level: "warn"
+
+llm:
+  provider: "ollama"
+  model: "llama3.1"
+
+telemetry:
+  exporter: "otlp"
+  endpoint: "localhost:4317"

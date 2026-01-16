@@ -70,21 +70,34 @@ Ejemplo (con MCP y discovery):
 
 ## Variables de entorno
 
-Las variables de entorno se mapean a claves de configuración así:
+Las variables de entorno permiten configurar Kairos sin archivos. El mapeo funciona así:
 
-1) Prefijo: `KAIROS_`
-2) Minúsculas
-3) `_` se convierte en `.`
+1. Prefijo obligatorio: `KAIROS_`
+2. Después del prefijo, `_` se convierte en `.` para navegar la estructura
+3. El nombre se convierte a minúsculas
 
-Ejemplos de variables:
+Por ejemplo:
+- `KAIROS_LLM_MODEL` → `llm.model`
+- `KAIROS_LLM_BASE_URL` → `llm.base_url`
+- `KAIROS_TELEMETRY_OTLP_ENDPOINT` → `telemetry.otlp_endpoint`
+
+Ejemplos de uso:
 
 ```bash
-KAIROS_LLM_PROVIDER=ollama
-KAIROS_LLM_MODEL=qwen2.5-coder:7b-instruct-q5_K_M
-KAIROS_TELEMETRY_EXPORTER=stdout
-KAIROS_RUNTIME_APPROVAL_SWEEP_INTERVAL_SECONDS=30
-KAIROS_GOVERNANCE_APPROVAL_TIMEOUT_SECONDS=300
+# Configurar LLM
+export KAIROS_LLM_PROVIDER=ollama
+export KAIROS_LLM_MODEL=llama3.2
+export KAIROS_LLM_BASE_URL=http://localhost:11434
+
+# Configurar telemetría
+export KAIROS_TELEMETRY_EXPORTER=otlp
+export KAIROS_TELEMETRY_OTLP_ENDPOINT=localhost:4317
+
+# Ejecutar con variables de entorno
+KAIROS_LLM_MODEL=qwen2.5-coder:7b go run ./examples/02-basic-agent
 ```
+
+Las variables de entorno tienen precedencia sobre el archivo de configuración, pero los flags CLI (`--set`) tienen precedencia sobre ambos.
 
 ## Sobrescrituras de CLI
 
