@@ -43,6 +43,7 @@ Ver [CLI completo](CLI.md) para todos los comandos.
 | [Manejo de errores](ERROR_HANDLING.md)        | Errores tipados, retry y recuperación |
 | [Observabilidad](OBSERVABILITY.md)            | Métricas, dashboards y alertas        |
 | [Guardrails de Seguridad](GUARDRAILS.md)      | Prompt injection, PII filtering       |
+| [Testing Framework](TESTING.md)               | Escenarios, mocks, assertions         |
 | [Templates Corporativos](CORPORATE_TEMPLATES.md) | CI/CD, Docker, observabilidad      |
 
 ## 📦 Instalación

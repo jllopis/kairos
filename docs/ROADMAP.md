@@ -226,8 +226,8 @@ Notas:
 ### Prioritarios (próximos hitos)
 
 - [x] **Guardrails de seguridad**: prompt injection detection, PII filtering, content filtering (`pkg/guardrails`).
+- [x] **Testing framework**: escenarios, mock providers, assertions (`pkg/testing`).
 - [ ] **LLM Providers adicionales**: OpenAI nativo, Anthropic (Claude), Qwen, Gemini.
-- [ ] **Testing framework**: banco de pruebas y simulación de agentes/flows antes de producción.
 - [ ] **Hot-reload de configuración**: `kairos run` con watch mode para desarrollo.
 
 ### Medio plazo
