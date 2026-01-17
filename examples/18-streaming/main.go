@@ -16,6 +16,9 @@
 //
 //	# Test with Gemini (requires GOOGLE_API_KEY)
 //	go run . -provider gemini
+//
+//	# Test with Ollama (local, no API key needed)
+//	go run . -provider ollama
 package main
 
 import (
@@ -29,7 +32,6 @@ import (
 	"github.com/jllopis/kairos/providers/anthropic"
 	"github.com/jllopis/kairos/providers/gemini"
 	"github.com/jllopis/kairos/providers/openai"
-	"github.com/jllopis/kairos/pkg/llm"
 )
 
 func main() {
@@ -49,6 +51,7 @@ func main() {
 
 	var provider llm.StreamingProvider
 	var err error
+	var model string // Model override for providers that need it
 
 	switch *providerName {
 	case "openai":
@@ -66,7 +69,8 @@ func main() {
 		provider = anthropic.New()
 
 	case "ollama":
-		provider = .New()
+		provider = llm.NewOllama("")
+		model = "llama3" // Ollama requires explicit model
 
 	case "gemini":
 		apiKey := os.Getenv("GOOGLE_API_KEY")
@@ -90,6 +94,7 @@ func main() {
 
 	// Create chat request
 	req := llm.ChatRequest{
+		Model: model,
 		Messages: []llm.Message{
 			{Role: llm.RoleUser, Content: prompt},
 		},
