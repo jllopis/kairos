@@ -37,13 +37,16 @@ nav:
       - Error Handling: ERROR_HANDLING.md
       - Observabilidad: OBSERVABILITY.md
       - Métricas y OTLP: METRICS_EXPORT.md
+      - Guardrails de Seguridad: GUARDRAILS.md
       - Guía de Integración: INTEGRATION_GUIDE.md
   - Referencia:
       - CLI: CLI.md
       - Configuración: CONFIGURATION.md
+      - Testing Framework: TESTING.md
       - API: API.md
       - Skills: Skills.md
       - A2A Task: TASKS.md
+      - Templates Corporativos: CORPORATE_TEMPLATES.md
   - Roadmap:
       - Roadmap: ROADMAP.md
 

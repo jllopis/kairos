@@ -92,6 +92,8 @@ El directorio `examples/` contiene 13 ejemplos progresivos:
 | `11-observability` | OTEL, métricas |
 | `12-production-layout` | Estructura enterprise |
 | `13-mcp-pool` | Pool de conexiones MCP |
+| `14-guardrails` | Seguridad: prompt injection, PII |
+| `15-testing` | Testing framework |
 
 ---
 
