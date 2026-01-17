@@ -29,10 +29,11 @@ import (
 	"github.com/jllopis/kairos/providers/anthropic"
 	"github.com/jllopis/kairos/providers/gemini"
 	"github.com/jllopis/kairos/providers/openai"
+	"github.com/jllopis/kairos/pkg/llm"
 )
 
 func main() {
-	providerName := flag.String("provider", "openai", "Provider to test: openai, anthropic, gemini")
+	providerName := flag.String("provider", "openai", "Provider to test: openai, anthropic, ollama, gemini")
 	flag.Parse()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -63,6 +64,9 @@ func main() {
 			return
 		}
 		provider = anthropic.New()
+
+	case "ollama":
+		provider = .New()
 
 	case "gemini":
 		apiKey := os.Getenv("GOOGLE_API_KEY")

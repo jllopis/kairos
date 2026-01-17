@@ -49,8 +49,8 @@ Esta separación permite:
 | `OpenAPIConnector` | OpenAPI 3.x, Swagger 2.0 | REST endpoints | ✅ Implementado |
 | `MCPConnector` | MCP protocol | MCP tools | ✅ Implementado |
 | `GraphQLConnector` | Schema introspection | Queries/Mutations | ✅ Implementado |
-| `GRPCConnector` | `.proto` files | RPC methods | 🔜 Planificado |
-| `SQLConnector` | Database schema | CRUD operations | 🔜 Planificado |
+| `GRPCConnector` | Server reflection | RPC methods | ✅ Implementado |
+| `SQLConnector` | Database schema | CRUD operations | ✅ Implementado |
 
 ## OpenAPIConnector
 
@@ -213,6 +213,177 @@ connector, _ := connectors.NewGraphQLConnector(endpoint,
 
 Ver `examples/19-graphql-connector/` para un ejemplo completo.
 
+## GRPCConnector
+
+Convierte servicios gRPC en tools mediante reflection del servidor.
+
+### Características
+
+- **Server reflection**: Descubre servicios y métodos automáticamente
+- **Genera** un `llm.Tool` por cada método RPC (excepto streaming)
+- **Mapea** tipos protobuf a JSON Schema
+- **Ejecuta** llamadas gRPC dinámicamente
+- **Soporta** conexiones seguras e inseguras
+
+### Uso básico
+
+```go
+import "github.com/jllopis/kairos/pkg/connectors"
+
+// Crear conector con reflection (requiere que el servidor tenga reflection habilitado)
+connector, err := connectors.NewGRPCConnector(
+    "localhost:50051",
+    connectors.WithGRPCInsecure(), // Para desarrollo
+)
+defer connector.Close()
+
+// Obtener tools generados
+tools := connector.Tools()  // []llm.Tool
+
+// Usar con cualquier provider
+agent := kairos.NewAgent(
+    kairos.WithProvider(openaiProvider),
+    kairos.WithTools(tools...),
+)
+```
+
+### Ejecución de métodos
+
+```go
+// Los nombres de tools siguen el formato: service_name_method_name (snake_case)
+result, err := connector.Execute(ctx, "user_service_get_user", map[string]interface{}{
+    "id": "123",
+})
+```
+
+### Opciones
+
+```go
+// Prefijo para evitar colisiones
+connector, _ := connectors.NewGRPCConnector(target,
+    connectors.WithGRPCToolPrefix("myapi"),
+    connectors.WithGRPCInsecure(),
+)
+
+// Con opciones de dial personalizadas
+connector, _ := connectors.NewGRPCConnector(target,
+    connectors.WithGRPCDialOptions(
+        grpc.WithTransportCredentials(creds),
+    ),
+)
+```
+
+### Requisitos
+
+El servidor gRPC debe tener **reflection habilitado**:
+
+```go
+// En el servidor gRPC
+import "google.golang.org/grpc/reflection"
+
+s := grpc.NewServer()
+reflection.Register(s)
+```
+
+## SQLConnector
+
+Genera operaciones CRUD automáticamente desde un esquema de base de datos.
+
+### Características
+
+- **Introspección automática** del esquema (information_schema o PRAGMA)
+- **Genera 5 tools por tabla**: list, get, create, update, delete
+- **Mapea** tipos SQL a JSON Schema
+- **Soporta** PostgreSQL, MySQL y SQLite
+- **Modo read-only** opcional
+
+### Uso básico
+
+```go
+import (
+    "database/sql"
+    "github.com/jllopis/kairos/pkg/connectors"
+    _ "modernc.org/sqlite" // o "github.com/lib/pq" para Postgres
+)
+
+// Abrir conexión a la base de datos
+db, _ := sql.Open("sqlite", "database.db")
+
+// Crear conector con introspección
+connector, err := connectors.NewSQLConnector(db, "sqlite")
+
+// Obtener tools generados
+tools := connector.Tools()
+// Para una tabla "users" genera:
+// - list_users    (SELECT con filtros, limit, offset)
+// - get_users     (SELECT by primary key)
+// - create_users  (INSERT)
+// - update_users  (UPDATE)
+// - delete_users  (DELETE)
+```
+
+### Ejecución de operaciones
+
+```go
+ctx := context.Background()
+
+// Listar con filtros
+result, _ := connector.Execute(ctx, "list_users", map[string]interface{}{
+    "filters": map[string]interface{}{
+        "status": "active",
+    },
+    "limit":    10,
+    "offset":   0,
+    "order_by": "created_at",
+    "order_desc": true,
+})
+
+// Obtener uno por ID
+result, _ := connector.Execute(ctx, "get_users", map[string]interface{}{
+    "id": 123,
+})
+
+// Crear
+result, _ := connector.Execute(ctx, "create_users", map[string]interface{}{
+    "name":  "John Doe",
+    "email": "john@example.com",
+})
+
+// Actualizar
+result, _ := connector.Execute(ctx, "update_users", map[string]interface{}{
+    "id":    123,
+    "name":  "Jane Doe",
+})
+
+// Eliminar
+result, _ := connector.Execute(ctx, "delete_users", map[string]interface{}{
+    "id": 123,
+})
+```
+
+### Opciones
+
+```go
+// Solo lectura (no genera create, update, delete)
+connector, _ := connectors.NewSQLConnector(db, "postgres",
+    connectors.WithSQLReadOnly(),
+)
+
+// Con prefijo
+connector, _ := connectors.NewSQLConnector(db, "mysql",
+    connectors.WithSQLToolPrefix("db"),
+)
+// Genera: db_list_users, db_get_users, etc.
+```
+
+### Drivers soportados
+
+| Driver | Package | Ejemplo DSN |
+|--------|---------|-------------|
+| PostgreSQL | `github.com/lib/pq` | `postgres://user:pass@localhost/db` |
+| MySQL | `github.com/go-sql-driver/mysql` | `user:pass@tcp(localhost:3306)/db` |
+| SQLite | `modernc.org/sqlite` | `file.db` o `:memory:` |
+
 ## MCPConnector
 
 El conector MCP ya está implementado en `pkg/mcp/` y permite:
@@ -231,34 +402,6 @@ client, _ := mcp.NewStdioClient(mcp.StdioConfig{
 
 tools, _ := client.ListTools(ctx)
 result, _ := client.CallTool(ctx, "read_file", map[string]any{"path": "/tmp/test.txt"})
-```
-
-## Conectores futuros
-
-### GRPCConnector (planificado)
-
-```go
-// Futuro API
-connector, _ := connectors.NewGRPCConnector(
-    "localhost:50051",
-    connectors.WithProtoFiles("api/v1/*.proto"),
-)
-
-tools := connector.Tools()
-// Genera tools desde métodos RPC
-```
-
-### SQLConnector (planificado)
-
-```go
-// Futuro API
-connector, _ := connectors.NewSQLConnector(
-    "postgres://user:pass@localhost/db",
-    connectors.WithTables("users", "orders", "products"),
-)
-
-tools := connector.Tools()
-// Genera tools: listUsers, getUser, createUser, updateUser, deleteUser...
 ```
 
 ## Implementar un conector personalizado
