@@ -18,11 +18,46 @@ Este documento define la interfaz del CLI de Kairos y los comandos disponibles.
 - `--timeout` timeout de llamadas (por defecto: `30s`)
 - `--web` inicia la UI web mínima (HTMX)
 - `--web-addr` dirección de bind para la UI (por defecto `:8088`)
+- `--web-disable-agents` deshabilita endpoint `/agents`
+- `--web-disable-tasks` deshabilita endpoint `/tasks`
+- `--web-disable-approvals` deshabilita endpoint `/approvals`
+- `--web-only-agents` habilita solo `/agents`
+- `--web-only-tasks` habilita solo `/tasks`
 
 Variables de entorno sugeridas:
 - `KAIROS_GRPC_ADDR`
 - `KAIROS_HTTP_URL`
 - `KAIROS_AGENT_CARD_URLS` (lista separada por comas)
+- `KAIROS_WEB_DISABLE_AGENTS=true` deshabilita `/agents` endpoint
+- `KAIROS_WEB_DISABLE_TASKS=true` deshabilita `/tasks` endpoint
+- `KAIROS_WEB_DISABLE_APPROVALS=true` deshabilita `/approvals` endpoint
+
+---
+
+## UI Web (`kairos --web`)
+
+La UI web proporciona una interfaz visual para desarrollo local.
+
+```bash
+# Iniciar con todos los endpoints
+kairos --web
+
+# Solo gestión de tareas
+kairos --web --web-only-tasks
+
+# Sin aprobaciones (para entornos sin HITL)
+kairos --web --web-disable-approvals
+```
+
+### Endpoints disponibles
+
+| Endpoint | Descripción |
+|----------|-------------|
+| `/agents` | Lista de agentes A2A descubiertos |
+| `/tasks` | Gestión de tareas (list, detail, stream) |
+| `/approvals` | Human-in-the-loop approvals |
+
+**Nota:** Para dashboards de producción con histórico y métricas, usar kairosctl.
 
 ---
 

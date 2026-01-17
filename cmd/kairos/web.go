@@ -130,16 +130,30 @@ func runWeb(ctx context.Context, flags globalFlags, cfg *config.Config) {
 	}
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 	mux.HandleFunc("/", server.handleRoot)
-	mux.HandleFunc("/agents", server.handleAgentsPage)
-	mux.HandleFunc("/tasks", server.handleTasksPage)
-	mux.HandleFunc("/tasks/", server.handleTaskDetail)
-	mux.HandleFunc("/approvals", server.handleApprovalsPage)
 
-	mux.HandleFunc("/ui/agents/list", server.handleAgentsList)
-	mux.HandleFunc("/ui/tasks/list", server.handleTasksList)
-	mux.HandleFunc("/ui/tasks/", server.handleTaskUI)
-	mux.HandleFunc("/ui/approvals/list", server.handleApprovalsList)
-	mux.HandleFunc("/ui/approvals/", server.handleApprovalAction)
+	// Register endpoints based on configuration
+	enabledEndpoints := []string{}
+
+	if flags.WebEnableAgents {
+		mux.HandleFunc("/agents", server.handleAgentsPage)
+		mux.HandleFunc("/ui/agents/list", server.handleAgentsList)
+		enabledEndpoints = append(enabledEndpoints, "agents")
+	}
+
+	if flags.WebEnableTasks {
+		mux.HandleFunc("/tasks", server.handleTasksPage)
+		mux.HandleFunc("/tasks/", server.handleTaskDetail)
+		mux.HandleFunc("/ui/tasks/list", server.handleTasksList)
+		mux.HandleFunc("/ui/tasks/", server.handleTaskUI)
+		enabledEndpoints = append(enabledEndpoints, "tasks")
+	}
+
+	if flags.WebEnableApprovals {
+		mux.HandleFunc("/approvals", server.handleApprovalsPage)
+		mux.HandleFunc("/ui/approvals/list", server.handleApprovalsList)
+		mux.HandleFunc("/ui/approvals/", server.handleApprovalAction)
+		enabledEndpoints = append(enabledEndpoints, "approvals")
+	}
 
 	serverAddr := flags.WebAddr
 	if strings.TrimSpace(serverAddr) == "" {
@@ -164,6 +178,7 @@ func runWeb(ctx context.Context, flags globalFlags, cfg *config.Config) {
 		displayAddr = "localhost" + displayAddr
 	}
 	fmt.Printf("Kairos UI listening on http://%s\n", displayAddr)
+	fmt.Printf("Enabled endpoints: %s\n", strings.Join(enabledEndpoints, ", "))
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		fatal(err)
 	}
@@ -174,7 +189,16 @@ func (s *webServer) handleRoot(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	http.Redirect(w, r, "/tasks", http.StatusFound)
+	// Redirect to first available endpoint
+	if s.flags.WebEnableTasks {
+		http.Redirect(w, r, "/tasks", http.StatusFound)
+	} else if s.flags.WebEnableAgents {
+		http.Redirect(w, r, "/agents", http.StatusFound)
+	} else if s.flags.WebEnableApprovals {
+		http.Redirect(w, r, "/approvals", http.StatusFound)
+	} else {
+		http.Error(w, "No endpoints enabled", http.StatusServiceUnavailable)
+	}
 }
 
 func (s *webServer) handleAgentsPage(w http.ResponseWriter, _ *http.Request) {

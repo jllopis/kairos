@@ -48,6 +48,10 @@ type globalFlags struct {
 	Help       bool
 	Web        bool
 	WebAddr    string
+	// Web UI endpoint toggles
+	WebEnableAgents    bool
+	WebEnableTasks     bool
+	WebEnableApprovals bool
 }
 
 type statusResult struct {
@@ -152,10 +156,24 @@ func main() {
 
 func parseGlobalFlags(args []string) (globalFlags, []string, error) {
 	flags := globalFlags{
-		GRPCAddr: getenv("KAIROS_GRPC_ADDR", defaultGRPCAddr),
-		HTTPURL:  getenv("KAIROS_HTTP_URL", defaultHTTPURL),
-		Timeout:  30 * time.Second,
-		WebAddr:  defaultWebAddr,
+		GRPCAddr:           getenv("KAIROS_GRPC_ADDR", defaultGRPCAddr),
+		HTTPURL:            getenv("KAIROS_HTTP_URL", defaultHTTPURL),
+		Timeout:            30 * time.Second,
+		WebAddr:            defaultWebAddr,
+		WebEnableAgents:    true, // enabled by default
+		WebEnableTasks:     true, // enabled by default
+		WebEnableApprovals: true, // enabled by default
+	}
+
+	// Check environment variables for web endpoint toggles
+	if getenv("KAIROS_WEB_DISABLE_AGENTS", "") == "true" {
+		flags.WebEnableAgents = false
+	}
+	if getenv("KAIROS_WEB_DISABLE_TASKS", "") == "true" {
+		flags.WebEnableTasks = false
+	}
+	if getenv("KAIROS_WEB_DISABLE_APPROVALS", "") == "true" {
+		flags.WebEnableApprovals = false
 	}
 
 	for i := 0; i < len(args); i++ {
@@ -182,6 +200,20 @@ func parseGlobalFlags(args []string) (globalFlags, []string, error) {
 			i++
 		case strings.HasPrefix(arg, "--web-addr="):
 			flags.WebAddr = strings.TrimPrefix(arg, "--web-addr=")
+		case arg == "--web-disable-agents":
+			flags.WebEnableAgents = false
+		case arg == "--web-disable-tasks":
+			flags.WebEnableTasks = false
+		case arg == "--web-disable-approvals":
+			flags.WebEnableApprovals = false
+		case arg == "--web-only-agents":
+			flags.WebEnableAgents = true
+			flags.WebEnableTasks = false
+			flags.WebEnableApprovals = false
+		case arg == "--web-only-tasks":
+			flags.WebEnableAgents = false
+			flags.WebEnableTasks = true
+			flags.WebEnableApprovals = false
 		case arg == "--config":
 			if i+1 >= len(args) {
 				return flags, nil, fmt.Errorf("missing value for --config")
@@ -1064,6 +1096,16 @@ Global flags:
   --json               JSON output
   --web                Start the minimal web UI
   --web-addr <addr>    Web UI bind address (default :8088)
+  --web-disable-agents     Disable /agents endpoint
+  --web-disable-tasks      Disable /tasks endpoint
+  --web-disable-approvals  Disable /approvals endpoint
+  --web-only-agents        Enable only /agents endpoint
+  --web-only-tasks         Enable only /tasks endpoint
+
+Environment variables for web UI:
+  KAIROS_WEB_DISABLE_AGENTS=true     Disable /agents endpoint
+  KAIROS_WEB_DISABLE_TASKS=true      Disable /tasks endpoint
+  KAIROS_WEB_DISABLE_APPROVALS=true  Disable /approvals endpoint
 
 Commands:
   init <dir> --module <path> [--type <archetype>] [--llm <provider>]
