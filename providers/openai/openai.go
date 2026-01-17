@@ -50,7 +50,7 @@ func WithAPIKey(apiKey string) Option {
 func New(opts ...Option) *Provider {
 	p := &Provider{
 		client: openai.NewClient(),
-		model:  "gpt-4o",
+		model:  "gpt-5-mini",
 	}
 	for _, opt := range opts {
 		opt(p)

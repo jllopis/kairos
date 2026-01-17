@@ -18,8 +18,8 @@ func TestNewProvider(t *testing.T) {
 	if p == nil {
 		t.Fatal("expected non-nil provider")
 	}
-	if p.model != "gpt-4o" {
-		t.Errorf("expected model gpt-4o, got %s", p.model)
+	if p.model != "gpt-5-mini" {
+		t.Errorf("expected model gpt-5-mini, got %s", p.model)
 	}
 }
 
