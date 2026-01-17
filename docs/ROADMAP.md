@@ -227,8 +227,8 @@ Notas:
 
 - [x] **Guardrails de seguridad**: prompt injection detection, PII filtering, content filtering (`pkg/guardrails`).
 - [x] **Testing framework**: escenarios, mock providers, assertions (`pkg/testing`).
+- [x] **Hot-reload de configuración**: `kairos run --watch` con watch mode para desarrollo (`pkg/config/watcher.go`).
 - [ ] **LLM Providers adicionales**: OpenAI nativo, Anthropic (Claude), Qwen, Gemini.
-- [ ] **Hot-reload de configuración**: `kairos run` con watch mode para desarrollo.
 
 ### Medio plazo
 

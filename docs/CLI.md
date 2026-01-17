@@ -138,6 +138,7 @@ Ejecuta un agente de forma interactiva o con un prompt único.
 - `--skills <dir>`: Directorio de skills a cargar
 - `--interactive=false`: Modo pipe (lee de stdin)
 - `--no-telemetry`: Deshabilitar salida de telemetría
+- `--watch`: Hot-reload de config cuando el archivo cambie
 
 **Modos de ejecución:**
 
@@ -182,6 +183,9 @@ kairos run --skills ./my-skills
 
 # REPL interactivo
 kairos run --no-telemetry
+
+# Con hot-reload de config (desarrollo)
+kairos run --watch --profile dev
 ```
 
 ---

@@ -221,6 +221,76 @@ El merge es **profundo**: las claves del perfil sobrescriben las del base, pero 
 
 **Consejo**: No incluyas secrets en archivos. Usa variables de entorno o un gestor de secrets.
 
+## Hot-Reload de Configuración
+
+Kairos soporta hot-reload de configuración para desarrollo. Cuando el archivo de config cambia, la nueva configuración se carga automáticamente sin reiniciar el agente.
+
+### Uso con CLI
+
+```bash
+# Iniciar con watch mode
+kairos run --watch
+
+# Con perfil específico
+kairos run --watch --profile dev
+
+# Con config custom
+kairos run --watch --config ./my-config.yaml
+```
+
+### Uso programático
+
+```go
+import "github.com/jllopis/kairos/pkg/config"
+
+ctx := context.Background()
+
+// Crear watcher
+watcher, cfg, err := config.WatchConfig(ctx, "config/config.yaml",
+    config.WithWatchInterval(1*time.Second),
+)
+if err != nil {
+    log.Fatal(err)
+}
+defer watcher.Stop()
+
+// Registrar callback para cambios
+watcher.OnChange(func(newCfg *config.Config) {
+    log.Println("Config reloaded!")
+    // Actualizar componentes que dependan de la config
+})
+
+// Usar config reloadable
+reloadable := config.NewReloadableConfig(cfg)
+// Acceso thread-safe a la config actual
+currentLLM := reloadable.LLM()
+```
+
+### ReloadableConfig
+
+Para acceso thread-safe a la configuración:
+
+```go
+rc := config.NewReloadableConfig(cfg)
+
+// Actualizar desde callback del watcher
+watcher.OnChange(func(newCfg *config.Config) {
+    rc.Update(newCfg)
+})
+
+// Acceso thread-safe
+llmCfg := rc.LLM()
+agentCfg := rc.Agent()
+telemetryCfg := rc.Telemetry()
+fullCfg := rc.Get()
+```
+
+### Limitaciones
+
+- El hot-reload actualiza la configuración, pero no reinicia componentes ya inicializados (LLM provider, conexiones MCP, etc.)
+- Para cambios que requieren reinicio de componentes, el agente debe reiniciarse
+- El watcher usa polling (por defecto cada segundo), no inotify
+
 ## Referencia de keys (selección)
 
 - `llm.provider`, `llm.model`, `llm.base_url`, `llm.api_key`
