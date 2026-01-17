@@ -265,26 +265,24 @@ Fases futuras (post M9):
 
 ## LLM Providers (Fase 10.1)
 
-Arquitectura de providers en `pkg/llm/`:
+Arquitectura de providers con módulos Go independientes en `providers/`:
 
-| Provider | Estado | Notas |
-|----------|--------|-------|
-| Ollama | ✅ Implementado | `pkg/llm/ollama.go` - Function calling compatible |
-| Mock | ✅ Implementado | `pkg/llm/mock.go` - Para tests |
-| OpenAI | 🔲 Planificado | API nativa, gpt-4, gpt-4o, o1 |
-| Anthropic | 🔲 Planificado | Claude 3.5/4, tool_use blocks |
-| Qwen | 🔲 Planificado | Alibaba Cloud, formato propio |
-| Gemini | 🔲 Planificado | Google, functionCall format |
+| Provider | Estado | Módulo | Notas |
+|----------|--------|--------|-------|
+| Ollama | ✅ Implementado | `pkg/llm/ollama.go` | Function calling compatible |
+| Mock | ✅ Implementado | `pkg/llm/mock.go` | Para tests |
+| OpenAI | ✅ Implementado | `providers/openai/` | GPT-4o, GPT-4-turbo, Azure compatible |
+| Anthropic | ✅ Implementado | `providers/anthropic/` | Claude 4 Opus/Sonnet/Haiku |
+| Qwen | ✅ Implementado | `providers/qwen/` | Alibaba DashScope API |
+| Gemini | ✅ Implementado | `providers/gemini/` | Google Gemini 2.0/1.5 |
 
-Cada provider implementa `llm.Provider` interface:
-```go
-type Provider interface {
-    Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error)
-}
+Instalación selectiva:
+```bash
+go get github.com/jllopis/kairos/providers/openai
+go get github.com/jllopis/kairos/providers/anthropic
 ```
 
-El código del agent no cambia - los tipos `Tool`, `ToolCall`, `ChatRequest/Response` son genéricos.
-Ver arquitectura completa en `docs/ARCHITECTURE.md`.
+Ver documentación completa en `docs/PROVIDERS.md`.
 
 ## Dependencias entre hitos (resumen)
 

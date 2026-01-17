@@ -40,6 +40,7 @@ Ver [CLI completo](CLI.md) para todos los comandos.
 | Guía                                          | Descripción                           |
 |-----------------------------------------------|---------------------------------------|
 | [Configuración](CONFIGURATION.md)             | Config layering, perfiles dev/prod    |
+| [LLM Providers](PROVIDERS.md)                 | OpenAI, Anthropic, Qwen, Gemini       |
 | [Manejo de errores](ERROR_HANDLING.md)        | Errores tipados, retry y recuperación |
 | [Observabilidad](OBSERVABILITY.md)            | Métricas, dashboards y alertas        |
 | [Guardrails de Seguridad](GUARDRAILS.md)      | Prompt injection, PII filtering       |
