@@ -116,6 +116,78 @@ KAIROS_TELEMETRY_OTLP_TIMEOUT_SECONDS=30 \
 go test ./pkg/telemetry -run TestOTLPSmoke -count=1
 ```
 
+## Arquitectura de LLM Providers
+
+El sistema de providers sigue una arquitectura de abstracción que permite añadir nuevos LLMs sin modificar el código del agent:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Agent / Core Code                         │
+│  (usa tipos genéricos: ChatRequest, ChatResponse, Tool)      │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   llm.Provider interface                     │
+│              Chat(ctx, ChatRequest) → ChatResponse           │
+└─────────────────────────────────────────────────────────────┘
+                              │
+        ┌───────────┬─────────┼─────────┬───────────┐
+        ▼           ▼         ▼         ▼           ▼
+┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐
+│  Ollama   │ │  OpenAI   │ │ Anthropic │ │   Qwen    │ │  Gemini   │
+│ Provider  │ │ Provider  │ │ Provider  │ │ Provider  │ │ Provider  │
+│    ✅     │ │  planned  │ │  planned  │ │  planned  │ │  planned  │
+└───────────┘ └───────────┘ └───────────┘ └───────────┘ └───────────┘
+```
+
+### Interface del Provider
+
+```go
+// Provider define la interfaz para interactuar con backends LLM.
+type Provider interface {
+    Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error)
+}
+```
+
+### Tipos Compartidos (pkg/llm/provider.go)
+
+Los tipos siguen el formato OpenAI que se ha convertido en estándar de facto:
+
+| Tipo | Descripción |
+|------|-------------|
+| `ChatRequest` | Modelo, mensajes, tools, temperatura |
+| `ChatResponse` | Contenido, tool_calls, usage |
+| `Tool` | Definición de función (type + function) |
+| `ToolCall` | Llamada a tool del LLM (id, type, function) |
+| `FunctionDef` | Nombre, descripción, parameters (JSON Schema) |
+| `Message` | Role, content, tool_calls, tool_call_id |
+
+### Responsabilidades de cada Provider
+
+Cada provider implementa la traducción entre los tipos genéricos y el formato nativo:
+
+1. **Traducir `llm.Tool` → formato nativo** (ej: Anthropic usa `tool_use` blocks)
+2. **Traducir respuesta nativa → `llm.ToolCall`**
+3. **Manejar peculiaridades** (ej: Gemini usa `functionCall`, Qwen tiene formato propio)
+4. **Gestionar autenticación y rate limiting**
+
+### Flujo de Tool Calling
+
+```
+User Input → Agent Loop → LLM Provider (con tool definitions)
+                                    ↓
+                          LLM Response con ToolCalls
+                                    ↓
+                          handleToolCalls() → Policy Check
+                                    ↓
+                          MCP/Core Tool Execute()
+                                    ↓
+                          Tool Result → Next iteration
+```
+
+El código del agent no cambia al añadir providers - solo consume la interfaz `Provider`.
+
 ## Modelo de datos (alto nivel)
 
 - Agent: id, role, skills, tools, memory, policies.

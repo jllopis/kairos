@@ -226,6 +226,7 @@ Notas:
 ### Prioritarios (próximos hitos)
 
 - [x] **Guardrails de seguridad**: prompt injection detection, PII filtering, content filtering (`pkg/guardrails`).
+- [ ] **LLM Providers adicionales**: OpenAI nativo, Anthropic (Claude), Qwen, Gemini.
 - [ ] **Testing framework**: banco de pruebas y simulación de agentes/flows antes de producción.
 - [ ] **Hot-reload de configuración**: `kairos run` con watch mode para desarrollo.
 
@@ -261,6 +262,29 @@ Interfaces a mantener estables en Kairos (forward compatibility):
 Fases futuras (post M9):
 - [ ] kairosctl MVP: repo separado, control plane API, workflow store, agent registry.
 - [ ] kairosctl Avanzado: scheduler, queue distribuida, editor visual.
+
+## LLM Providers (Fase 10.1)
+
+Arquitectura de providers en `pkg/llm/`:
+
+| Provider | Estado | Notas |
+|----------|--------|-------|
+| Ollama | ✅ Implementado | `pkg/llm/ollama.go` - Function calling compatible |
+| Mock | ✅ Implementado | `pkg/llm/mock.go` - Para tests |
+| OpenAI | 🔲 Planificado | API nativa, gpt-4, gpt-4o, o1 |
+| Anthropic | 🔲 Planificado | Claude 3.5/4, tool_use blocks |
+| Qwen | 🔲 Planificado | Alibaba Cloud, formato propio |
+| Gemini | 🔲 Planificado | Google, functionCall format |
+
+Cada provider implementa `llm.Provider` interface:
+```go
+type Provider interface {
+    Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error)
+}
+```
+
+El código del agent no cambia - los tipos `Tool`, `ToolCall`, `ChatRequest/Response` son genéricos.
+Ver arquitectura completa en `docs/ARCHITECTURE.md`.
 
 ## Dependencias entre hitos (resumen)
 
