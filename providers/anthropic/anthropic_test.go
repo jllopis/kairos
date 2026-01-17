@@ -18,8 +18,8 @@ func TestNewProvider(t *testing.T) {
 	if p == nil {
 		t.Fatal("expected non-nil provider")
 	}
-	if p.model != "claude-sonnet-4-20250514" {
-		t.Errorf("expected model claude-sonnet-4-20250514, got %s", p.model)
+	if p.model != "claude-haiku-4-20250514" {
+		t.Errorf("expected model claude-haiku-4-20250514, got %s", p.model)
 	}
 	if p.maxTokens != 4096 {
 		t.Errorf("expected maxTokens 4096, got %d", p.maxTokens)

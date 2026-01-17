@@ -57,7 +57,7 @@ func WithAPIKey(apiKey string) Option {
 func New(opts ...Option) *Provider {
 	p := &Provider{
 		client:    anthropic.NewClient(),
-		model:     "claude-sonnet-4-20250514",
+		model:     "claude-haiku-4-20250514",
 		maxTokens: 4096,
 	}
 	for _, opt := range opts {

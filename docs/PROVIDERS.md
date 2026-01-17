@@ -98,10 +98,12 @@ provider := anthropic.New(
 
 | Modelo | Descripción |
 |--------|-------------|
-| `claude-sonnet-4-20250514` | Modelo por defecto, balanceado |
-| `claude-opus-4-20250514` | Máxima capacidad |
-| `claude-haiku-4-20250514` | Rápido y económico |
-| `claude-3-5-sonnet-20241022` | Claude 3.5 Sonnet |
+| `claude-haiku-4-20250514` | **Modelo por defecto** - Mejor relación calidad/precio ($1/$5 MTok) |
+| `claude-haiku-4.5` | Haiku 4.5, más rápido y económico |
+| `claude-sonnet-4.5` | Balanceado, alta calidad |
+| `claude-sonnet-4-20250514` | Sonnet 4, balanceado |
+| `claude-opus-4.5` | Máxima capacidad, agentes |
+| `claude-opus-4-20250514` | Opus 4 (legacy) |
 
 ### Notas sobre Anthropic
 
@@ -134,9 +136,9 @@ provider := qwen.New("api-key",
 
 | Modelo | Descripción |
 |--------|-------------|
-| `qwen-plus` | Modelo por defecto |
+| `qwen-turbo` | **Modelo por defecto** - Más económico |
+| `qwen-plus` | Balanceado |
 | `qwen-max` | Máxima capacidad |
-| `qwen-turbo` | Rápido y económico |
 | `qwen-vl-plus` | Multimodal (visión) |
 
 ### Endpoint

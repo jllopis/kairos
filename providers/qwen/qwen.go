@@ -58,7 +58,7 @@ func New(apiKey string, opts ...Option) *Provider {
 	p := &Provider{
 		apiKey:  apiKey,
 		baseURL: DefaultBaseURL,
-		model:   "qwen-plus",
+		model:   "qwen-turbo",
 		client:  http.DefaultClient,
 	}
 	for _, opt := range opts {

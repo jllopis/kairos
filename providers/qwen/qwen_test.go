@@ -18,8 +18,8 @@ func TestNewProvider(t *testing.T) {
 	if p == nil {
 		t.Fatal("expected non-nil provider")
 	}
-	if p.model != "qwen-plus" {
-		t.Errorf("expected model qwen-plus, got %s", p.model)
+	if p.model != "qwen-turbo" {
+		t.Errorf("expected model qwen-turbo, got %s", p.model)
 	}
 	if p.baseURL != DefaultBaseURL {
 		t.Errorf("expected baseURL %s, got %s", DefaultBaseURL, p.baseURL)
