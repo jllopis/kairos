@@ -91,11 +91,11 @@ go get github.com/jllopis/kairos/providers/qwen
 
 | Provider | Módulo | Default Model | Streaming |
 |----------|--------|---------------|-----------|
-| Ollama | `pkg/llm/ollama.go` | `llama3` | 🚧 |
+| Ollama | `pkg/llm/ollama.go` | `llama3` | ✅ |
 | OpenAI | `providers/openai/` | `gpt-5-mini` | ✅ |
 | Anthropic | `providers/anthropic/` | `claude-haiku-4` | ✅ |
 | Gemini | `providers/gemini/` | `gemini-3-flash-preview` | ✅ |
-| Qwen | `providers/qwen/` | `qwen-turbo` | 🚧 |
+| Qwen | `providers/qwen/` | `qwen-turbo` | ✅ |
 
 Ver [PROVIDERS.md](PROVIDERS.md) para documentación completa.
 

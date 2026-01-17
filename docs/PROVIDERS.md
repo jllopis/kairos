@@ -260,15 +260,55 @@ if len(resp.ToolCalls) > 0 {
 
 ## Comparativa de Providers
 
-| Feature | OpenAI | Anthropic | Qwen | Gemini |
-|---------|--------|-----------|------|--------|
-| Function calling | ✅ | ✅ | ✅ | ✅ |
-| Streaming | 🚧 | 🚧 | 🚧 | 🚧 |
-| Vision/Images | ✅ | ✅ | ✅ | ✅ |
-| API key env var | `OPENAI_API_KEY` | `ANTHROPIC_API_KEY` | Manual | `GOOGLE_API_KEY` |
-| Custom base URL | ✅ | ✅ | ✅ | ❌ |
+| Feature | OpenAI | Anthropic | Qwen | Gemini | Ollama |
+|---------|--------|-----------|------|--------|--------|
+| Function calling | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Streaming | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Vision/Images | ✅ | ✅ | ✅ | ✅ | ✅ |
+| API key env var | `OPENAI_API_KEY` | `ANTHROPIC_API_KEY` | Manual | `GOOGLE_API_KEY` | N/A (local) |
+| Custom base URL | ✅ | ✅ | ✅ | ❌ | ✅ |
 
-✅ = Soportado | 🚧 = En desarrollo | ❌ = No disponible
+✅ = Soportado | ❌ = No disponible
+
+## Streaming
+
+Todos los providers implementan `llm.StreamingProvider`:
+
+```go
+type StreamingProvider interface {
+    Provider
+    ChatStream(ctx context.Context, req ChatRequest) (<-chan StreamChunk, error)
+}
+```
+
+### Uso
+
+```go
+import "github.com/jllopis/kairos/providers/openai"
+
+provider := openai.New()
+
+// Streaming
+stream, err := provider.ChatStream(ctx, llm.ChatRequest{
+    Model:    "gpt-5-mini",
+    Messages: []llm.Message{{Role: llm.RoleUser, Content: "Hola"}},
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+for chunk := range stream {
+    if chunk.Error != nil {
+        log.Fatal(chunk.Error)
+    }
+    fmt.Print(chunk.Content) // Imprime en tiempo real
+    if chunk.Done {
+        fmt.Printf("\nTokens: %d\n", chunk.Usage.TotalTokens)
+    }
+}
+```
+
+Ver `examples/18-streaming/` para un ejemplo completo.
 
 ## Crear un Provider personalizado
 
@@ -279,5 +319,7 @@ type Provider interface {
     Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error)
 }
 ```
+
+Opcionalmente, implementa `llm.StreamingProvider` para soporte de streaming.
 
 Ver [ARCHITECTURE.md](ARCHITECTURE.md#arquitectura-de-llm-providers) para más detalles.

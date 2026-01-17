@@ -6,12 +6,14 @@
 package qwen
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/jllopis/kairos/pkg/llm"
 )
@@ -272,3 +274,206 @@ func convertResponse(resp *openAIResponse) *llm.ChatResponse {
 
 // Ensure Provider implements llm.Provider.
 var _ llm.Provider = (*Provider)(nil)
+
+// Ensure Provider implements llm.StreamingProvider.
+var _ llm.StreamingProvider = (*Provider)(nil)
+
+// ChatStream implements llm.StreamingProvider for streaming responses.
+func (p *Provider) ChatStream(ctx context.Context, req llm.ChatRequest) (<-chan llm.StreamChunk, error) {
+	model := req.Model
+	if model == "" {
+		model = p.model
+	}
+
+	// Build OpenAI-compatible streaming request
+	apiReq := openAIStreamRequest{
+		Model:    model,
+		Messages: convertMessages(req.Messages),
+		Stream:   true,
+	}
+
+	if req.Temperature > 0 {
+		apiReq.Temperature = &req.Temperature
+	}
+
+	if len(req.Tools) > 0 {
+		apiReq.Tools = convertTools(req.Tools)
+	}
+
+	// Serialize request
+	body, err := json.Marshal(apiReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
+	httpReq.Header.Set("Accept", "text/event-stream")
+
+	// Make the request
+	httpResp, err := p.client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+
+	// Check for errors before streaming
+	if httpResp.StatusCode != http.StatusOK {
+		defer httpResp.Body.Close()
+		respBody, _ := io.ReadAll(httpResp.Body)
+		var errResp errorResponse
+		json.Unmarshal(respBody, &errResp)
+		return nil, fmt.Errorf("qwen API error (status %d): %s", httpResp.StatusCode, errResp.Error.Message)
+	}
+
+	// Create output channel
+	chunks := make(chan llm.StreamChunk, 100)
+
+	// Process SSE stream in goroutine
+	go func() {
+		defer close(chunks)
+		defer httpResp.Body.Close()
+
+		reader := bufio.NewReader(httpResp.Body)
+		toolCallsMap := make(map[int]*llm.ToolCall)
+		var totalUsage llm.Usage
+
+		for {
+			select {
+			case <-ctx.Done():
+				chunks <- llm.StreamChunk{Error: ctx.Err()}
+				return
+			default:
+			}
+
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				if err != io.EOF {
+					chunks <- llm.StreamChunk{Error: err}
+				}
+				return
+			}
+
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+
+			// SSE format: "data: {...}"
+			if !strings.HasPrefix(line, "data: ") {
+				continue
+			}
+
+			data := strings.TrimPrefix(line, "data: ")
+			if data == "[DONE]" {
+				// Send final chunk with accumulated tool calls
+				var finalToolCalls []llm.ToolCall
+				for i := 0; i < len(toolCallsMap); i++ {
+					if tc, ok := toolCallsMap[i]; ok {
+						finalToolCalls = append(finalToolCalls, *tc)
+					}
+				}
+				chunks <- llm.StreamChunk{
+					Done:      true,
+					ToolCalls: finalToolCalls,
+					Usage:     &totalUsage,
+				}
+				return
+			}
+
+			// Parse SSE event
+			var event openAIStreamEvent
+			if err := json.Unmarshal([]byte(data), &event); err != nil {
+				continue // Skip malformed events
+			}
+
+			chunk := llm.StreamChunk{}
+
+			if len(event.Choices) > 0 {
+				delta := event.Choices[0].Delta
+
+				// Content delta
+				if delta.Content != "" {
+					chunk.Content = delta.Content
+				}
+
+				// Tool calls delta (accumulated across chunks)
+				for _, tc := range delta.ToolCalls {
+					idx := tc.Index
+					if _, exists := toolCallsMap[idx]; !exists {
+						toolCallsMap[idx] = &llm.ToolCall{
+							ID:   tc.ID,
+							Type: llm.ToolTypeFunction,
+							Function: llm.FunctionCall{
+								Name: tc.Function.Name,
+							},
+						}
+					}
+					// Accumulate arguments
+					if tc.Function.Arguments != "" {
+						toolCallsMap[idx].Function.Arguments += tc.Function.Arguments
+					}
+				}
+			}
+
+			// Track usage if provided
+			if event.Usage.TotalTokens > 0 {
+				totalUsage = llm.Usage{
+					PromptTokens:     event.Usage.PromptTokens,
+					CompletionTokens: event.Usage.CompletionTokens,
+					TotalTokens:      event.Usage.TotalTokens,
+				}
+			}
+
+			// Send chunk if there's content
+			if chunk.Content != "" {
+				chunks <- chunk
+			}
+		}
+	}()
+
+	return chunks, nil
+}
+
+// Streaming request type (includes stream flag)
+type openAIStreamRequest struct {
+	Model       string          `json:"model"`
+	Messages    []openAIMessage `json:"messages"`
+	Tools       []openAITool    `json:"tools,omitempty"`
+	Temperature *float64        `json:"temperature,omitempty"`
+	Stream      bool            `json:"stream"`
+}
+
+// Streaming event types
+type openAIStreamEvent struct {
+	ID      string `json:"id"`
+	Choices []struct {
+		Index int `json:"index"`
+		Delta struct {
+			Role      string                    `json:"role,omitempty"`
+			Content   string                    `json:"content,omitempty"`
+			ToolCalls []openAIStreamToolCall    `json:"tool_calls,omitempty"`
+		} `json:"delta"`
+		FinishReason string `json:"finish_reason,omitempty"`
+	} `json:"choices"`
+	Usage struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage,omitempty"`
+}
+
+type openAIStreamToolCall struct {
+	Index    int    `json:"index"`
+	ID       string `json:"id,omitempty"`
+	Type     string `json:"type,omitempty"`
+	Function struct {
+		Name      string `json:"name,omitempty"`
+		Arguments string `json:"arguments,omitempty"`
+	} `json:"function"`
+}

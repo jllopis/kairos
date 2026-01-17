@@ -4,6 +4,9 @@
 package qwen
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/jllopis/kairos/pkg/llm"
@@ -134,5 +137,80 @@ func TestConvertResponse(t *testing.T) {
 	}
 	if result.Usage.TotalTokens != 15 {
 		t.Errorf("expected total tokens 15, got %d", result.Usage.TotalTokens)
+	}
+}
+
+func TestStreamingProviderInterface(t *testing.T) {
+	var _ llm.StreamingProvider = (*Provider)(nil)
+}
+
+func TestChatStream(t *testing.T) {
+	// Create a mock server that returns SSE streaming response
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/chat/completions" {
+			t.Errorf("Expected /chat/completions, got %s", r.URL.Path)
+		}
+
+		// Send SSE streaming response
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+
+		// Stream chunks
+		events := []string{
+			`data: {"id":"chatcmpl-1","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"}}]}`,
+			`data: {"id":"chatcmpl-1","choices":[{"index":0,"delta":{"content":" world"}}]}`,
+			`data: {"id":"chatcmpl-1","choices":[{"index":0,"delta":{"content":"!"}}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13}}`,
+			`data: [DONE]`,
+		}
+
+		for _, event := range events {
+			w.Write([]byte(event + "\n\n"))
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+		}
+	}))
+	defer server.Close()
+
+	// Create provider with mock server
+	provider := New("test-key", WithBaseURL(server.URL))
+
+	// Test streaming
+	ctx := context.Background()
+	stream, err := provider.ChatStream(ctx, llm.ChatRequest{
+		Model:    "qwen-turbo",
+		Messages: []llm.Message{{Role: llm.RoleUser, Content: "Hi"}},
+	})
+	if err != nil {
+		t.Fatalf("ChatStream failed: %v", err)
+	}
+
+	// Collect chunks
+	var content string
+	var gotDone bool
+	var usage *llm.Usage
+
+	for chunk := range stream {
+		if chunk.Error != nil {
+			t.Fatalf("Stream error: %v", chunk.Error)
+		}
+		content += chunk.Content
+		if chunk.Done {
+			gotDone = true
+			usage = chunk.Usage
+		}
+	}
+
+	// Verify results
+	if content != "Hello world!" {
+		t.Errorf("Expected 'Hello world!', got '%s'", content)
+	}
+	if !gotDone {
+		t.Error("Expected done=true in final chunk")
+	}
+	if usage == nil {
+		t.Error("Expected usage in final chunk")
+	} else if usage.TotalTokens != 13 {
+		t.Errorf("Expected 13 total tokens, got %d", usage.TotalTokens)
 	}
 }
