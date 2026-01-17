@@ -39,7 +39,7 @@ func New(ctx context.Context, opts ...Option) (*Provider, error) {
 
 	p := &Provider{
 		client: client,
-		model:  "gemini-2.0-flash",
+		model:  "gemini-3-flash-preview",
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -58,7 +58,7 @@ func NewWithAPIKey(ctx context.Context, apiKey string, opts ...Option) (*Provide
 
 	p := &Provider{
 		client: client,
-		model:  "gemini-2.0-flash",
+		model:  "gemini-3-flash-preview",
 	}
 	for _, opt := range opts {
 		opt(p)

@@ -170,9 +170,12 @@ provider, err := gemini.New(ctx,
 
 | Modelo | Descripción |
 |--------|-------------|
-| `gemini-2.0-flash` | Modelo por defecto, rápido |
-| `gemini-1.5-pro` | Alta capacidad |
-| `gemini-1.5-flash` | Balanceado |
+| `gemini-3-flash-preview` | **Modelo por defecto** - Mejor relación calidad/precio, gratis en free tier |
+| `gemini-3-pro-preview` | Alta capacidad, multimodal avanzado |
+| `gemini-2.5-flash` | Balanceado, estable |
+| `gemini-2.5-pro` | Alta capacidad, estable |
+| `gemini-2.0-flash` | Versión anterior (legacy) |
+| `gemini-1.5-pro` | Legacy, contexto largo |
 
 ### Notas sobre Gemini
 
