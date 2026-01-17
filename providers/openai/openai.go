@@ -197,5 +197,121 @@ func convertResponse(completion *openai.ChatCompletion) *llm.ChatResponse {
 	return resp
 }
 
+// ChatStream implements llm.StreamingProvider for streaming responses.
+func (p *Provider) ChatStream(ctx context.Context, req llm.ChatRequest) (<-chan llm.StreamChunk, error) {
+	model := req.Model
+	if model == "" {
+		model = p.model
+	}
+
+	// Convert messages
+	messages := make([]openai.ChatCompletionMessageParamUnion, 0, len(req.Messages))
+	for _, msg := range req.Messages {
+		messages = append(messages, convertMessage(msg))
+	}
+
+	// Build request params
+	params := openai.ChatCompletionNewParams{
+		Model:    model,
+		Messages: messages,
+	}
+
+	// Add temperature if set
+	if req.Temperature > 0 {
+		params.Temperature = openai.Float(req.Temperature)
+	}
+
+	// Add tools if present
+	if len(req.Tools) > 0 {
+		tools := make([]openai.ChatCompletionToolParam, 0, len(req.Tools))
+		for _, tool := range req.Tools {
+			tools = append(tools, convertTool(tool))
+		}
+		params.Tools = tools
+	}
+
+	// Create streaming request
+	stream := p.client.Chat.Completions.NewStreaming(ctx, params)
+
+	// Create output channel
+	chunks := make(chan llm.StreamChunk, 100)
+
+	// Process stream in goroutine
+	go func() {
+		defer close(chunks)
+
+		var accumulatedToolCalls []llm.ToolCall
+		toolCallsMap := make(map[int]*llm.ToolCall) // Track tool calls by index
+
+		for stream.Next() {
+			event := stream.Current()
+
+			chunk := llm.StreamChunk{}
+
+			if len(event.Choices) > 0 {
+				delta := event.Choices[0].Delta
+
+				// Content delta
+				if delta.Content != "" {
+					chunk.Content = delta.Content
+				}
+
+				// Tool calls delta
+				for _, tc := range delta.ToolCalls {
+					idx := int(tc.Index)
+					if _, exists := toolCallsMap[idx]; !exists {
+						toolCallsMap[idx] = &llm.ToolCall{
+							ID:   tc.ID,
+							Type: llm.ToolTypeFunction,
+							Function: llm.FunctionCall{
+								Name: tc.Function.Name,
+							},
+						}
+					}
+					// Accumulate arguments
+					toolCallsMap[idx].Function.Arguments += tc.Function.Arguments
+				}
+
+				// Check if done
+				if event.Choices[0].FinishReason != "" {
+					chunk.Done = true
+					// Convert map to slice
+					for i := 0; i < len(toolCallsMap); i++ {
+						if tc, ok := toolCallsMap[i]; ok {
+							accumulatedToolCalls = append(accumulatedToolCalls, *tc)
+						}
+					}
+					chunk.ToolCalls = accumulatedToolCalls
+				}
+			}
+
+			// Usage info (if available in stream)
+			if event.Usage.TotalTokens > 0 {
+				chunk.Usage = &llm.Usage{
+					PromptTokens:     int(event.Usage.PromptTokens),
+					CompletionTokens: int(event.Usage.CompletionTokens),
+					TotalTokens:      int(event.Usage.TotalTokens),
+				}
+			}
+
+			select {
+			case chunks <- chunk:
+			case <-ctx.Done():
+				chunks <- llm.StreamChunk{Error: ctx.Err()}
+				return
+			}
+		}
+
+		if err := stream.Err(); err != nil {
+			chunks <- llm.StreamChunk{Error: err}
+		}
+	}()
+
+	return chunks, nil
+}
+
 // Ensure Provider implements llm.Provider.
 var _ llm.Provider = (*Provider)(nil)
+
+// Ensure Provider implements llm.StreamingProvider.
+var _ llm.StreamingProvider = (*Provider)(nil)

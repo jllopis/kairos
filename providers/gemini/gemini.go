@@ -228,5 +228,113 @@ func convertResponse(resp *genai.GenerateContentResponse) *llm.ChatResponse {
 	return result
 }
 
+// ChatStream implements llm.StreamingProvider for streaming responses.
+func (p *Provider) ChatStream(ctx context.Context, req llm.ChatRequest) (<-chan llm.StreamChunk, error) {
+	model := req.Model
+	if model == "" {
+		model = p.model
+	}
+
+	// Build contents from messages
+	contents, systemInstruction := convertMessages(req.Messages)
+
+	// Build config
+	config := &genai.GenerateContentConfig{}
+
+	if systemInstruction != "" {
+		config.SystemInstruction = &genai.Content{
+			Parts: []*genai.Part{{Text: systemInstruction}},
+		}
+	}
+
+	if req.Temperature > 0 {
+		temp := float32(req.Temperature)
+		config.Temperature = &temp
+	}
+
+	// Add tools if present
+	if len(req.Tools) > 0 {
+		config.Tools = []*genai.Tool{
+			{FunctionDeclarations: convertTools(req.Tools)},
+		}
+	}
+
+	// Create output channel
+	chunks := make(chan llm.StreamChunk, 100)
+
+	// Process stream in goroutine
+	go func() {
+		defer close(chunks)
+
+		iter := p.client.Models.GenerateContentStream(ctx, model, contents, config)
+
+		// iter.Seq2 is a function that takes a yield callback
+		iter(func(resp *genai.GenerateContentResponse, err error) bool {
+			if err != nil {
+				chunks <- llm.StreamChunk{Error: err}
+				return false // stop iteration
+			}
+
+			chunk := llm.StreamChunk{}
+
+			// Get usage metadata
+			if resp.UsageMetadata != nil {
+				chunk.Usage = &llm.Usage{
+					PromptTokens:     int(resp.UsageMetadata.PromptTokenCount),
+					CompletionTokens: int(resp.UsageMetadata.CandidatesTokenCount),
+					TotalTokens:      int(resp.UsageMetadata.TotalTokenCount),
+				}
+			}
+
+			// Process candidates
+			if len(resp.Candidates) > 0 {
+				candidate := resp.Candidates[0]
+				if candidate.Content != nil {
+					for _, part := range candidate.Content.Parts {
+						if part.Text != "" {
+							chunk.Content += part.Text
+						}
+						if part.FunctionCall != nil {
+							argsJSON, _ := json.Marshal(part.FunctionCall.Args)
+							chunk.ToolCalls = append(chunk.ToolCalls, llm.ToolCall{
+								ID:   part.FunctionCall.Name,
+								Type: llm.ToolTypeFunction,
+								Function: llm.FunctionCall{
+									Name:      part.FunctionCall.Name,
+									Arguments: string(argsJSON),
+								},
+							})
+						}
+					}
+				}
+
+				// Check finish reason
+				if candidate.FinishReason != "" {
+					chunk.Done = true
+				}
+			}
+
+			select {
+			case chunks <- chunk:
+				return true // continue iteration
+			case <-ctx.Done():
+				chunks <- llm.StreamChunk{Error: ctx.Err()}
+				return false // stop iteration
+			}
+		})
+
+		// Send final done chunk if not already sent
+		select {
+		case chunks <- llm.StreamChunk{Done: true}:
+		default:
+		}
+	}()
+
+	return chunks, nil
+}
+
 // Ensure Provider implements llm.Provider.
 var _ llm.Provider = (*Provider)(nil)
+
+// Ensure Provider implements llm.StreamingProvider.
+var _ llm.StreamingProvider = (*Provider)(nil)

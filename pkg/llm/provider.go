@@ -88,3 +88,26 @@ type Provider interface {
 	// Chat sends a chat request to the LLM and returns the response.
 	Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error)
 }
+
+// StreamingProvider extends Provider with streaming capabilities.
+type StreamingProvider interface {
+	Provider
+	// ChatStream sends a chat request and returns a channel of streaming chunks.
+	// The channel is closed when the stream is complete or an error occurs.
+	// Check StreamChunk.Error for any errors during streaming.
+	ChatStream(ctx context.Context, req ChatRequest) (<-chan StreamChunk, error)
+}
+
+// StreamChunk represents a chunk of streaming response.
+type StreamChunk struct {
+	// Content is the text delta for this chunk.
+	Content string `json:"content,omitempty"`
+	// ToolCalls contains partial tool call information (accumulated).
+	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+	// Done indicates this is the final chunk.
+	Done bool `json:"done,omitempty"`
+	// Usage is populated in the final chunk (if available).
+	Usage *Usage `json:"usage,omitempty"`
+	// Error contains any error that occurred during streaming.
+	Error error `json:"-"`
+}

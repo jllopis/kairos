@@ -76,7 +76,7 @@ func main() {
 
 ## 🗂️ Ejemplos
 
-El directorio `examples/` contiene 13 ejemplos progresivos:
+El directorio `examples/` contiene 18 ejemplos progresivos:
 
 | Ejemplo | Qué aprenderás |
 |---------|----------------|
@@ -95,6 +95,9 @@ El directorio `examples/` contiene 13 ejemplos progresivos:
 | `13-mcp-pool` | Pool de conexiones MCP |
 | `14-guardrails` | Seguridad: prompt injection, PII |
 | `15-testing` | Testing framework |
+| `16-providers` | LLM providers: auth y tokens |
+| `17-openapi-connector` | REST API → tools automáticos |
+| `18-streaming` | Respuestas en tiempo real |
 
 ---
 

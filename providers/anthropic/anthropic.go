@@ -216,5 +216,130 @@ func convertResponse(message *anthropic.Message) *llm.ChatResponse {
 	return resp
 }
 
+// ChatStream implements llm.StreamingProvider for streaming responses.
+func (p *Provider) ChatStream(ctx context.Context, req llm.ChatRequest) (<-chan llm.StreamChunk, error) {
+	model := req.Model
+	if model == "" {
+		model = p.model
+	}
+
+	// Extract system message and convert other messages
+	var systemPrompt string
+	messages := make([]anthropic.MessageParam, 0, len(req.Messages))
+
+	for _, msg := range req.Messages {
+		if msg.Role == llm.RoleSystem {
+			systemPrompt = msg.Content
+			continue
+		}
+		messages = append(messages, convertMessage(msg))
+	}
+
+	// Build request params
+	params := anthropic.MessageNewParams{
+		Model:     model,
+		MaxTokens: p.maxTokens,
+		Messages:  messages,
+	}
+
+	// Add system prompt if present
+	if systemPrompt != "" {
+		params.System = []anthropic.TextBlockParam{
+			{Type: "text", Text: systemPrompt},
+		}
+	}
+
+	// Add temperature if set
+	if req.Temperature > 0 {
+		params.Temperature = anthropic.Float(req.Temperature)
+	}
+
+	// Add tools if present
+	if len(req.Tools) > 0 {
+		tools := make([]anthropic.ToolUnionParam, 0, len(req.Tools))
+		for _, tool := range req.Tools {
+			tools = append(tools, convertTool(tool))
+		}
+		params.Tools = tools
+	}
+
+	// Create streaming request
+	stream := p.client.Messages.NewStreaming(ctx, params)
+
+	// Create output channel
+	chunks := make(chan llm.StreamChunk, 100)
+
+	// Process stream in goroutine
+	go func() {
+		defer close(chunks)
+
+		var toolCalls []llm.ToolCall
+		currentToolCall := (*llm.ToolCall)(nil)
+		var toolInputJSON string
+
+		for stream.Next() {
+			event := stream.Current()
+
+			chunk := llm.StreamChunk{}
+
+			switch event.Type {
+			case "content_block_delta":
+				if event.Delta.Type == "text_delta" {
+					chunk.Content = event.Delta.Text
+				} else if event.Delta.Type == "input_json_delta" {
+					toolInputJSON += event.Delta.PartialJSON
+				}
+
+			case "content_block_start":
+				if event.ContentBlock.Type == "tool_use" {
+					currentToolCall = &llm.ToolCall{
+						ID:   event.ContentBlock.ID,
+						Type: llm.ToolTypeFunction,
+						Function: llm.FunctionCall{
+							Name: event.ContentBlock.Name,
+						},
+					}
+					toolInputJSON = ""
+				}
+
+			case "content_block_stop":
+				if currentToolCall != nil {
+					currentToolCall.Function.Arguments = toolInputJSON
+					toolCalls = append(toolCalls, *currentToolCall)
+					currentToolCall = nil
+					toolInputJSON = ""
+				}
+
+			case "message_stop":
+				chunk.Done = true
+				chunk.ToolCalls = toolCalls
+
+			case "message_delta":
+				if event.Usage.OutputTokens > 0 {
+					chunk.Usage = &llm.Usage{
+						CompletionTokens: int(event.Usage.OutputTokens),
+					}
+				}
+			}
+
+			select {
+			case chunks <- chunk:
+			case <-ctx.Done():
+				chunks <- llm.StreamChunk{Error: ctx.Err()}
+				return
+			}
+		}
+
+		if err := stream.Err(); err != nil {
+			chunks <- llm.StreamChunk{Error: err}
+		}
+	}()
+
+	return chunks, nil
+}
+
 // Ensure Provider implements llm.Provider.
 var _ llm.Provider = (*Provider)(nil)
+
+// Ensure Provider implements llm.StreamingProvider.
+var _ llm.StreamingProvider = (*Provider)(nil)

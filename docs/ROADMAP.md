@@ -1,296 +1,171 @@
-# Roadmap y fases
+# Kairos Roadmap
 
-## Leyenda de estado
+## Estado del Proyecto
 
-- [ ] Planificado
-- [~] En progreso
-- [x] Hecho
+Kairos es un framework de agentes IA en Go, **production-ready** con las siguientes capacidades:
 
-## Hitos
+| Área | Estado | Descripción |
+|------|--------|-------------|
+| Core Runtime | ✅ Completo | Agent loop, context propagation, lifecycle management |
+| MCP Protocol | ✅ Completo | Client/server, stdio/HTTP, tool binding |
+| A2A Protocol | ✅ Completo | gRPC, HTTP+JSON, JSON-RPC, discovery |
+| Observability | ✅ Completo | OTLP traces/metrics, structured logs |
+| Planners | ✅ Completo | Explicit (graph) + Emergent (ReAct) |
+| Memory | ✅ Completo | In-memory, file, vector store |
+| Governance | ✅ Completo | Policies, AGENTS.md, HITL, audit |
+| LLM Providers | ✅ Completo | Ollama, OpenAI, Anthropic, Gemini, Qwen |
+| CLI | ✅ Completo | init, run, validate, explain, graph |
+| Streaming | ✅ Completo | Real-time responses para OpenAI/Anthropic/Gemini |
+| Connectors | ✅ Completo | OpenAPI → tools automáticos |
+| Security | ✅ Completo | Guardrails, PII filtering, prompt injection |
+| Testing | ✅ Completo | Scenarios, mock providers, assertions |
 
-- M0: Go SDK skeleton + hello agent (Fase 0) [x]
-- M1: Agent can call external MCP tool (Fase 1) [x]
-- M2: OTel traces visible in backend (Fase 2) [x]
-- M3: YAML/JSON graph executes end-to-end (Fase 3) [x]
-- M4: Emergent flow runs with decision logs (Fase 4) [x]
-- M5: Two agents delegate with distributed traces (Fase 5) [x]
-- M6: Per-agent memory with short/long backends (Fase 6) [x]
-- M7: AGENTS.md and policies enforced with audit trail (Fase 7) [x]
-- M8: Operator UI with agents, flows, and traces (Fase 8) [x]
-- M9: Developer Experience improvements (Fase 9 - DX) [x]
+---
 
-## Fase 0: Core foundations (Estimación: M)
-Objetivos: core interfaces and minimal runtime.
-Dependencias: none.
-Hito: Go SDK skeleton + hello agent.
-Tareas:
+## Fases Completadas
 
-- [x] Define core interfaces (Agent, Tool, Skill, Plan, Memory).
-- [x] Create runtime lifecycle (start, run, stop).
-- [x] Add minimal context propagation support.
-- [x] Provide hello agent example.
-- [x] Align public agent options with examples (model selection).
-Aceptación: US-01 (partial), US-06 (interface).
+### Fase 0-4: Foundations ✅
+- Core interfaces (Agent, Tool, Skill, Plan, Memory)
+- MCP interoperability con retry/timeout/cache
+- OTLP traces y metrics
+- Explicit planner (YAML/JSON graphs)
+- Emergent planner (ReAct loop)
 
-## Fase 1: MCP interoperability (Estimación: M)
-Objetivos: MCP client/server and tool binding.
-Dependencias: Fase 0.
-Hito: Agent can call external MCP tool.
-Tareas:
+### Fase 5-7: Distributed ✅
+- A2A protocol con todos los bindings
+- Multi-level memory (short/long term)
+- Governance, policies y AGENTS.md
 
-- [x] MCP client with tool invocation.
-- [x] MCP server for exposing tools.
-- [x] Skill -> MCP tool binding (Agent tool adapter).
-- [x] Tool schema/arguments mapping and validation.
-- [x] Example: MCP agent loads tools from config and runs a tool call.
-- [x] Error handling, retries, and timeout policy for tool calls.
-- [x] Tool discovery caching and refresh strategy.
-Pendientes (post-hito):
+### Fase 8-9: Developer Experience ✅
+- CLI completo con scaffolding
+- 18 ejemplos progresivos
+- Corporate templates (CI/CD, Docker, observability)
+- Config layering con perfiles
 
-- [x] Expose MCP retry/timeout/cache policy in config.
-- [x] Add end-to-end MCP smoke tests for stdio + HTTP.
-Aceptación: US-01 complete.
-Notas:
+### Fase 10: Production Features ✅
+- **LLM Providers**: OpenAI, Anthropic, Gemini, Qwen como módulos independientes
+- **Streaming**: Respuestas en tiempo real
+- **OpenAPI Connector**: Convierte cualquier API REST en tools
+- **Guardrails**: Prompt injection, PII filtering, content filtering
+- **Testing Framework**: Escenarios, mocks, assertions
+- **Hot-reload**: `kairos run --watch`
 
-- Core MCP path works via config + stdio/http client/server; hardening now defaults in the client.
-- MCP retry/timeout/cache policy is configurable in `mcp.servers` settings.
+---
 
-## Fase 2: Observability baseline (Estimación: M)
-Objetivos: OTel traces/metrics/logs from runtime.
-Dependencias: Fase 0.
-Hito: traces visible in OTel backend.
-Tareas:
+## Próximos Pasos
 
-- [x] OTel tracer and span propagation in runtime (Agent/Runtime + tool/memory/LLM spans).
-- [x] Metrics for latency and error counts (stdout exporter).
-- [x] Structured logs with trace/span ids.
-- [x] Configurable OTLP exporter (traces + metrics) and resource attributes.
-- [x] Example config for OTLP backend.
-- [x] Validate OTLP export against a backend and document a smoke-test.
-Aceptación: US-05 (partial).
-Notas:
+### Prioridad Alta 🔴
 
-- OTLP smoke test is opt-in via environment variables to avoid default test dependencies.
+| Feature | Descripción | Estado |
+|---------|-------------|--------|
+| UI Visual | Timeline de ejecución, inspector de memoria | Planificado |
+| Skill Marketplace | Registry de skills compartidos | Planificado |
 
-## Fase 3: Explicit planner (Estimación: L)
-Objetivos: deterministic graph execution.
-Dependencias: Fase 0, Fase 1.
-Hito: YAML/JSON graph executes end-to-end.
-Tareas:
+### Prioridad Media 🟡
 
-- [x] Graph model and executor.
-- [x] YAML/JSON parser and serializer.
-- [x] Per-node tracing (spans).
-- [x] Audit events for node execution.
-- [x] Documentation and example for graph usage.
-Pendientes (post-hito):
+| Feature | Descripción | Estado |
+|---------|-------------|--------|
+| GraphQL Connector | Similar a OpenAPI pero para GraphQL | Planificado |
+| Streaming Qwen/Ollama | Completar streaming en todos los providers | Planificado |
 
-- [x] Branching/conditions and multi-edge evaluation.
-- [x] Graph serialization helpers (emit JSON/YAML).
-Aceptación: US-03 complete.
+### Largo Plazo 🟢
 
-## Fase 4: Emergent planner (Estimación: M)
-Objetivos: dynamic next-step decisions.
-Dependencias: Fase 0, Fase 1.
-Hito: emergent flow runs with decision logs.
-Tareas:
+| Feature | Descripción | Estado |
+|---------|-------------|--------|
+| kairosctl MVP | Control plane, workflow store, agent registry | Planificado |
+| kairosctl Avanzado | Scheduler, queue distribuida, editor visual | Planificado |
 
-- [x] Decision engine with tool selection (basic ReAct loop).
-- [x] Logging of decisions and outcomes (decision rationale + inputs/outputs).
-- [x] Structured tool-call parsing (LLM tool calls + JSON args).
-- [x] Provide tool definitions to LLM (function schema) for native tool calls.
-- [x] Prefer tool calls over "Action:" parsing when available (deprecate string parsing path).
-- [x] Optional warning when legacy "Action:" parsing is used.
-Aceptación: US-04 complete.
-Notas:
+---
 
-- Fallback "Action:" parsing is configurable and disabled by default; deprecation path remains documented.
+## LLM Providers
 
-## Fase 5: A2A distributed runtime (Estimación: L)
-Objetivos: discovery, delegation, and trace continuity.
-Dependencias: Fase 0, Fase 2.
-Hito: two agents delegate with distributed traces.
-Tareas:
+Arquitectura de módulos Go independientes para importación selectiva:
 
-- [x] Pin A2A proto version and generate Go types from `pkg/a2a/proto/a2a.proto`.
-- [x] Implement gRPC binding with streaming (SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask).
-- [x] AgentCard publishing (well-known) + discovery client.
-- [x] Remote agent invocation (call/response) and task lifecycle mapping.
-- [x] Trace context propagation over A2A (end-to-end).
-- [x] Minimal auth middleware hooks (OIDC/mTLS stubs; config-driven).
-- [x] Conformance tests (golden proto/JSON payloads, streaming order, cancel).
-- [x] HTTP+JSON and JSON-RPC bindings.
-- [x] Implement ListTasks pagination with page tokens.
-- [x] SQLite-backed TaskStore/PushConfigStore (no CGO) for persistence.
-- [x] Planner-driven multi-agent demo (demoKairos) with A2A + MCP + OTLP.
-- [x] Agent discovery patterns (Config / WellKnown / Registry) with configurable order.
-Aceptación: US-02 (MVP) complete with trace continuity.
-Notas:
-
-- MVP binding is gRPC-first for streaming stability; HTTP+JSON/JSON-RPC server bindings are implemented.
-- HTTP+JSON/JSON-RPC client helpers are available for parity with server bindings.
-- Demo feedback:
-  - Add a bootstrap helper for agents (config + telemetry + llm + mcp) to reduce boilerplate.
-  - Provide a lightweight in-process MCP server helper for tool-only agents.
-  - Ship a planner-driven multi-agent demo template (A2A + MCP + OTLP) as reference.
-  - Add explicit run docs and minimal examples for manual debugging.
-
-## Fase 6: Multi-level memory (Estimación: M)
-Objetivos: short and long-term memory backends.
-Dependencias: Fase 0.
-Hito: per-agent memory configuration.
-Tareas:
-
-- [x] In-memory backend.
-- [x] Persistent backend (file store, vector store).
-- [x] Configuration per agent.
-- [x] Agent loop reads/writes memory in runtime.
-Aceptación: US-06 complete.
-
-## Fase 7: Governance and AGENTS.md (Estimación: M)
-Objetivos: policy enforcement and AGENTS.md loading.
-Dependencias: Fase 0, Fase 1.
-Hito: policy and AGENTS.md rules enforced.
-Tareas:
-
-- [x] AGENTS.md loader and parser.
-- [x] Policy engine (scopes, allow/deny).
-- [x] Audit event store.
-Pendientes (post-hito):
-
-- [x] Config-driven policy rule loading.
-- [x] Policy enforcement for A2A/MCP calls (beyond tool gating).
-- [x] Server-side policy enforcement for A2A handlers.
-- [x] Human-in-the-loop policy flow (approvals + endpoints).
-Aceptación: US-07 complete; US-08 complete.
-
-## Fase 8: UI/CLI (Estimación: L)
-Objetivos: operator visibility and control.
-Dependencias: Fase 2, Fase 5.
-Hito: dashboard with agents and traces.
-Tareas:
-
-- [x] Fase 8.1 CLI MVP: status, agents, tasks, approvals, mcp list, streaming follow, JSON output.
-- [x] Fase 8.2 CLI advanced: traces tail, retry/cancel tasks, approvals tail, export events.
-- [x] Fase 8.3 UI skeleton: Agents/Tasks/Approvals/Traces screens and endpoint wiring.
-- [x] Fase 8.4 UI operational: streaming, filters, history, audit trail.
-Aceptación: US-09 complete.
-Notas:
-
-- Fase 8.1 CLI MVP completed (`cmd/kairos`).
-- Fase 8.2 CLI advanced completed (traces/tasks/approvals + export).
-- Fase 8.3 UI skeleton completed (`cmd/kairos --web`).
-
-## Línea UX core (biblioteca + demo)
-Objetivos: make Kairos approachable to developers from Python agent frameworks while keeping standards.
-Dependencias: Fase 5, Fase 7.
-Tareas core (biblioteca):
-
-- [x] Role/manifest metadata API (coexists with AgentCard).
-- [x] Task entity in core with traceable IDs/status/result (no proto/store changes).
-- [x] Event taxonomy for semantic streaming/logs (stable types + minimal fields).
-Tareas demo:
-
-- [x] Role YAML files to feed core role metadata (`demoKairos/docs/role-*.yaml`).
-- [x] Narrative guide: “what it is / what it is not” (`docs/internal/NARRATIVE_GUIDE.md`).
-- [x] Demo builder facade (`NewSystem` + `WithAgent` + `WithFlow`), revisit for core after Task/Role/Event stabilize.
-- [x] Single entrypoint script for running demo.
-Notas:
-
-- No changes to A2A proto or stores in this track.
-- See `docs/legacy/walkthrough-demo-improvements.md` for the detailed plan.
-
-## Fase 9: Developer Experience (DX) (Estimación: L)
-Objetivos: reducir fricción para nuevos usuarios y equipos enterprise.
-Dependencias: Fase 8.
-Hito: time-to-first-agent < 5 minutos.
-Tareas:
-
-- [x] Reorganizar examples con numeración progresiva (01-13).
-- [x] README.md en cada ejemplo con objetivos de aprendizaje.
-- [x] CLI scaffolding: `kairos init` con arquetipos (assistant, tool-agent, coordinator, policy-heavy).
-- [x] CLI operativo: `kairos run`, `kairos validate`.
-- [x] CLI introspección: `kairos explain`, `kairos graph`, `kairos adapters`.
-- [x] MCP Connection Pool para escenarios multi-agente (`pkg/mcp/pool`).
-- [x] Config layering con perfiles de entorno (`--profile dev|prod`).
-- [x] Corporate templates: CI/CD, Dockerfile, docker-compose, observability stack.
-- [x] Documentación: CORPORATE_TEMPLATES.md, actualización de CLI.md y CONFIGURATION.md.
-Aceptación: DX_PLAN.md complete.
-Notas:
-
-- Ver `docs/internal/DX_PLAN.md` para el plan detallado.
-- Corporate templates incluyen GitHub Actions, OTEL Collector, Prometheus, Grafana.
-
-## Pendientes de visión (Fase 10+)
-
-### Prioritarios (próximos hitos)
-
-- [x] **Guardrails de seguridad**: prompt injection detection, PII filtering, content filtering (`pkg/guardrails`).
-- [x] **Testing framework**: escenarios, mock providers, assertions (`pkg/testing`).
-- [x] **Hot-reload de configuración**: `kairos run --watch` con watch mode para desarrollo (`pkg/config/watcher.go`).
-- [ ] **LLM Providers adicionales**: OpenAI nativo, Anthropic (Claude), Qwen, Gemini.
-
-### Medio plazo
-
-- [ ] **Conectores declarativos**: OpenAPI → tools automáticos, GraphQL adapter.
-- [ ] **UI visual para debugging**: timeline de ejecución, inspector de memoria, trace explorer.
-- [ ] **Skill marketplace**: registry de skills compartidos con versionado.
-
-### Largo plazo (kairosctl)
-
-- [ ] **kairosctl MVP**: repo separado, control plane API, workflow store, agent registry.
-- [ ] **kairosctl Avanzado**: scheduler, queue distribuida, editor visual de workflows.
-
-## kairosctl - Orquestador (Proceso Separado - Post M9)
-
-Plataforma de orquestación estilo n8n para workflows, agentes e interacciones LLM.
-Ver diseño completo en `docs/internal/ORCHESTRATION_PLATFORM.md`.
-
-Decisión de arquitectura:
-- **Dos repositorios**: `kairos` (biblioteca) + `kairosctl` (orquestador).
-- `kairosctl` importa `kairos` como dependencia Go.
-- Kairos mantiene su rol de framework (runtime, A2A, planner, governance).
-- kairosctl añade: scheduling, workflow persistence, registry centralizado, UI visual.
-
-Interfaces a mantener estables en Kairos (forward compatibility):
-- `core.Agent`, `core.Task`, `core.Skill` (estructuras core)
-- `llm.Provider` (Complete, CompleteWithTools)
-- `a2a.Client` (SendMessage, GetTask, ListTasks, CancelTask)
-- `planner.Executor` (Execute)
-- `core.EventEmitter` (streaming de eventos)
-
-Fases futuras (post M9):
-- [ ] kairosctl MVP: repo separado, control plane API, workflow store, agent registry.
-- [ ] kairosctl Avanzado: scheduler, queue distribuida, editor visual.
-
-## LLM Providers (Fase 10.1)
-
-Arquitectura de providers con módulos Go independientes en `providers/`:
-
-| Provider | Estado | Módulo | Notas |
-|----------|--------|--------|-------|
-| Ollama | ✅ Implementado | `pkg/llm/ollama.go` | Function calling compatible |
-| Mock | ✅ Implementado | `pkg/llm/mock.go` | Para tests |
-| OpenAI | ✅ Implementado | `providers/openai/` | GPT-4o, GPT-4-turbo, Azure compatible |
-| Anthropic | ✅ Implementado | `providers/anthropic/` | Claude 4 Opus/Sonnet/Haiku |
-| Qwen | ✅ Implementado | `providers/qwen/` | Alibaba DashScope API |
-| Gemini | ✅ Implementado | `providers/gemini/` | Google Gemini 2.0/1.5 |
-
-Instalación selectiva:
 ```bash
+# Solo instala lo que necesites
 go get github.com/jllopis/kairos/providers/openai
 go get github.com/jllopis/kairos/providers/anthropic
+go get github.com/jllopis/kairos/providers/gemini
+go get github.com/jllopis/kairos/providers/qwen
 ```
 
-Ver documentación completa en `docs/PROVIDERS.md`.
+| Provider | Módulo | Default Model | Streaming |
+|----------|--------|---------------|-----------|
+| Ollama | `pkg/llm/ollama.go` | `llama3` | 🚧 |
+| OpenAI | `providers/openai/` | `gpt-5-mini` | ✅ |
+| Anthropic | `providers/anthropic/` | `claude-haiku-4` | ✅ |
+| Gemini | `providers/gemini/` | `gemini-3-flash-preview` | ✅ |
+| Qwen | `providers/qwen/` | `qwen-turbo` | 🚧 |
 
-## Dependencias entre hitos (resumen)
+Ver [PROVIDERS.md](PROVIDERS.md) para documentación completa.
 
-- P0 -> P1, P2, P3, P4, P6, P7
-- P2 -> P5, P8
-- P5 -> P8
-- P8 -> P9
+---
 
-## Actualización de seguimiento
-Update checkboxes per task and add brief notes under each phase if needed.
-See `docs/CONFIGURATION.md` for configuration sources and precedence.
+## Arquitectura de kairosctl (Futuro)
+
+Plataforma de orquestación estilo n8n para workflows y agentes.
+
+**Decisión de arquitectura:**
+- Dos repositorios: `kairos` (biblioteca) + `kairosctl` (orquestador)
+- `kairosctl` importa `kairos` como dependencia Go
+- Kairos mantiene su rol de framework
+- kairosctl añade: scheduling, persistence, registry, UI visual
+
+**Interfaces estables de Kairos:**
+- `core.Agent`, `core.Task`, `core.Skill`
+- `llm.Provider`, `llm.StreamingProvider`
+- `a2a.Client`
+- `planner.Executor`
+- `core.EventEmitter`
+
+---
+
+## Ejemplos Disponibles
+
+| # | Ejemplo | Descripción |
+|---|---------|-------------|
+| 01 | hello-agent | Agente mínimo |
+| 02 | mcp-tools | Tools via MCP |
+| 03 | observability | OTLP tracing |
+| 04 | explicit-plan | YAML/JSON graphs |
+| 05 | emergent-plan | ReAct loop |
+| 06 | a2a-multi | Multi-agent A2A |
+| 07 | memory | Short/long term |
+| 08 | governance | Policies y audit |
+| 09 | streaming-events | Event streaming |
+| 10 | config-layering | Perfiles dev/prod |
+| 11 | mcp-pool | Connection pooling |
+| 12 | error-handling | Retry, circuit breaker |
+| 13 | cli-integration | CLI commands |
+| 14 | guardrails | Security filters |
+| 15 | testing | Test scenarios |
+| 16 | providers | LLM auth/tokens |
+| 17 | openapi-connector | REST → tools |
+| 18 | streaming | Real-time responses |
+
+---
+
+## Documentación
+
+| Documento | Descripción |
+|-----------|-------------|
+| [Inicio Rápido](Inicio_Rapido.md) | 5 minutos para tu primer agente |
+| [Arquitectura](ARCHITECTURE.md) | Diseño del sistema |
+| [CLI](CLI.md) | Comandos disponibles |
+| [Configuración](CONFIGURATION.md) | Config layering, perfiles |
+| [Providers](PROVIDERS.md) | OpenAI, Anthropic, Gemini, Qwen |
+| [Guardrails](GUARDRAILS.md) | Seguridad y filtros |
+| [Testing](TESTING.md) | Framework de testing |
+| [MCP](protocols/MCP.md) | Model Context Protocol |
+| [A2A](protocols/A2A/Overview.md) | Agent-to-Agent Protocol |
+
+---
+
+## Contribuir
+
+1. Fork el repositorio
+2. Crea una rama para tu feature
+3. Asegúrate de que los tests pasen: `go test ./...`
+4. Envía un PR
+
+Ver [AGENTS.md](/AGENTS.md) para convenciones del proyecto.
