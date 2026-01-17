@@ -19,7 +19,9 @@ import (
 	"github.com/jllopis/kairos/pkg/governance"
 	"github.com/jllopis/kairos/pkg/llm"
 	kmcp "github.com/jllopis/kairos/pkg/mcp"
+	"github.com/jllopis/kairos/pkg/memory"
 	"github.com/jllopis/kairos/pkg/skills"
+	"github.com/jllopis/kairos/pkg/telemetry"
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -37,8 +39,10 @@ type Agent struct {
 	role                  string
 	roleManifest          core.RoleManifest
 	skills                []core.Skill
+	skillTools            []*skills.SkillTool // Skills exposed as tools for LLM tool calling
 	tools                 []core.Tool
 	memory                core.Memory
+	conversationMemory    memory.ConversationMemory // Multi-turn conversation history
 	llm                   llm.Provider
 	tracer                trace.Tracer
 	model                 string
@@ -47,6 +51,7 @@ type Agent struct {
 	disableActionFallback bool
 	warnOnActionFallback  bool
 	policyEngine          governance.PolicyEngine
+	toolFilter            *governance.ToolFilter // Centralized tool filtering
 	eventEmitter          core.EventEmitter
 	agentsDoc             *governance.AgentInstructions
 }
@@ -107,6 +112,7 @@ func WithRoleManifest(manifest core.RoleManifest) Option {
 }
 
 // WithSkills assigns semantic skills to the agent.
+// Note: For skills to be available as LLM tools, use WithSkillsFromDir instead.
 func WithSkills(skills []core.Skill) Option {
 	return func(a *Agent) error {
 		a.skills = append([]core.Skill(nil), skills...)
@@ -115,15 +121,43 @@ func WithSkills(skills []core.Skill) Option {
 }
 
 // WithSkillsFromDir loads AgentSkills from a directory containing skill subdirectories.
+// Skills are loaded as tools following the AgentSkills specification with progressive disclosure:
+// - Metadata (name, description) is exposed to the LLM initially
+// - Instructions (Body) are injected when the LLM activates the skill
+// - Resources (scripts/, references/, assets/) are loaded on demand
 func WithSkillsFromDir(dir string) Option {
 	return func(a *Agent) error {
-		specs, err := skills.LoadDir(dir)
+		skillTools, err := skills.LoadToolsFromDir(dir)
 		if err != nil {
 			return err
 		}
-		for _, spec := range specs {
-			a.skills = append(a.skills, skillFromSpec(spec))
+
+		// Store skill tools for LLM tool calling
+		a.skillTools = append(a.skillTools, skillTools...)
+
+		// Also populate legacy skills slice for backward compatibility
+		for _, st := range skillTools {
+			a.skills = append(a.skills, skillFromSpec(st.Spec()))
 		}
+
+		return nil
+	}
+}
+
+// WithToolFilter sets the governance tool filter for access control.
+func WithToolFilter(filter *governance.ToolFilter) Option {
+	return func(a *Agent) error {
+		a.toolFilter = filter
+		return nil
+	}
+}
+
+// WithConversationMemory enables multi-turn conversation history.
+// Messages are stored and retrieved using the sessionID from the context.
+// Use core.WithSessionID(ctx, "my-session") to set the session ID.
+func WithConversationMemory(cm memory.ConversationMemory) Option {
+	return func(a *Agent) error {
+		a.conversationMemory = cm
 		return nil
 	}
 }
@@ -281,6 +315,8 @@ func (a *Agent) Memory() core.Memory { return a.memory }
 
 // Run executes the agent loop.
 // Implements a ReAct Loop: Thought -> Action -> Observation -> Thought -> Final Answer.
+// If ConversationMemory is configured, loads previous messages from the session
+// and stores new messages after completion.
 func (a *Agent) Run(ctx context.Context, input any) (any, error) {
 	ctx, runID := core.EnsureRunID(ctx)
 	ctx, span := a.tracer.Start(ctx, "Agent.Run")
@@ -292,6 +328,10 @@ func (a *Agent) Run(ctx context.Context, input any) (any, error) {
 		return nil, fmt.Errorf("agent currently only supports string input")
 	}
 
+	// Add rich agent attributes to span
+	span.SetAttributes(telemetry.AgentAttributes(a.id, a.role, a.model, runID, 0, a.maxIterations)...)
+
+	// Track task if present
 	if task, ok := core.TaskFromContext(ctx); ok && task != nil {
 		if task.Goal == "" {
 			task.Goal = inputStr
@@ -300,20 +340,39 @@ func (a *Agent) Run(ctx context.Context, input any) (any, error) {
 			task.AssignedTo = a.id
 		}
 		task.Start()
+		span.SetAttributes(telemetry.TaskAttributes(task.ID, task.Goal, string(task.Status))...)
 	}
 
 	initAgentMetrics()
 	agentRunCounter.Add(ctx, 1)
 	start := time.Now()
 	log := slog.Default()
+
+	// Get session ID for conversation memory
+	sessionID, hasSession := core.SessionID(ctx)
+	if a.conversationMemory != nil && !hasSession {
+		ctx, sessionID = core.EnsureSessionID(ctx)
+		hasSession = true
+	}
+
+	// Add session/conversation attributes
+	convMsgCount := 0
+	convStrategy := ""
+	if a.conversationMemory != nil {
+		convStrategy = fmt.Sprintf("%T", a.conversationMemory)
+	}
+	span.SetAttributes(telemetry.SessionAttributes(sessionID, a.conversationMemory != nil, convMsgCount, convStrategy)...)
+
 	log.Info("agent.run.start",
 		slog.String("agent_id", a.id),
 		slog.String("run_id", runID),
 		slog.String("trace_id", traceID),
 		slog.String("span_id", spanID),
+		slog.String("session_id", sessionID),
 	)
 	a.emitEvent(ctx, core.EventAgentTaskStarted, map[string]any{
-		"run_id": runID,
+		"run_id":     runID,
+		"session_id": sessionID,
 	})
 
 	// 1. Construct Initial System Prompt and User Message
@@ -321,6 +380,11 @@ func (a *Agent) Run(ctx context.Context, input any) (any, error) {
 
 	toolset := a.resolveTools(ctx, log, runID)
 	toolDefs := toolDefinitions(toolset)
+
+	// Add rich toolset attributes
+	localCount, mcpCount, skillCount := a.countToolsBySource(toolset)
+	span.SetAttributes(telemetry.ToolsetAttributes(len(toolset), localCount, mcpCount, skillCount, toolNames(toolset))...)
+
 	log.Info("agent.tools.resolved",
 		slog.String("agent_id", a.id),
 		slog.String("run_id", runID),
@@ -362,11 +426,45 @@ Final Answer: the final answer to the original input question
 		messages = append(messages, llm.Message{Role: llm.RoleSystem, Content: systemPrompt})
 	}
 
+	// Load conversation history if configured
+	if a.conversationMemory != nil && hasSession {
+		historyMessages, err := a.loadConversationHistory(ctx, sessionID)
+		if err != nil {
+			log.Warn("agent.conversation.load_error",
+				slog.String("agent_id", a.id),
+				slog.String("session_id", sessionID),
+				slog.String("error", err.Error()),
+			)
+		} else if len(historyMessages) > 0 {
+			messages = append(messages, historyMessages...)
+			log.Info("agent.conversation.loaded",
+				slog.String("agent_id", a.id),
+				slog.String("session_id", sessionID),
+				slog.Int("history_count", len(historyMessages)),
+			)
+		}
+	}
+
 	// TODO: Retrieve Context from Memory here
 	mem := a.resolveMemory(ctx)
+	memoryRetrieved := 0
 	if mem != nil {
 		if memoryContext := a.loadMemoryContext(ctx, mem, inputStr); memoryContext != "" {
 			messages = append(messages, llm.Message{Role: llm.RoleSystem, Content: memoryContext})
+			memoryRetrieved = 1 // Could count items if we had access
+		}
+	}
+	// Add memory attributes to span
+	span.SetAttributes(telemetry.MemoryAttributes(mem != nil, fmt.Sprintf("%T", mem), memoryRetrieved, false)...)
+
+	// Store user message in conversation memory
+	if a.conversationMemory != nil && hasSession {
+		if err := a.storeConversationMessage(ctx, sessionID, llm.RoleUser, inputStr, ""); err != nil {
+			log.Warn("agent.conversation.store_error",
+				slog.String("agent_id", a.id),
+				slog.String("session_id", sessionID),
+				slog.String("error", err.Error()),
+			)
 		}
 	}
 
@@ -379,10 +477,10 @@ Final Answer: the final answer to the original input question
 		})
 		llmStart := time.Now()
 		llmCtx, llmSpan := a.tracer.Start(ctx, "Agent.LLM.Chat", trace.WithAttributes(
-			attribute.String("llm.model", a.model),
 			attribute.Int("agent.iteration", i+1),
 		))
-		llmSpan.SetAttributes(attribute.Int("llm.messages", len(messages)))
+		// Add rich LLM attributes
+		llmSpan.SetAttributes(telemetry.LLMAttributes(a.model, "", len(messages), 0)...)
 
 		// Call LLM
 		req := llm.ChatRequest{
@@ -394,8 +492,16 @@ Final Answer: the final answer to the original input question
 		}
 
 		resp, err := a.llm.Chat(llmCtx, req)
+		llmDurationMs := time.Since(llmStart).Seconds() * 1000
+
+		// Add post-call attributes including tool calls count
+		if resp != nil {
+			llmSpan.SetAttributes(telemetry.LLMAttributes(a.model, "", len(messages), len(resp.ToolCalls))...)
+			llmSpan.SetAttributes(telemetry.LLMUsageAttributes(0, 0, llmDurationMs, "")...)
+		}
+
 		llmSpan.End()
-		llmLatencyMs.Record(ctx, time.Since(llmStart).Seconds()*1000)
+		llmLatencyMs.Record(ctx, llmDurationMs)
 		if err != nil {
 			agentErrorCounter.Add(ctx, 1)
 			ke := WrapLLMError(err, a.model)
@@ -457,6 +563,16 @@ Final Answer: the final answer to the original input question
 					OutputSummary: summarizeText(finalAnswer),
 				})
 				a.storeMemory(ctx, mem, inputStr, finalAnswer)
+				// Store assistant response in conversation memory
+				if a.conversationMemory != nil && hasSession {
+					if err := a.storeConversationMessage(ctx, sessionID, llm.RoleAssistant, finalAnswer, ""); err != nil {
+						log.Warn("agent.conversation.store_error",
+							slog.String("agent_id", a.id),
+							slog.String("session_id", sessionID),
+							slog.String("error", err.Error()),
+						)
+					}
+				}
 				agentRunLatencyMs.Record(ctx, time.Since(start).Seconds()*1000)
 				log.Info("agent.run.complete",
 					slog.String("agent_id", a.id),
@@ -486,6 +602,16 @@ Final Answer: the final answer to the original input question
 				OutputSummary: summarizeText(content),
 			})
 			a.storeMemory(ctx, mem, inputStr, content)
+			// Store assistant response in conversation memory
+			if a.conversationMemory != nil && hasSession {
+				if err := a.storeConversationMessage(ctx, sessionID, llm.RoleAssistant, content, ""); err != nil {
+					log.Warn("agent.conversation.store_error",
+						slog.String("agent_id", a.id),
+						slog.String("session_id", sessionID),
+						slog.String("error", err.Error()),
+					)
+				}
+			}
 			agentRunLatencyMs.Record(ctx, time.Since(start).Seconds()*1000)
 			log.Info("agent.run.complete",
 				slog.String("agent_id", a.id),
@@ -646,6 +772,16 @@ Final Answer: the final answer to the original input question
 		// If no tools defined, just return content (single turn behavior)
 		if len(toolset) == 0 {
 			a.storeMemory(ctx, mem, inputStr, content)
+			// Store assistant response in conversation memory
+			if a.conversationMemory != nil && hasSession {
+				if err := a.storeConversationMessage(ctx, sessionID, llm.RoleAssistant, content, ""); err != nil {
+					log.Warn("agent.conversation.store_error",
+						slog.String("agent_id", a.id),
+						slog.String("session_id", sessionID),
+						slog.String("error", err.Error()),
+					)
+				}
+			}
 			agentRunLatencyMs.Record(ctx, time.Since(start).Seconds()*1000)
 			log.Info("agent.run.complete",
 				slog.String("agent_id", a.id),
@@ -802,11 +938,13 @@ func (a *Agent) storeMemory(ctx context.Context, mem core.Memory, input, output 
 
 func (a *Agent) resolveTools(ctx context.Context, log *slog.Logger, runID string) []core.Tool {
 	tools := append([]core.Tool(nil), a.tools...)
-	if len(a.mcpClients) == 0 {
-		return tools
+
+	// Add skill tools (AgentSkills as LLM-callable tools)
+	for _, st := range a.skillTools {
+		tools = append(tools, st)
 	}
 
-	allowed := a.skillAllowList()
+	// Add MCP tools
 	for _, client := range a.mcpClients {
 		list, err := client.ListTools(ctx)
 		if err != nil {
@@ -818,9 +956,6 @@ func (a *Agent) resolveTools(ctx context.Context, log *slog.Logger, runID string
 			continue
 		}
 		for _, tool := range list {
-			if len(allowed) > 0 && !allowed[tool.Name] {
-				continue
-			}
 			adapter, err := kmcp.NewToolAdapter(tool, client)
 			if err != nil {
 				log.Error("agent.mcp.tool_adapter.error",
@@ -835,9 +970,31 @@ func (a *Agent) resolveTools(ctx context.Context, log *slog.Logger, runID string
 		}
 	}
 
+	// Apply governance tool filter if configured
+	if a.toolFilter != nil {
+		tools = a.filterToolsByGovernance(ctx, tools)
+	}
+
 	return dedupeTools(tools)
 }
 
+// filterToolsByGovernance applies the governance tool filter to the tool list.
+func (a *Agent) filterToolsByGovernance(ctx context.Context, tools []core.Tool) []core.Tool {
+	if a.toolFilter == nil {
+		return tools
+	}
+
+	filtered := make([]core.Tool, 0, len(tools))
+	for _, tool := range tools {
+		if a.toolFilter.IsAllowed(ctx, tool.Name()).IsAllowed() {
+			filtered = append(filtered, tool)
+		}
+	}
+	return filtered
+}
+
+// skillAllowList is deprecated - tool filtering should use governance.ToolFilter.
+// Kept for backward compatibility.
 func (a *Agent) skillAllowList() map[string]bool {
 	if len(a.skills) == 0 {
 		return nil
@@ -898,6 +1055,33 @@ func toolNames(tools []core.Tool) []string {
 	}
 	slices.Sort(names)
 	return names
+}
+
+// countToolsBySource counts tools by their source type (local, MCP, skill).
+func (a *Agent) countToolsBySource(tools []core.Tool) (local, mcp, skill int) {
+	for _, tool := range tools {
+		switch tool.(type) {
+		case *skills.SkillTool:
+			skill++
+		case *kmcp.ToolAdapter:
+			mcp++
+		default:
+			local++
+		}
+	}
+	return
+}
+
+// getToolSource returns the source type of a tool ("local", "mcp", or "skill").
+func (a *Agent) getToolSource(tool core.Tool) string {
+	switch tool.(type) {
+	case *skills.SkillTool:
+		return "skill"
+	case *kmcp.ToolAdapter:
+		return "mcp"
+	default:
+		return "local"
+	}
 }
 
 func toolDefinitions(tools []core.Tool) []llm.Tool {
@@ -985,17 +1169,24 @@ func (a *Agent) handleToolCalls(ctx context.Context, log *slog.Logger, runID, tr
 				slog.String("tool_call_id", call.ID),
 			)
 			toolStart := time.Now()
-			toolCtx, toolSpan := a.tracer.Start(ctx, "Agent.Tool.Call", trace.WithAttributes(
-				attribute.String("tool.name", toolName),
-			))
+
+			// Determine tool source
+			toolSource := a.getToolSource(foundTool)
+			toolCtx, toolSpan := a.tracer.Start(ctx, "Agent.Tool.Call")
 
 			var input any = args
 			if parsed := parseToolArguments(args); parsed != nil {
 				input = parsed
 			}
 			res, err := foundTool.Call(toolCtx, input)
+			toolDurationMs := time.Since(toolStart).Seconds() * 1000
+
+			// Add rich tool call attributes
+			toolSpan.SetAttributes(telemetry.ToolCallAttributes(toolName, call.ID, toolSource, toolDurationMs, err == nil)...)
+			toolSpan.SetAttributes(telemetry.ToolCallArgsResult(args, fmt.Sprintf("%v", res), 500)...)
+
 			toolSpan.End()
-			toolLatencyMs.Record(ctx, time.Since(toolStart).Seconds()*1000, metric.WithAttributes(
+			toolLatencyMs.Record(ctx, toolDurationMs, metric.WithAttributes(
 				attribute.String("tool.name", toolName),
 			))
 			if err != nil {
@@ -1337,4 +1528,50 @@ func summarizeText(text string) string {
 		return trimmed
 	}
 	return trimmed[:maxLen] + "..."
+}
+
+// loadConversationHistory loads previous messages from conversation memory.
+func (a *Agent) loadConversationHistory(ctx context.Context, sessionID string) ([]llm.Message, error) {
+if a.conversationMemory == nil {
+return nil, nil
+}
+
+convMessages, err := a.conversationMemory.GetMessages(ctx, sessionID)
+if err != nil {
+return nil, err
+}
+
+// Convert ConversationMessage to llm.Message
+messages := make([]llm.Message, 0, len(convMessages))
+for _, cm := range convMessages {
+msg := llm.Message{
+Role:       llm.Role(cm.Role),
+Content:    cm.Content,
+ToolCallID: cm.ToolCallID,
+}
+messages = append(messages, msg)
+}
+
+return messages, nil
+}
+
+// storeConversationMessage saves a message to conversation memory.
+func (a *Agent) storeConversationMessage(ctx context.Context, sessionID string, role llm.Role, content, toolCallID string) error {
+if a.conversationMemory == nil {
+return nil
+}
+
+msg := memory.ConversationMessage{
+SessionID:  sessionID,
+Role:       string(role),
+Content:    content,
+ToolCallID: toolCallID,
+}
+
+return a.conversationMemory.AppendMessage(ctx, sessionID, msg)
+}
+
+// ConversationMemory returns the attached conversation memory, if any.
+func (a *Agent) ConversationMemory() memory.ConversationMemory {
+return a.conversationMemory
 }

@@ -11,12 +11,13 @@ Kairos integra **OpenTelemetry (OTEL)** desde el inicio, proporcionando visibili
 
 1. [Introducción](#introduccion)
 2. [Arquitectura de Observabilidad](#arquitectura-de-observabilidad)
-3. [Métricas Disponibles](#metricas-disponibles)
-4. [Dashboards](#dashboards)
-5. [Reglas de Alerta](#reglas-de-alerta)
-6. [Ejemplos de Uso](#ejemplos-de-uso)
-7. [Integración con Backends](#integracion-con-backends)
-8. [SLOs y Recomendaciones](#slos-y-recomendaciones)
+3. [Atributos de Span Enriquecidos](#atributos-de-span-enriquecidos)
+4. [Métricas Disponibles](#metricas-disponibles)
+5. [Dashboards](#dashboards)
+6. [Reglas de Alerta](#reglas-de-alerta)
+7. [Ejemplos de Uso](#ejemplos-de-uso)
+8. [Integración con Backends](#integracion-con-backends)
+9. [SLOs y Recomendaciones](#slos-y-recomendaciones)
 
 ---
 
@@ -80,6 +81,90 @@ OTEL Exporter envía a backend (OTLP, Prometheus, etc.)
 Dashboards visualizan → Alertas disparan si es necesario
     ↓
 Equipo responde basado en datos
+```
+
+---
+
+## Atributos de Span Enriquecidos
+
+Kairos añade atributos semánticos ricos a los spans de OTEL para facilitar debugging y análisis.
+
+### Spans Disponibles
+
+| Span | Descripción |
+|------|-------------|
+| `Agent.Run` | Ejecución completa del agente |
+| `Agent.LLM.Chat` | Llamada al LLM |
+| `Agent.Tool.Call` | Ejecución de una tool |
+
+### Atributos del Agente (`Agent.Run`)
+
+| Atributo | Tipo | Descripción |
+|----------|------|-------------|
+| `kairos.agent.id` | string | Identificador del agente |
+| `kairos.agent.role` | string | Rol del agente |
+| `kairos.agent.model` | string | Modelo LLM usado |
+| `kairos.agent.run_id` | string | ID único de la ejecución |
+| `kairos.agent.max_iterations` | int | Límite de iteraciones |
+| `kairos.session.id` | string | ID de sesión (si hay conversación) |
+| `kairos.conversation.enabled` | bool | Si hay memoria de conversación |
+| `kairos.conversation.message_count` | int | Mensajes en historial |
+| `kairos.tools.count` | int | Total de tools disponibles |
+| `kairos.tools.local_count` | int | Tools locales |
+| `kairos.tools.mcp_count` | int | Tools MCP |
+| `kairos.tools.skill_count` | int | Skills como tools |
+| `kairos.tools.names` | []string | Nombres de tools |
+| `kairos.memory.enabled` | bool | Si hay memoria semántica |
+| `kairos.memory.type` | string | Tipo de memoria |
+| `kairos.task.id` | string | ID de task (si existe) |
+| `kairos.task.goal` | string | Objetivo de la task |
+| `kairos.task.status` | string | Estado de la task |
+
+### Atributos del LLM (`Agent.LLM.Chat`)
+
+| Atributo | Tipo | Descripción |
+|----------|------|-------------|
+| `gen_ai.request.model` | string | Modelo solicitado |
+| `gen_ai.system` | string | Provider (openai, anthropic...) |
+| `gen_ai.request.messages` | int | Número de mensajes enviados |
+| `gen_ai.tool_calls` | int | Tool calls en la respuesta |
+| `gen_ai.usage.input_tokens` | int | Tokens de entrada |
+| `gen_ai.usage.output_tokens` | int | Tokens de salida |
+| `gen_ai.duration_ms` | float | Duración en ms |
+| `gen_ai.finish_reason` | string | Razón de finalización |
+
+### Atributos de Tool (`Agent.Tool.Call`)
+
+| Atributo | Tipo | Descripción |
+|----------|------|-------------|
+| `kairos.tool.name` | string | Nombre de la tool |
+| `kairos.tool.call_id` | string | ID de la llamada |
+| `kairos.tool.source` | string | Origen: "local", "mcp", "skill" |
+| `kairos.tool.duration_ms` | float | Duración en ms |
+| `kairos.tool.success` | bool | Si tuvo éxito |
+| `kairos.tool.arguments` | string | Argumentos (truncados) |
+| `kairos.tool.result` | string | Resultado (truncado) |
+
+### Ejemplo en Jaeger
+
+```
+Agent.Run (350ms)
+├── kairos.agent.id: "assistant"
+├── kairos.agent.model: "gpt-4"
+├── kairos.tools.count: 3
+├── kairos.conversation.enabled: true
+├── kairos.session.id: "user-123"
+│
+├── Agent.LLM.Chat (200ms)
+│   ├── gen_ai.request.model: "gpt-4"
+│   ├── gen_ai.request.messages: 5
+│   └── gen_ai.tool_calls: 1
+│
+└── Agent.Tool.Call (100ms)
+    ├── kairos.tool.name: "search"
+    ├── kairos.tool.source: "mcp"
+    ├── kairos.tool.success: true
+    └── kairos.tool.duration_ms: 98.5
 ```
 
 ---

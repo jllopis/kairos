@@ -22,7 +22,9 @@ Opciones comunes:
 - `agent.WithSkillsFromDir(...)`: carga skills desde un directorio con subcarpetas `SKILL.md`.
 - `agent.WithTools(...)`: tools concretas.
 - `agent.WithMCPClients(...)`: tools remotas vía MCP.
-- `agent.WithMemory(...)`: memoria para recuperar contexto.
+- `agent.WithMemory(...)`: memoria semántica para recuperar contexto.
+- `agent.WithConversationMemory(...)`: memoria de conversación para chat multi-turno.
+- `agent.WithToolFilter(...)`: filtrado de tools via governance.
 - `agent.WithPolicyEngine(...)`: enforcement de políticas.
 - `agent.WithEventEmitter(...)`: eventos semánticos.
 
@@ -30,6 +32,13 @@ Ejecución:
 
 ```go
 resp, err := a.Run(ctx, "Resuelve esto...")
+```
+
+Con sessionID para conversaciones:
+
+```go
+ctx := core.WithSessionID(context.Background(), "user-123")
+resp, err := a.Run(ctx, "Hola, me llamo Juan")
 ```
 
 ## Task (core)
@@ -46,6 +55,8 @@ automáticamente. Ver `docs/TASKS.md` para el detalle.
 
 ## Memory
 
+### Semantic Memory (Vector)
+
 Ejemplo con Qdrant + Ollama:
 
 ```go
@@ -57,6 +68,39 @@ _ = mem.Initialize(context.Background())
 _ = mem.Store(ctx, "Mi color favorito es azul.")
 matches, _ := mem.Retrieve(ctx, "color favorito")
 ```
+
+### Conversation Memory (Chat History)
+
+Para conversaciones multi-turno:
+
+```go
+// Crear memoria con estrategia de ventana
+convMem := memory.NewInMemoryConversation(memory.ConversationConfig{
+    TruncationStrategy: memory.NewWindowStrategy(20, true),
+})
+
+// Usar con el agente
+a, _ := agent.New("chat-agent", llmProvider,
+    agent.WithConversationMemory(convMem),
+)
+
+// Ejecutar con sessionID
+ctx := core.WithSessionID(context.Background(), "session-123")
+a.Run(ctx, "Hola, me llamo Juan")
+a.Run(ctx, "¿Cómo me llamo?")  // Recuerda "Juan"
+```
+
+Backends disponibles:
+- `memory.NewInMemoryConversation(...)`: desarrollo/testing
+- `memory.NewFileConversation(...)`: persistencia en archivos
+- `memory.NewPostgresConversation(...)`: producción distribuida
+
+Estrategias de truncado:
+- `memory.NewWindowStrategy(n, keepSystem)`: últimos N mensajes
+- `memory.NewTokenStrategy(n, keepSystem)`: máximo N tokens
+- `memory.NewSummarizationStrategy(...)`: resume mensajes antiguos
+
+Ver `docs/CONVERSATION_MEMORY.md` para documentación completa.
 
 ## Governance y AGENTS.md
 
