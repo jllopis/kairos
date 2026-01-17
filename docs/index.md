@@ -77,7 +77,7 @@ func main() {
 
 ## 🗂️ Ejemplos
 
-El directorio `examples/` contiene 18 ejemplos progresivos:
+El directorio `examples/` contiene 19 ejemplos progresivos:
 
 | Ejemplo | Qué aprenderás |
 |---------|----------------|
@@ -99,6 +99,7 @@ El directorio `examples/` contiene 18 ejemplos progresivos:
 | `16-providers` | LLM providers: auth y tokens |
 | `17-openapi-connector` | REST API → tools automáticos |
 | `18-streaming` | Respuestas en tiempo real |
+| `19-graphql-connector` | GraphQL → tools automáticos |
 
 ---
 

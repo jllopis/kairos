@@ -44,8 +44,9 @@ Kairos es un framework de agentes IA en Go, **production-ready** con las siguien
 
 ### Fase 10: Production Features ✅
 - **LLM Providers**: OpenAI, Anthropic, Gemini, Qwen como módulos independientes
-- **Streaming**: Respuestas en tiempo real
+- **Streaming**: Respuestas en tiempo real (todos los providers)
 - **OpenAPI Connector**: Convierte cualquier API REST en tools
+- **GraphQL Connector**: Convierte esquemas GraphQL en tools
 - **Guardrails**: Prompt injection, PII filtering, content filtering
 - **Testing Framework**: Escenarios, mocks, assertions
 - **Hot-reload**: `kairos run --watch`
@@ -65,8 +66,8 @@ Kairos es un framework de agentes IA en Go, **production-ready** con las siguien
 
 | Feature | Descripción | Estado |
 |---------|-------------|--------|
-| GraphQL Connector | Similar a OpenAPI pero para GraphQL | Planificado |
-| Streaming Qwen/Ollama | Completar streaming en todos los providers | Planificado |
+| gRPC Connector | Generar tools desde .proto files | Planificado |
+| SQL Connector | Generar tools desde esquemas de BD | Planificado |
 
 ### Largo Plazo 🟢
 

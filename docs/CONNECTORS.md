@@ -48,7 +48,7 @@ Esta separación permite:
 |----------|-----------------|-----------------|--------|
 | `OpenAPIConnector` | OpenAPI 3.x, Swagger 2.0 | REST endpoints | ✅ Implementado |
 | `MCPConnector` | MCP protocol | MCP tools | ✅ Implementado |
-| `GraphQLConnector` | Schema introspection | Queries/Mutations | 🔜 Planificado |
+| `GraphQLConnector` | Schema introspection | Queries/Mutations | ✅ Implementado |
 | `GRPCConnector` | `.proto` files | RPC methods | 🔜 Planificado |
 | `SQLConnector` | Database schema | CRUD operations | 🔜 Planificado |
 
@@ -134,6 +134,85 @@ tools := connector.Tools()
 
 Ver `examples/17-openapi-connector/` para un ejemplo completo.
 
+## GraphQLConnector
+
+Convierte esquemas GraphQL en tools ejecutables mediante introspección.
+
+### Características
+
+- **Introspección automática**: Descubre queries y mutations del endpoint
+- **Genera** un `llm.Tool` por cada query y mutation
+- **Mapea** argumentos GraphQL a JSON Schema
+- **Ejecuta** queries/mutations con los argumentos proporcionados
+- **Soporta** autenticación (Bearer, API Key, headers personalizados)
+
+### Uso básico
+
+```go
+import "github.com/jllopis/kairos/pkg/connectors"
+
+// Crear conector con introspección automática
+connector, err := connectors.NewGraphQLConnector(
+    "https://api.example.com/graphql",
+)
+
+// Obtener tools generados
+tools := connector.Tools()  // []llm.Tool
+
+// Usar con cualquier provider
+agent := kairos.NewAgent(
+    kairos.WithProvider(openaiProvider),
+    kairos.WithTools(tools...),
+)
+```
+
+### Autenticación
+
+```go
+// Bearer token
+connector, _ := connectors.NewGraphQLConnector(endpoint,
+    connectors.WithGraphQLBearerToken(os.Getenv("GITHUB_TOKEN")),
+)
+
+// API Key
+connector, _ := connectors.NewGraphQLConnector(endpoint,
+    connectors.WithGraphQLAPIKey("my-key", "X-API-Key"),
+)
+
+// Header personalizado
+connector, _ := connectors.NewGraphQLConnector(endpoint,
+    connectors.WithGraphQLHeader("X-Custom-Header", "value"),
+)
+```
+
+### Ejecución de queries
+
+```go
+// El conector detecta automáticamente si es query o mutation
+result, err := connector.Execute(ctx, "user", map[string]interface{}{
+    "id": "123",
+})
+
+// Mutations
+result, err := connector.Execute(ctx, "createUser", map[string]interface{}{
+    "name":  "John Doe",
+    "email": "john@example.com",
+})
+```
+
+### Prefijo de tools
+
+Para evitar colisiones de nombres al combinar múltiples conectores:
+
+```go
+connector, _ := connectors.NewGraphQLConnector(endpoint,
+    connectors.WithGraphQLToolPrefix("github"),
+)
+// Genera: github_user, github_repository, etc.
+```
+
+Ver `examples/19-graphql-connector/` para un ejemplo completo.
+
 ## MCPConnector
 
 El conector MCP ya está implementado en `pkg/mcp/` y permite:
@@ -155,19 +234,6 @@ result, _ := client.CallTool(ctx, "read_file", map[string]any{"path": "/tmp/test
 ```
 
 ## Conectores futuros
-
-### GraphQLConnector (planificado)
-
-```go
-// Futuro API
-connector, _ := connectors.NewGraphQLConnector(
-    "https://api.example.com/graphql",
-    connectors.WithBearerToken(token),
-)
-
-tools := connector.Tools()
-// Genera tools desde queries y mutations del schema
-```
 
 ### GRPCConnector (planificado)
 
