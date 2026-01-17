@@ -58,10 +58,17 @@ provider := openai.New(
 
 | Modelo | Descripción |
 |--------|-------------|
-| `gpt-4o` | Modelo por defecto, multimodal |
-| `gpt-4-turbo` | GPT-4 optimizado |
-| `gpt-4` | GPT-4 estándar |
-| `gpt-3.5-turbo` | Modelo rápido y económico |
+| `gpt-4o` | Modelo por defecto, multimodal optimizado |
+| `gpt-5` | GPT-5, última generación |
+| `gpt-5-mini` | GPT-5 compacto, rápido y económico |
+| `gpt-5.1` | GPT-5.1, mejoras incrementales |
+| `gpt-5.1-mini` | GPT-5.1 compacto |
+| `gpt-5.2` | GPT-5.2, último modelo estable |
+| `o1` | Modelo de razonamiento avanzado |
+| `o1-mini` | Modelo de razonamiento compacto |
+| `o3` | Razonamiento de última generación |
+| `o3-mini` | Razonamiento compacto |
+| `gpt-4-turbo` | GPT-4 optimizado (legacy) |
 
 ## Provider: Anthropic
 
