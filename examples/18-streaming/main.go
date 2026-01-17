@@ -70,7 +70,7 @@ func main() {
 
 	case "ollama":
 		provider = llm.NewOllama("")
-		model = "llama3" // Ollama requires explicit model
+		model = "gpt-oss" // Ollama requires explicit model
 
 	case "gemini":
 		apiKey := os.Getenv("GOOGLE_API_KEY")
