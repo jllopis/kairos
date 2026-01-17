@@ -137,7 +137,7 @@ El sistema de providers sigue una arquitectura de abstracción que permite añad
 ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐
 │  Ollama   │ │  OpenAI   │ │ Anthropic │ │   Qwen    │ │  Gemini   │
 │ Provider  │ │ Provider  │ │ Provider  │ │ Provider  │ │ Provider  │
-│    ✅     │ │  planned  │ │  planned  │ │  planned  │ │  planned  │
+│    ✅     │ │    ✅     │ │    ✅     │ │    ✅     │ │    ✅     │
 └───────────┘ └───────────┘ └───────────┘ └───────────┘ └───────────┘
 ```
 
@@ -187,6 +187,113 @@ User Input → Agent Loop → LLM Provider (con tool definitions)
 ```
 
 El código del agent no cambia al añadir providers - solo consume la interfaz `Provider`.
+
+## Arquitectura de Conectores (Tools)
+
+Los **Conectores** son el complemento de los **Providers**. Mientras los providers conectan con LLMs, los conectores generan `[]llm.Tool` desde especificaciones externas.
+
+### Relación Providers ↔ Connectors
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Agent                                │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   ┌──────────────────┐         ┌──────────────────────────┐ │
+│   │    Providers     │         │       Connectors         │ │
+│   │    (LLMs)        │         │       (Tools)            │ │
+│   ├──────────────────┤         ├──────────────────────────┤ │
+│   │ OpenAI      ✅   │         │ OpenAPIConnector    ✅   │ │
+│   │ Anthropic   ✅   │         │ MCPConnector        ✅   │ │
+│   │ Gemini      ✅   │         │ GraphQLConnector    🔜   │ │
+│   │ Qwen        ✅   │         │ GRPCConnector       🔜   │ │
+│   │ Ollama      ✅   │         │ SQLConnector        🔜   │ │
+│   └──────────────────┘         └──────────────────────────┘ │
+│            │                              │                  │
+│            │       ┌──────────────┐       │                  │
+│            │       │  llm.Tool[]  │       │                  │
+│            │       │ (formato     │◄──────┘                  │
+│            └──────►│  común)      │                          │
+│                    └──────────────┘                          │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Principio de diseño
+
+1. **Providers** → Hablan con LLMs (OpenAI, Claude, Gemini, etc.)
+2. **Connectors** → Generan `[]llm.Tool` desde especificaciones externas
+3. **Tools** → Formato común (`llm.Tool`) que todos los providers entienden
+
+Esta separación permite:
+- Usar **cualquier conector** con **cualquier provider**
+- Añadir nuevos conectores sin modificar providers
+- Añadir nuevos providers sin modificar conectores
+
+### Conectores disponibles
+
+| Conector | Spec de entrada | Tools generados | Estado |
+|----------|-----------------|-----------------|--------|
+| `OpenAPIConnector` | OpenAPI 3.x, Swagger 2.0 | REST endpoints | ✅ |
+| `MCPConnector` | MCP protocol | MCP tools | ✅ |
+| `GraphQLConnector` | Schema introspection | Queries/Mutations | 🔜 |
+| `GRPCConnector` | `.proto` files | RPC methods | 🔜 |
+| `SQLConnector` | Database schema | CRUD operations | 🔜 |
+
+### Interface común
+
+Cada conector implementa:
+
+```go
+type Connector interface {
+    // Tools genera []llm.Tool desde la especificación
+    Tools() []llm.Tool
+    
+    // Execute invoca un tool por nombre con argumentos
+    Execute(ctx context.Context, toolName string, args map[string]any) (any, error)
+}
+```
+
+### Ejemplo de uso
+
+```go
+// 1. Crear conector desde spec
+connector, _ := connectors.NewOpenAPIConnector(
+    "https://api.example.com/openapi.yaml",
+    connectors.WithBearerToken(os.Getenv("API_TOKEN")),
+)
+
+// 2. Obtener tools generados automáticamente
+tools := connector.Tools()  // []llm.Tool
+
+// 3. Usar con cualquier provider
+agent := kairos.NewAgent(
+    kairos.WithProvider(openaiProvider),   // o anthropic, gemini, qwen...
+    kairos.WithTools(tools...),            // tools del conector
+)
+
+// 4. Cuando el LLM invoca un tool, el conector lo ejecuta
+result, _ := connector.Execute(ctx, "createPet", map[string]any{
+    "name": "Buddy",
+    "type": "dog",
+})
+```
+
+### OpenAPIConnector
+
+Convierte especificaciones OpenAPI/Swagger en tools ejecutables:
+
+- **Parsea** OpenAPI 3.x y Swagger 2.0 (YAML/JSON)
+- **Genera** un `llm.Tool` por cada operación (GET, POST, PUT, DELETE...)
+- **Extrae** parámetros (path, query, header) y request body como JSON Schema
+- **Ejecuta** llamadas HTTP con autenticación configurada
+
+Opciones de autenticación:
+- `WithAPIKey(key, header)` - API key en header personalizado
+- `WithBearerToken(token)` - Bearer token en Authorization
+- `WithBasicAuth(user, pass)` - HTTP Basic Auth
+
+Ver `pkg/connectors/openapi.go` y `examples/17-openapi-connector/` para detalles.
 
 ## Modelo de datos (alto nivel)
 

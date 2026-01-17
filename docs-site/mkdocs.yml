@@ -43,6 +43,7 @@ nav:
       - CLI: CLI.md
       - Configuración: CONFIGURATION.md
       - LLM Providers: PROVIDERS.md
+      - Conectores: CONNECTORS.md
       - Testing Framework: TESTING.md
       - API: API.md
       - Skills: Skills.md
