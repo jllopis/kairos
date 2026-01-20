@@ -75,22 +75,24 @@ func NewCircuitBreaker(config CircuitBreakerConfig) *CircuitBreaker {
 // Returns errors.CodeInternal if the circuit is open.
 func (cb *CircuitBreaker) Call(ctx context.Context, fn func() error) error {
 	cb.mu.Lock()
-	defer cb.mu.Unlock()
-
 	// Check state and potentially transition
-	cb.checkState()
+	cb.checkStateLocked()
 
 	// If open, reject immediately
 	if cb.state == StateOpen {
+		cb.mu.Unlock()
 		return errors.New(errors.CodeInternal, "circuit breaker open", nil).
 			WithContext("breaker", cb.config.Name).
 			WithRecoverable(true)
 	}
+	cb.mu.Unlock()
 
-	// Execute function
+	// Execute function without holding the lock
 	err := fn()
 
 	// Update state based on result
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
 	if err != nil {
 		cb.failures++
 		cb.lastFailTime = time.Now()
@@ -120,9 +122,9 @@ func (cb *CircuitBreaker) Call(ctx context.Context, fn func() error) error {
 	return err
 }
 
-// checkState transitions the circuit breaker state if appropriate.
+// checkStateLocked transitions the circuit breaker state if appropriate.
 // Must be called under lock.
-func (cb *CircuitBreaker) checkState() {
+func (cb *CircuitBreaker) checkStateLocked() {
 	if cb.state == StateOpen {
 		// Check if we should try half-open
 		if time.Since(cb.lastFailTime) > cb.config.Timeout {

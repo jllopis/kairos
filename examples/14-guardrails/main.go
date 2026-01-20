@@ -15,7 +15,8 @@ import (
 )
 
 func main() {
-	fmt.Println("=== Kairos Security Guardrails Demo ===\n")
+	fmt.Println("=== Kairos Security Guardrails Demo ===")
+	fmt.Println()
 
 	// Create guardrails with multiple protections
 	g := guardrails.New(
@@ -53,7 +54,8 @@ func main() {
 		{"Normal code question", "How do I write a for loop in Go?"},
 	}
 
-	fmt.Println("--- Testing Input Checks ---\n")
+	fmt.Println("--- Testing Input Checks ---")
+	fmt.Println()
 	for _, test := range testInputs {
 		result := g.CheckInput(ctx, test.input)
 		status := "✅ Allowed"
@@ -75,7 +77,8 @@ func main() {
 		{"Credit card", "Your card ending in 4111111111111111 was charged."},
 	}
 
-	fmt.Println("--- Testing Output Filtering ---\n")
+	fmt.Println("--- Testing Output Filtering ---")
+	fmt.Println()
 	for _, test := range testOutputs {
 		result := g.FilterOutput(ctx, test.output)
 		fmt.Printf("[%s]\n", test.name)
@@ -90,31 +93,33 @@ func main() {
 	}
 
 	// Demonstrate selective PII filtering
-	fmt.Println("--- Selective PII Filtering ---\n")
-	
+	fmt.Println("--- Selective PII Filtering ---")
+	fmt.Println()
+
 	// Only filter emails
 	emailOnlyFilter := guardrails.NewPIIFilter(
 		guardrails.PIIFilterMask,
 		guardrails.WithPIITypes(guardrails.PIITypeEmail),
 	)
-	
+
 	input := "Contact: test@example.com, Phone: 555-123-4567"
 	emailResult := emailOnlyFilter.FilterOutput(ctx, input)
 	fmt.Printf("Email-only filter:\n  Input:  %s\n  Output: %s\n\n", input, emailResult.Content)
 
 	// Demonstrate content categories
-	fmt.Println("--- Content Filter Categories ---\n")
-	
+	fmt.Println("--- Content Filter Categories ---")
+	fmt.Println()
+
 	contentFilter := guardrails.NewContentFilter(
 		guardrails.ContentCategoryMedical,
 		guardrails.ContentCategoryFinancial,
 	)
-	
+
 	medicalInputs := []string{
 		"What medication should I take for headaches?",
 		"How does aspirin work?",
 	}
-	
+
 	for _, inp := range medicalInputs {
 		result := contentFilter.CheckInput(ctx, inp)
 		status := "allowed"

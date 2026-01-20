@@ -115,9 +115,11 @@ func main() {
 		}
 	}
 
-	fmt.Println("\n✨ Done!")
-	fmt.Println("\nThese tools can be used with any Kairos agent:")
-	fmt.Println(`
+	fmt.Println()
+	fmt.Println("✨ Done!")
+	fmt.Println()
+	fmt.Println("These tools can be used with any Kairos agent:")
+	fmt.Print(`
     agent := kairos.NewAgent(
         kairos.WithProvider(openaiProvider),
         kairos.WithTools(connector.Tools()...),

@@ -101,7 +101,7 @@ Variables de entorno equivalentes:
 KAIROS_TELEMETRY_EXPORTER=otlp \
 KAIROS_TELEMETRY_OTLP_ENDPOINT=localhost:4317 \
 KAIROS_TELEMETRY_OTLP_INSECURE=true \
-go run ./examples/basic-agent
+go run ./examples/02-basic-agent
 ```
 
 3) Confirma que las trazas y métricas llegan al backend.
@@ -328,7 +328,7 @@ Precedencia: valores por defecto < archivo < env < CLI.
 Ejemplo:
 
 ```bash
-go run ./examples/basic-agent --config=./.kairos/settings.json \
+go run ./examples/02-basic-agent --config=./.kairos/settings.json \
   --set llm.provider=ollama \
   --set telemetry.exporter=stdout
 ```

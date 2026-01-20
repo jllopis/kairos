@@ -28,6 +28,9 @@ Opciones comunes:
 - `agent.WithPolicyEngine(...)`: enforcement de políticas.
 - `agent.WithEventEmitter(...)`: eventos semánticos.
 
+Los tools locales deben implementar `core.Tool`, incluyendo `ToolDefinition()`,
+que devuelve el schema (`llm.Tool`) usado para tool-calling.
+
 Ejecución:
 
 ```go

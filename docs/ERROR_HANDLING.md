@@ -15,12 +15,12 @@ err := errors.New(errors.CodeToolFailure, "herramienta falló").
     WithRecoverable(true)
 
 // Verificar tipo de error
-if errors.IsCode(err, errors.CodeToolFailure) {
+if ke := errors.AsKairosError(err); ke != nil && ke.Code == errors.CodeToolFailure {
     // Manejar fallo de herramienta
 }
 
 // Obtener contexto
-if ke, ok := errors.AsKairosError(err); ok {
+if ke := errors.AsKairosError(err); ke != nil {
     toolName := ke.Context["tool"]
     canRetry := ke.Recoverable
 }
@@ -63,7 +63,7 @@ type KairosError struct {
 
 ```go
 // Crear error
-err := errors.New(errors.CodeLLMError, "modelo no disponible")
+err := errors.New(errors.CodeLLMError, "modelo no disponible", nil)
 
 // Añadir contexto
 err = err.WithContext("model", "gpt-4").
@@ -73,12 +73,15 @@ err = err.WithContext("model", "gpt-4").
 err = err.WithRecoverable(true)
 
 // Wrap de error existente
-err = errors.Wrap(originalErr, errors.CodeToolFailure, "ejecución falló")
+err = errors.New(errors.CodeToolFailure, "ejecución falló", originalErr)
 
 // Verificaciones
-errors.IsCode(err, errors.CodeTimeout)      // ¿Es timeout?
-errors.IsRecoverable(err)                   // ¿Se puede reintentar?
-ke, ok := errors.AsKairosError(err)         // Obtener KairosError
+if ke := errors.AsKairosError(err); ke != nil && ke.Code == errors.CodeTimeout {
+    // ¿Es timeout?
+}
+if ke := errors.AsKairosError(err); ke != nil && ke.Recoverable {
+    // ¿Se puede reintentar?
+}
 ```
 
 ---
@@ -88,16 +91,14 @@ ke, ok := errors.AsKairosError(err)         // Obtener KairosError
 Kairos incluye un sistema de retry con backoff exponencial:
 
 ```go
-import "github.com/jllopis/kairos/pkg/errors"
+import "github.com/jllopis/kairos/pkg/resilience"
 
-config := errors.RetryConfig{
-    MaxAttempts:  3,
-    InitialDelay: 100 * time.Millisecond,
-    MaxDelay:     5 * time.Second,
-    Multiplier:   2.0,
-}
+config := resilience.DefaultRetryConfig().
+    WithMaxAttempts(3).
+    WithInitialDelay(100 * time.Millisecond).
+    WithMaxDelay(5 * time.Second)
 
-result, err := errors.Retry(ctx, config, func() (string, error) {
+err := config.Do(ctx, func() error {
     return callExternalAPI()
 })
 ```
@@ -105,14 +106,22 @@ result, err := errors.Retry(ctx, config, func() (string, error) {
 ### Retry solo para errores recuperables
 
 ```go
-result, err := errors.RetryRecoverable(ctx, config, func() (string, error) {
-    resp, err := llm.Chat(ctx, messages)
+import (
+    "github.com/jllopis/kairos/pkg/errors"
+    "github.com/jllopis/kairos/pkg/resilience"
+)
+
+config := resilience.DefaultRetryConfig()
+var resp *llm.ChatResponse
+err := config.Do(ctx, func() error {
+    var err error
+    resp, err = llm.Chat(ctx, messages)
     if err != nil {
         // Solo reintenta si es recuperable
-        return "", errors.Wrap(err, errors.CodeLLMError, "chat failed").
+        return errors.New(errors.CodeLLMError, "chat failed", err).
             WithRecoverable(isTransientError(err))
     }
-    return resp, nil
+    return nil
 })
 ```
 
@@ -123,15 +132,15 @@ result, err := errors.RetryRecoverable(ctx, config, func() (string, error) {
 Protege contra fallos en cascada:
 
 ```go
-import "github.com/jllopis/kairos/pkg/errors"
+import "github.com/jllopis/kairos/pkg/resilience"
 
-cb := errors.NewCircuitBreaker(errors.CircuitBreakerConfig{
+cb := resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
     FailureThreshold: 5,           // Fallos antes de abrir
-    ResetTimeout:     30 * time.Second,
-    HalfOpenRequests: 2,           // Requests en half-open
+    SuccessThreshold: 2,           // Éxitos para cerrar en half-open
+    Timeout:          30 * time.Second,
 })
 
-result, err := cb.Execute(ctx, func() (string, error) {
+err := cb.Call(ctx, func() error {
     return callExternalService()
 })
 
@@ -146,13 +155,18 @@ state := cb.State() // Closed, Open, HalfOpen
 Los errores se integran automáticamente con OpenTelemetry:
 
 ```go
-import "github.com/jllopis/kairos/pkg/telemetry"
+import (
+    "github.com/jllopis/kairos/pkg/errors"
+    "github.com/jllopis/kairos/pkg/telemetry"
+)
 
 // Registrar error en span actual
-telemetry.RecordErrorMetric(ctx, err, span)
+telemetry.RecordError(span, err)
 
-// Registrar recuperación exitosa
-telemetry.RecordRecovery(ctx, err)
+// Registrar métricas de error
+em, _ := telemetry.NewErrorMetrics(ctx)
+em.RecordErrorMetric(ctx, err, "agent-llm")
+em.RecordRecovery(ctx, errors.CodeTimeout)
 ```
 
 ### Métricas disponibles
@@ -161,7 +175,8 @@ telemetry.RecordRecovery(ctx, err)
 |---------|------|-------------|
 | `kairos.errors.total` | Counter | Total de errores por código |
 | `kairos.errors.recovered` | Counter | Errores recuperados exitosamente |
-| `kairos.retry.attempts` | Histogram | Intentos de retry |
+| `kairos.errors.rate` | Gauge | Tasa de errores por componente |
+| `kairos.health.status` | Gauge | Estado de salud por componente |
 | `kairos.circuitbreaker.state` | Gauge | Estado del circuit breaker |
 
 ### Atributos en trazas
@@ -187,7 +202,7 @@ func (a *Agent) executeTool(ctx context.Context, call llm.ToolCall) (any, error)
     result, err := a.toolExecutor.Execute(ctx, call.Name, call.Args)
     if err != nil {
         // El error ya viene tipado desde el executor
-        if errors.IsRecoverable(err) {
+        if ke := errors.AsKairosError(err); ke != nil && ke.Recoverable {
             // Intentar con herramienta alternativa si existe
             return a.tryFallback(ctx, call)
         }
@@ -203,10 +218,10 @@ func (a *Agent) executeTool(ctx context.Context, call llm.ToolCall) (any, error)
 import "github.com/jllopis/kairos/pkg/agent"
 
 // Wrappers específicos para errores comunes
-err := agent.WrapLLMError(originalErr, "chat completion failed")
-err := agent.WrapToolError(originalErr, "get_weather", args)
-err := agent.WrapMemoryError(originalErr, "store", key)
-err := agent.WrapTimeoutError(operation, duration)
+err := agent.WrapLLMError(originalErr, "model-name")
+err := agent.WrapToolError(originalErr, "get_weather", "call-123")
+err := agent.WrapMemoryError(originalErr, "store")
+err := agent.WrapTimeoutError(originalErr, "agent-loop", maxIterations)
 ```
 
 ---
@@ -259,37 +274,37 @@ package main
 
 import (
     "context"
+    "log"
     "time"
-    
-    "github.com/jllopis/kairos/pkg/agent"
+
     "github.com/jllopis/kairos/pkg/errors"
+    "github.com/jllopis/kairos/pkg/resilience"
 )
 
 func main() {
     ctx := context.Background()
     
     // Configurar retry
-    retryConfig := errors.RetryConfig{
-        MaxAttempts:  3,
-        InitialDelay: 500 * time.Millisecond,
-        MaxDelay:     10 * time.Second,
-        Multiplier:   2.0,
-    }
-    
-    // Ejecutar con retry automático
-    result, err := errors.RetryRecoverable(ctx, retryConfig, func() (string, error) {
+    retryConfig := resilience.DefaultRetryConfig().
+        WithMaxAttempts(3).
+        WithInitialDelay(500 * time.Millisecond).
+        WithMaxDelay(10 * time.Second)
+
+    var result string
+    err := retryConfig.Do(ctx, func() error {
         // Tu código aquí
         resp, err := callExternalAPI()
         if err != nil {
-            return "", errors.Wrap(err, errors.CodeToolFailure, "API call failed").
+            return errors.New(errors.CodeToolFailure, "API call failed", err).
                 WithContext("endpoint", "/api/data").
                 WithRecoverable(isNetworkError(err))
         }
-        return resp, nil
+        result = resp
+        return nil
     })
     
     if err != nil {
-        if ke, ok := errors.AsKairosError(err); ok {
+        if ke := errors.AsKairosError(err); ke != nil {
             log.Printf("Error [%s]: %s (recuperable: %v)", 
                 ke.Code, ke.Message, ke.Recoverable)
         }

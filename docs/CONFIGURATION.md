@@ -109,7 +109,7 @@ El CLI soporta una ruta de config y sobrescrituras repetibles:
 Ejemplo de CLI:
 
 ```bash
-go run ./examples/basic-agent --config=./.kairos/settings.json \
+go run ./examples/02-basic-agent --config=./.kairos/settings.json \
   --set llm.provider=ollama \
   --set telemetry.exporter=stdout
 ```

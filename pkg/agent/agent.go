@@ -29,10 +29,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type toolDefiner interface {
-	ToolDefinition() llm.Tool
-}
-
 // Agent is an LLM-driven agent implementation.
 type Agent struct {
 	id                    string
@@ -401,25 +397,24 @@ func (a *Agent) Run(ctx context.Context, input any) (any, error) {
 		systemPrompt += "AGENTS.md:\n" + a.agentsDoc.Raw
 	}
 	if len(toolset) > 0 {
-		systemPrompt += "\n\nYou have access to the following tools:\n"
-		for _, t := range toolset {
-			systemPrompt += fmt.Sprintf("- %s: (Capability)\n", t.Name()) // TODO: add description to Tool interface if needed
-		}
-		systemPrompt += `
+		systemPrompt += "\n\nTools:\n"
+		systemPrompt += strings.Join(toolPromptLines(toolset), "\n")
+		systemPrompt += "\n"
+		if a.disableActionFallback {
+			systemPrompt += "\nWhen you need a tool, call it using the tool calling interface. When you are done, respond with the final answer."
+		} else {
+			systemPrompt += `
 To use a tool, please use the following format:
 Thought: Do I need to use a tool? Yes
 Action: the action to take, should be one of [`
-		toolNames := make([]string, len(toolset))
-		for i, t := range toolset {
-			toolNames[i] = t.Name()
-		}
-		systemPrompt += strings.Join(toolNames, ", ")
-		systemPrompt += `]
+			systemPrompt += strings.Join(toolNames(toolset), ", ")
+			systemPrompt += `]
 Action Input: the input to the action
 
 If you have a result, or do not need a tool, use:
 Final Answer: the final answer to the original input question
 `
+		}
 	}
 
 	if systemPrompt != "" {
@@ -590,6 +585,47 @@ Final Answer: the final answer to the original input question
 				}
 				return finalAnswer, nil
 			}
+			logDecision(log, decisionPayload{
+				AgentID:       a.id,
+				RunID:         runID,
+				TraceID:       traceID,
+				SpanID:        spanID,
+				Iteration:     i + 1,
+				DecisionType:  "final_answer",
+				Rationale:     summarizeFinalRationale(content),
+				InputSummary:  summarizeText(inputStr),
+				OutputSummary: summarizeText(content),
+			})
+			a.storeMemory(ctx, mem, inputStr, content)
+			// Store assistant response in conversation memory
+			if a.conversationMemory != nil && hasSession {
+				if err := a.storeConversationMessage(ctx, sessionID, llm.RoleAssistant, content, ""); err != nil {
+					log.Warn("agent.conversation.store_error",
+						slog.String("agent_id", a.id),
+						slog.String("session_id", sessionID),
+						slog.String("error", err.Error()),
+					)
+				}
+			}
+			agentRunLatencyMs.Record(ctx, time.Since(start).Seconds()*1000)
+			log.Info("agent.run.complete",
+				slog.String("agent_id", a.id),
+				slog.String("run_id", runID),
+				slog.String("trace_id", traceID),
+				slog.String("span_id", spanID),
+				slog.Int("iterations", i+1),
+			)
+			a.emitEvent(ctx, core.EventAgentTaskCompleted, map[string]any{
+				"run_id": runID,
+				"result": content,
+			})
+			if task, ok := core.TaskFromContext(ctx); ok && task != nil {
+				task.Complete(content)
+			}
+			return content, nil
+		}
+
+		if a.disableActionFallback && len(toolset) > 0 && strings.TrimSpace(content) != "" {
 			logDecision(log, decisionPayload{
 				AgentID:       a.id,
 				RunID:         runID,
@@ -1057,6 +1093,21 @@ func toolNames(tools []core.Tool) []string {
 	return names
 }
 
+func toolPromptLines(tools []core.Tool) []string {
+	lines := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		def := tool.ToolDefinition()
+		name := tool.Name()
+		desc := strings.TrimSpace(def.Function.Description)
+		if desc != "" {
+			lines = append(lines, fmt.Sprintf("- %s: %s", name, desc))
+		} else {
+			lines = append(lines, fmt.Sprintf("- %s", name))
+		}
+	}
+	return lines
+}
+
 // countToolsBySource counts tools by their source type (local, MCP, skill).
 func (a *Agent) countToolsBySource(tools []core.Tool) (local, mcp, skill int) {
 	for _, tool := range tools {
@@ -1087,11 +1138,14 @@ func (a *Agent) getToolSource(tool core.Tool) string {
 func toolDefinitions(tools []core.Tool) []llm.Tool {
 	defs := make([]llm.Tool, 0, len(tools))
 	for _, tool := range tools {
-		definer, ok := tool.(toolDefiner)
-		if !ok {
-			continue
+		def := tool.ToolDefinition()
+		if def.Type == "" {
+			def.Type = llm.ToolTypeFunction
 		}
-		defs = append(defs, definer.ToolDefinition())
+		if name := strings.TrimSpace(def.Function.Name); name == "" || name != tool.Name() {
+			def.Function.Name = tool.Name()
+		}
+		defs = append(defs, def)
 	}
 	return defs
 }
@@ -1532,46 +1586,46 @@ func summarizeText(text string) string {
 
 // loadConversationHistory loads previous messages from conversation memory.
 func (a *Agent) loadConversationHistory(ctx context.Context, sessionID string) ([]llm.Message, error) {
-if a.conversationMemory == nil {
-return nil, nil
-}
+	if a.conversationMemory == nil {
+		return nil, nil
+	}
 
-convMessages, err := a.conversationMemory.GetMessages(ctx, sessionID)
-if err != nil {
-return nil, err
-}
+	convMessages, err := a.conversationMemory.GetMessages(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
 
-// Convert ConversationMessage to llm.Message
-messages := make([]llm.Message, 0, len(convMessages))
-for _, cm := range convMessages {
-msg := llm.Message{
-Role:       llm.Role(cm.Role),
-Content:    cm.Content,
-ToolCallID: cm.ToolCallID,
-}
-messages = append(messages, msg)
-}
+	// Convert ConversationMessage to llm.Message
+	messages := make([]llm.Message, 0, len(convMessages))
+	for _, cm := range convMessages {
+		msg := llm.Message{
+			Role:       llm.Role(cm.Role),
+			Content:    cm.Content,
+			ToolCallID: cm.ToolCallID,
+		}
+		messages = append(messages, msg)
+	}
 
-return messages, nil
+	return messages, nil
 }
 
 // storeConversationMessage saves a message to conversation memory.
 func (a *Agent) storeConversationMessage(ctx context.Context, sessionID string, role llm.Role, content, toolCallID string) error {
-if a.conversationMemory == nil {
-return nil
-}
+	if a.conversationMemory == nil {
+		return nil
+	}
 
-msg := memory.ConversationMessage{
-SessionID:  sessionID,
-Role:       string(role),
-Content:    content,
-ToolCallID: toolCallID,
-}
+	msg := memory.ConversationMessage{
+		SessionID:  sessionID,
+		Role:       string(role),
+		Content:    content,
+		ToolCallID: toolCallID,
+	}
 
-return a.conversationMemory.AppendMessage(ctx, sessionID, msg)
+	return a.conversationMemory.AppendMessage(ctx, sessionID, msg)
 }
 
 // ConversationMemory returns the attached conversation memory, if any.
 func (a *Agent) ConversationMemory() memory.ConversationMemory {
-return a.conversationMemory
+	return a.conversationMemory
 }

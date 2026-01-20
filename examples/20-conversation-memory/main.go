@@ -50,7 +50,8 @@ func main() {
 	fmt.Println("=== Conversation Memory Demo ===")
 	fmt.Printf("Usando modelo: %s en %s\n", model, ollamaURL)
 	fmt.Println("Este ejemplo demuestra cómo un agente mantiene el contexto")
-	fmt.Println("entre múltiples interacciones usando ConversationMemory.\n")
+	fmt.Println("entre múltiples interacciones usando ConversationMemory.")
+	fmt.Println()
 
 	// Create a session for this conversation
 	sessionID := "demo-session-001"

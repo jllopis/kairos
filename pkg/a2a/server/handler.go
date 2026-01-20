@@ -72,7 +72,7 @@ func (h *SimpleHandler) SendMessage(ctx context.Context, req *a2av1.SendMessageR
 		return &a2av1.SendMessageResponse{Payload: &a2av1.SendMessageResponse_Msg{Msg: respMsg}}, nil
 	}
 
-	go h.runAsync(task.Id, message)
+	go h.runAsync(ctx, task.Id, message)
 
 	return &a2av1.SendMessageResponse{Payload: &a2av1.SendMessageResponse_Task{Task: task}}, nil
 }
@@ -476,8 +476,11 @@ func (h *SimpleHandler) executeTask(ctx context.Context, task *a2av1.Task, messa
 	return respMsg, artifacts, nil
 }
 
-func (h *SimpleHandler) runAsync(taskID string, message *a2av1.Message) {
-	ctx := context.Background()
+func (h *SimpleHandler) runAsync(parent context.Context, taskID string, message *a2av1.Message) {
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx := context.WithoutCancel(parent)
 	task, err := h.Store.GetTask(ctx, taskID, 0, true)
 	if err != nil {
 		return

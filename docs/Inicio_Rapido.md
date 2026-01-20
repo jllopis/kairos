@@ -13,7 +13,7 @@ general sin entrar en detalles avanzados.
 Desde la raíz del repo:
 
 ```bash
-go run ./examples/hello-agent
+go run ./examples/01-hello-agent
 ```
 
 Este ejemplo usa un LLM mock para que sea auto-contenido, así que no necesitas
@@ -35,7 +35,7 @@ Response: Hello from Kairos Agent!
 
 ## Siguiente paso
 
-Si quieres un ejemplo con modelo real, prueba `examples/basic-agent`. Para un
+Si quieres un ejemplo con modelo real, prueba `examples/02-basic-agent`. Para un
 flujo multiagente con A2A, planner y MCP, revisa la demo en
 [Demo Kairos](Demo_Kairos.md).
 
@@ -44,7 +44,7 @@ flujo multiagente con A2A, planner y MCP, revisa la demo en
 Si tienes Ollama en local, puedes ejecutar el ejemplo básico:
 
 ```bash
-go run ./examples/basic-agent
+go run ./examples/02-basic-agent
 ```
 
 Config mínimo (ejemplo):
@@ -62,5 +62,5 @@ Config mínimo (ejemplo):
 Guárdalo en `./.kairos/settings.json` y ejecuta:
 
 ```bash
-go run ./examples/basic-agent --config=./.kairos/settings.json
+go run ./examples/02-basic-agent --config=./.kairos/settings.json
 ```
