@@ -27,7 +27,7 @@ type FileConversation struct {
 
 // NewFileConversation creates a new file-based conversation store.
 func NewFileConversation(baseDir string, config ConversationConfig) (*FileConversation, error) {
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
+	if err := os.MkdirAll(baseDir, 0o700); err != nil {
 		return nil, fmt.Errorf("failed to create conversation directory: %w", err)
 	}
 
@@ -175,7 +175,7 @@ func (f *FileConversation) saveMessages(sessionID string, messages []Conversatio
 	}
 
 	path := f.sessionFile(sessionID)
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0o600)
 }
 
 // ListSessions returns all session IDs with stored conversations.
