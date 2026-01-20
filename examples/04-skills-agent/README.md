@@ -5,9 +5,9 @@ Agente con skills siguiendo la especificación [AgentSkills](https://agentskills
 ## Qué aprenderás
 
 - La especificación AgentSkills y su formato SKILL.md
-- Cargar skills desde un directorio
-- Cómo el agente usa los skills para enriquecer sus capacidades
+- Cargar skills desde un directorio como tools para el LLM
 - Progressive disclosure: metadata → instructions → resources
+- Filtrado de tools mediante governance (no en skills)
 
 ## Ejecutar
 
@@ -39,7 +39,6 @@ compatibility: Requires pdftotext
 metadata:
   author: example-org
   version: "1.0"
-allowed-tools: Bash(pdf:*) Read
 ---
 
 # Instrucciones
@@ -61,20 +60,49 @@ Use este skill cuando el usuario mencione PDFs, formularios o extracción de doc
 | `license` | No | Licencia del skill |
 | `compatibility` | No | Requisitos de entorno |
 | `metadata` | No | Metadatos adicionales (key-value) |
-| `allowed-tools` | No | Tools pre-aprobados (experimental) |
+
+> **Nota**: El campo `allowed-tools` de la especificación AgentSkills está disponible pero
+> el filtrado de tools debe hacerse a través del módulo de governance, no en los skills.
 
 ### Progressive disclosure
 
-1. **Metadata** (~100 tokens): `name` y `description` se cargan al inicio
-2. **Instructions** (<5000 tokens): El body de SKILL.md se carga al activar
+Los skills implementan carga progresiva según la especificación AgentSkills:
+
+1. **Metadata** (~100 tokens): `name` y `description` se exponen al LLM como tool definition
+2. **Instructions** (<5000 tokens): El body de SKILL.md se inyecta cuando el LLM activa el skill
 3. **Resources**: Archivos en `scripts/`, `references/`, `assets/` se cargan bajo demanda
+
+## Skills como Tools
+
+Los skills se exponen al LLM como tools nativos. Cuando el LLM decide usar un skill:
+
+```json
+{
+  "action": "activate"
+}
+```
+
+Recibe las instrucciones completas del skill (el Body del SKILL.md).
+
+También puede:
+- `{"action": "list_resources"}` - Ver recursos disponibles
+- `{"action": "load_resource", "resource": "scripts/extract.py"}` - Cargar un recurso específico
 
 ## Código clave
 
 ```go
-// Cargar skills desde directorio
+// Cargar skills desde directorio (se exponen como tools al LLM)
 a, err := agent.New("skills-agent", llmProvider,
     agent.WithSkillsFromDir("./skills"),
+)
+
+// Opcional: Configurar filtrado de tools via governance
+toolFilter := governance.NewToolFilter(
+    governance.WithAllowlist([]string{"pdf-processing", "Bash(pdf:*)"}),
+)
+a, err := agent.New("skills-agent", llmProvider,
+    agent.WithSkillsFromDir("./skills"),
+    agent.WithToolFilter(toolFilter),
 )
 
 // Ver skills cargados
@@ -95,6 +123,29 @@ pdf-processing/
 └── assets/               # Opcional: recursos estáticos
     └── template.pdf
 ```
+
+## Filtrado de tools (Governance)
+
+El filtrado de tools se gestiona a través del módulo `governance.ToolFilter`:
+
+```go
+// Crear filtro con allowlist
+filter := governance.NewToolFilter(
+    governance.WithAllowlist([]string{"tool-a", "tool-b"}),
+)
+
+// O con denylist
+filter := governance.NewToolFilter(
+    governance.WithDenylist([]string{"dangerous-tool"}),
+)
+
+// O combinado con policy engine
+filter := governance.NewToolFilter(
+    governance.WithPolicyEngine(policyEngine),
+)
+```
+
+Esto separa la definición de capacidades (skills) del control de acceso (governance).
 
 ## Siguiente paso
 

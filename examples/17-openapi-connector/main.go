@@ -97,7 +97,8 @@ func main() {
 	server := createMockServer()
 	defer server.Close()
 
-	fmt.Println("=== OpenAPI Connector Demo ===\n")
+	fmt.Println("=== OpenAPI Connector Demo ===")
+	fmt.Println()
 
 	// Create connector from OpenAPI spec
 	connector, err := connectors.NewFromBytes(

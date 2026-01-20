@@ -20,6 +20,18 @@ func (m *MockTool) Name() string { return m.NameVal }
 func (m *MockTool) Call(ctx context.Context, input any) (any, error) {
 	return fmt.Sprintf("Result from %s with %v", m.NameVal, input), nil
 }
+func (m *MockTool) ToolDefinition() llm.Tool {
+	return llm.Tool{
+		Type: llm.ToolTypeFunction,
+		Function: llm.FunctionDef{
+			Name: m.NameVal,
+			Parameters: map[string]interface{}{
+				"type":       "object",
+				"properties": map[string]interface{}{},
+			},
+		},
+	}
+}
 
 type toolWithDefinition struct {
 	NameVal  string

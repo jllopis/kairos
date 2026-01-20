@@ -82,7 +82,7 @@ go test ./...
 
 ### Run Examples
 ```bash
-go run ./examples/hello-agent
+go run ./examples/01-hello-agent
 ```
 
 ---

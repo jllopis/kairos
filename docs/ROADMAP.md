@@ -56,17 +56,44 @@ Kairos es un framework de agentes IA en Go, **production-ready** con las siguien
 
 ### Prioridad Alta 🔴
 
+| Feature | Descripción | Ubicación |
+|---------|-------------|-----------|
+| OTLP Enriquecido | Atributos ricos en trazas (memoria, tool calls, estado interno) | Kairos |
+| UI Web Configurable | Habilitar/deshabilitar endpoints de `kairos web` | Kairos |
+
+### Para kairosctl 🟡
+
 | Feature | Descripción | Estado |
 |---------|-------------|--------|
-| UI Visual | Timeline de ejecución, inspector de memoria | Planificado |
 | Skill Marketplace | Registry de skills compartidos | Planificado |
+| A2A Registry | Registro centralizado de agentes A2A | Planificado |
+| MCP Registry | Registro de servidores MCP disponibles | Planificado |
+| Agent Registry | Catálogo de agentes con versiones | Planificado |
+| Dashboard Visual | Timeline, histórico, replay de ejecuciones | Planificado |
 
 ### Largo Plazo 🟢
 
 | Feature | Descripción | Estado |
 |---------|-------------|--------|
-| kairosctl MVP | Control plane, workflow store, agent registry | Planificado |
+| kairosctl MVP | Control plane, workflow store, registries | Planificado |
 | kairosctl Avanzado | Scheduler, queue distribuida, editor visual | Planificado |
+
+---
+
+## UI Web Existente (`kairos web`)
+
+El CLI incluye una UI web básica para desarrollo local:
+
+```bash
+kairos web --addr :8088
+```
+
+Endpoints disponibles:
+- `/agents` - Lista de agentes A2A descubiertos
+- `/tasks` - Gestión de tareas (list, detail, stream)
+- `/approvals` - Human-in-the-loop approvals
+
+**Nota:** Para producción y funcionalidades avanzadas (histórico, métricas, registries), usar kairosctl.
 
 ---
 
@@ -96,20 +123,33 @@ Ver [PROVIDERS.md](PROVIDERS.md) para documentación completa.
 
 ## Arquitectura de kairosctl (Futuro)
 
-Plataforma de orquestación estilo n8n para workflows y agentes.
+Plataforma de orquestación para workflows y agentes.
 
 **Decisión de arquitectura:**
-- Dos repositorios: `kairos` (biblioteca) + `kairosctl` (orquestador)
+- Dos repositorios: `kairos` (framework) + `kairosctl` (control plane)
 - `kairosctl` importa `kairos` como dependencia Go
-- Kairos mantiene su rol de framework
-- kairosctl añade: scheduling, persistence, registry, UI visual
+- Kairos mantiene su rol de biblioteca/framework
+- kairosctl añade: scheduling, persistence, registries, dashboard completo
 
-**Interfaces estables de Kairos:**
+**Componentes de kairosctl:**
+
+| Componente | Descripción |
+|------------|-------------|
+| Skill Marketplace | Publicar, descubrir y versionar skills |
+| A2A Registry | Registro centralizado de agentes A2A |
+| MCP Registry | Catálogo de servidores MCP |
+| Agent Registry | Versiones, metadatos, health checks |
+| Dashboard | Timeline, histórico, replay, métricas |
+| Scheduler | Ejecución programada de workflows |
+| Queue | Cola distribuida para tareas |
+
+**Interfaces estables de Kairos (contrato con kairosctl):**
 - `core.Agent`, `core.Task`, `core.Skill`
 - `llm.Provider`, `llm.StreamingProvider`
 - `a2a.Client`
 - `planner.Executor`
 - `core.EventEmitter`
+- `memory.ConversationMemory`
 
 ---
 
@@ -135,6 +175,8 @@ Plataforma de orquestación estilo n8n para workflows y agentes.
 | 16 | providers | LLM auth/tokens |
 | 17 | openapi-connector | REST → tools |
 | 18 | streaming | Real-time responses |
+| 19 | graphql | GraphQL tools |
+| 20 | conversation-memory | Multi-turn conversations |
 
 ---
 
@@ -149,6 +191,8 @@ Plataforma de orquestación estilo n8n para workflows y agentes.
 | [Providers](PROVIDERS.md) | OpenAI, Anthropic, Gemini, Qwen |
 | [Guardrails](GUARDRAILS.md) | Seguridad y filtros |
 | [Testing](TESTING.md) | Framework de testing |
+| [Skills](Skills.md) | AgentSkills specification |
+| [Conversation Memory](CONVERSATION_MEMORY.md) | Multi-turn chat history |
 | [MCP](protocols/MCP.md) | Model Context Protocol |
 | [A2A](protocols/A2A/Overview.md) | Agent-to-Agent Protocol |
 

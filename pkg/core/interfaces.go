@@ -1,6 +1,10 @@
 package core
 
-import "context"
+import (
+	"context"
+
+	"github.com/jllopis/kairos/pkg/llm"
+)
 
 // Skill represents a semantic capability as defined by AgentSkills.
 type Skill struct {
@@ -17,6 +21,8 @@ type Skill struct {
 type Tool interface {
 	Name() string
 	Call(ctx context.Context, input any) (any, error)
+	// ToolDefinition provides the LLM tool schema for this tool.
+	ToolDefinition() llm.Tool
 }
 
 // Memory stores and retrieves contextual data for agents.

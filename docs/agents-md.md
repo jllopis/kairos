@@ -28,7 +28,7 @@ durante la ejecución.
 
 ## Stack
 - Go, Markdown
-- Comandos: go test ./..., go run ./examples/hello-agent
+- Comandos: go test ./..., go run ./examples/01-hello-agent
 ```
 
 ## Uso en el agente

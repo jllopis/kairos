@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/jllopis/kairos/pkg/llm"
 	"gopkg.in/yaml.v3"
@@ -20,10 +21,10 @@ import (
 
 // OpenAPISpec represents a parsed OpenAPI 3.x specification.
 type OpenAPISpec struct {
-	OpenAPI string                `json:"openapi" yaml:"openapi"`
-	Info    OpenAPIInfo           `json:"info" yaml:"info"`
-	Servers []OpenAPIServer       `json:"servers" yaml:"servers"`
-	Paths   map[string]PathItem   `json:"paths" yaml:"paths"`
+	OpenAPI string              `json:"openapi" yaml:"openapi"`
+	Info    OpenAPIInfo         `json:"info" yaml:"info"`
+	Servers []OpenAPIServer     `json:"servers" yaml:"servers"`
+	Paths   map[string]PathItem `json:"paths" yaml:"paths"`
 }
 
 // OpenAPIInfo contains API metadata.
@@ -41,11 +42,11 @@ type OpenAPIServer struct {
 
 // PathItem represents operations on a path.
 type PathItem struct {
-	Get     *Operation `json:"get" yaml:"get"`
-	Post    *Operation `json:"post" yaml:"post"`
-	Put     *Operation `json:"put" yaml:"put"`
-	Delete  *Operation `json:"delete" yaml:"delete"`
-	Patch   *Operation `json:"patch" yaml:"patch"`
+	Get    *Operation `json:"get" yaml:"get"`
+	Post   *Operation `json:"post" yaml:"post"`
+	Put    *Operation `json:"put" yaml:"put"`
+	Delete *Operation `json:"delete" yaml:"delete"`
+	Patch  *Operation `json:"patch" yaml:"patch"`
 }
 
 // Operation represents an API operation.
@@ -61,11 +62,11 @@ type Operation struct {
 
 // Parameter represents an operation parameter.
 type Parameter struct {
-	Name        string      `json:"name" yaml:"name"`
-	In          string      `json:"in" yaml:"in"` // query, path, header, cookie
-	Description string      `json:"description" yaml:"description"`
-	Required    bool        `json:"required" yaml:"required"`
-	Schema      *Schema     `json:"schema" yaml:"schema"`
+	Name        string  `json:"name" yaml:"name"`
+	In          string  `json:"in" yaml:"in"` // query, path, header, cookie
+	Description string  `json:"description" yaml:"description"`
+	Required    bool    `json:"required" yaml:"required"`
+	Schema      *Schema `json:"schema" yaml:"schema"`
 }
 
 // RequestBody represents a request body.
@@ -191,11 +192,33 @@ func NewFromFile(path string, opts ...Option) (*OpenAPIConnector, error) {
 
 // NewFromURL creates an OpenAPIConnector from a URL.
 func NewFromURL(specURL string, opts ...Option) (*OpenAPIConnector, error) {
-	resp, err := http.Get(specURL)
+	cfg := &OpenAPIConnector{httpClient: http.DefaultClient}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	client := cfg.httpClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, specURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch spec: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
+		return nil, fmt.Errorf("failed to fetch spec: status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
