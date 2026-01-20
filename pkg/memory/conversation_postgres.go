@@ -8,10 +8,23 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+var tableNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+func sanitizeTableName(table string) (string, error) {
+	if table == "" {
+		return "", fmt.Errorf("table name is required")
+	}
+	if !tableNamePattern.MatchString(table) {
+		return "", fmt.Errorf("invalid table name %q", table)
+	}
+	return table, nil
+}
 
 // PostgresConversation implements ConversationMemory with PostgreSQL storage.
 // Suitable for production deployments with multiple instances.
@@ -42,6 +55,10 @@ func NewPostgresConversation(cfg PostgresConfig) (*PostgresConversation, error) 
 	if table == "" {
 		table = "conversation_messages"
 	}
+	table, err := sanitizeTableName(table)
+	if err != nil {
+		return nil, err
+	}
 
 	return &PostgresConversation{
 		db:     cfg.DB,
@@ -60,13 +77,13 @@ func (p *PostgresConversation) Initialize(ctx context.Context) error {
 			content TEXT NOT NULL,
 			tool_call_id VARCHAR(255),
 			metadata JSONB,
-			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-			CONSTRAINT idx_%s_session_created UNIQUE (session_id, created_at, id)
+			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 		);
-		
+
 		CREATE INDEX IF NOT EXISTS idx_%s_session ON %s (session_id);
 		CREATE INDEX IF NOT EXISTS idx_%s_created ON %s (created_at);
-	`, p.table, p.table, p.table, p.table, p.table, p.table)
+		CREATE INDEX IF NOT EXISTS idx_%s_session_created ON %s (session_id, created_at, id);
+	`, p.table, p.table, p.table, p.table, p.table, p.table, p.table)
 
 	_, err := p.db.ExecContext(ctx, query)
 	return err
@@ -162,7 +179,7 @@ func (p *PostgresConversation) Clear(ctx context.Context, sessionID string) erro
 func (p *PostgresConversation) DeleteOldMessages(ctx context.Context, sessionID string, olderThan time.Duration) error {
 	cutoff := time.Now().Add(-olderThan)
 	query := fmt.Sprintf(`
-		DELETE FROM %s 
+		DELETE FROM %s
 		WHERE session_id = $1 AND created_at < $2
 	`, p.table)
 	_, err := p.db.ExecContext(ctx, query, sessionID, cutoff)
@@ -175,9 +192,9 @@ func (p *PostgresConversation) DeleteOldSessions(ctx context.Context, inactiveDu
 	query := fmt.Sprintf(`
 		DELETE FROM %s
 		WHERE session_id IN (
-			SELECT session_id 
-			FROM %s 
-			GROUP BY session_id 
+			SELECT session_id
+			FROM %s
+			GROUP BY session_id
 			HAVING MAX(created_at) < $1
 		)
 	`, p.table, p.table)
@@ -193,8 +210,8 @@ func (p *PostgresConversation) DeleteOldSessions(ctx context.Context, inactiveDu
 // ListSessions returns all active session IDs.
 func (p *PostgresConversation) ListSessions(ctx context.Context) ([]string, error) {
 	query := fmt.Sprintf(`
-		SELECT DISTINCT session_id 
-		FROM %s 
+		SELECT DISTINCT session_id
+		FROM %s
 		ORDER BY session_id
 	`, p.table)
 
@@ -219,7 +236,7 @@ func (p *PostgresConversation) ListSessions(ctx context.Context) ([]string, erro
 // SessionStats returns statistics for a session.
 func (p *PostgresConversation) SessionStats(ctx context.Context, sessionID string) (*SessionStats, error) {
 	query := fmt.Sprintf(`
-		SELECT 
+		SELECT
 			COUNT(*) as message_count,
 			MIN(created_at) as first_message,
 			MAX(created_at) as last_message

@@ -33,6 +33,7 @@ type SimpleHandler struct {
 	ApprovalHook    governance.ApprovalHook
 	ApprovalStore   ApprovalStore
 	ApprovalTimeout time.Duration
+	AsyncTimeout    time.Duration
 }
 
 // AgentCard exposes the configured agent card for capability checks.
@@ -481,6 +482,11 @@ func (h *SimpleHandler) runAsync(parent context.Context, taskID string, message 
 		parent = context.Background()
 	}
 	ctx := context.WithoutCancel(parent)
+	if h.AsyncTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, h.AsyncTimeout)
+		defer cancel()
+	}
 	task, err := h.Store.GetTask(ctx, taskID, 0, true)
 	if err != nil {
 		return

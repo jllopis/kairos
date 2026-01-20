@@ -6,6 +6,7 @@ package memory
 
 import (
 	"context"
+	"strconv"
 	"time"
 )
 
@@ -228,7 +229,7 @@ func (s *SummarizationStrategy) Truncate(ctx context.Context, messages []Convers
 		Role:      "system",
 		Content:   "[Previous conversation summary]\n" + summary,
 		CreatedAt: summarizeThese[0].CreatedAt,
-		Metadata:  map[string]string{"type": "summary", "summarized_count": string(rune(toSummarize))},
+		Metadata:  map[string]string{"type": "summary", "summarized_count": strconv.Itoa(toSummarize)},
 	}
 
 	// Reconstruct
