@@ -28,6 +28,10 @@ As you build these, try to define clear Go signatures. This makes it easier to s
 - **Provider**: A factory that returns `llm.Provider` based on the config.
 - **Agent**: A builder pattern that returns a `*agent.Agent` with all wired dependencies.
 
+### Uso de variables de entorno
+
+Como el framework Kairos hereda el entorno del sistema al lanzar servidores MCP, basta con hacer `export OWM_API_KEY=tu_clave` (o la variable que necesites) en el terminal antes de ejecutar el ejemplo.
+
 ## Incremental mapping by step
 
 - **Step 02**: Seed `config`, `observability`, `providers`, `agent`.
