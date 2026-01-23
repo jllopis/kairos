@@ -16,6 +16,14 @@ type ScriptedMockProvider struct {
 	CallCount int
 }
 
+// NewScriptedMockProvider creates a new ScriptedMockProvider.
+// The model argument is currently ignored by the mock but included for compatibility.
+func NewScriptedMockProvider(model string, responses ...string) *ScriptedMockProvider {
+	return &ScriptedMockProvider{
+		Responses: responses,
+	}
+}
+
 // Chat pops the next scripted response or returns the configured error.
 func (s *ScriptedMockProvider) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
 	s.mu.Lock()
