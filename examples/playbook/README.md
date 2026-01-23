@@ -16,6 +16,7 @@ Throughout this playbook, you will build **SkyGuide**, an intelligent travel ass
 - Each step should be runnable on its own, but later steps build on prior ones.
 - Build incrementally: reuse shared code from earlier steps instead of copying.
 - Standardize provider selection: mock, ollama, openai, gemini.
+- **Environment Variables**: Never commit API keys. Use environment variables (e.g., `OWM_API_KEY`) and reference them in your configuration or pass them at runtime.
 
 ## Incremental layout
 

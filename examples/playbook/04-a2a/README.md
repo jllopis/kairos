@@ -1,4 +1,4 @@
-# Playbook 14 - Discovery & A2A Communication
+# Playbook 04 - Discovery & A2A Communication
 
 Goal: make agents discoverable and enable peer-to-peer communication.
 
@@ -27,6 +27,14 @@ SkyGuide is no longer a lonely script. We are making it a "Service". It will now
 - The A2A server starts and listens on a port.
 - The Agent Card is served and contains the correct role/capabilities.
 - A client can send a message and receive the agent's response over the network.
+
+## Environment Variables
+
+- `OWM_API_KEY`: Required for the OpenWeather tool. Set this in your shell before running the server.
+
+  ```bash
+  export OWM_API_KEY=your_key_here
+  ```
 
 ## Manual tests
 
