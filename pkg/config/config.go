@@ -98,10 +98,13 @@ type MCPServerConfig struct {
 
 // TelemetryConfig configures OpenTelemetry exporters.
 type TelemetryConfig struct {
-	Exporter           string `koanf:"exporter"` // stdout, otlp
-	OTLPEndpoint       string `koanf:"otlp_endpoint"`
-	OTLPInsecure       bool   `koanf:"otlp_insecure"`
-	OTLPTimeoutSeconds int    `koanf:"otlp_timeout_seconds"`
+	Exporter           string            `koanf:"exporter"` // stdout, otlp
+	OTLPEndpoint       string            `koanf:"otlp_endpoint"`
+	OTLPInsecure       bool              `koanf:"otlp_insecure"`
+	OTLPTimeoutSeconds int               `koanf:"otlp_timeout_seconds"`
+	OTLPHeaders        map[string]string `koanf:"otlp_headers"`
+	OTLPUser           string            `koanf:"otlp_user"`
+	OTLPToken          string            `koanf:"otlp_token"`
 }
 
 // RuntimeConfig configures runtime-level behaviors.
@@ -183,6 +186,9 @@ func loadWithOverrides(path, profile string, overrides map[string]any) (*Config,
 	k.Set("telemetry.otlp_endpoint", "")
 	k.Set("telemetry.otlp_insecure", true)
 	k.Set("telemetry.otlp_timeout_seconds", 10)
+	k.Set("telemetry.otlp_headers", map[string]string{})
+	k.Set("telemetry.otlp_user", "")
+	k.Set("telemetry.otlp_token", "")
 
 	k.Set("runtime.approval_sweep_interval_seconds", 0)
 	k.Set("runtime.approval_sweep_timeout_seconds", 0)
@@ -472,6 +478,21 @@ func normalizeTelemetryConfig() {
 	if !k.Exists("telemetry.otlp_timeout_seconds") {
 		if raw := k.Get("telemetry.otlp.timeout_seconds"); raw != nil {
 			_ = k.Set("telemetry.otlp_timeout_seconds", raw)
+		}
+	}
+	if !k.Exists("telemetry.otlp_headers") || len(k.StringMap("telemetry.otlp_headers")) == 0 {
+		if raw := k.Get("telemetry.otlp.headers"); raw != nil {
+			_ = k.Set("telemetry.otlp_headers", raw)
+		}
+	}
+	if !k.Exists("telemetry.otlp_user") || k.String("telemetry.otlp_user") == "" {
+		if raw := k.Get("telemetry.otlp.user"); raw != nil {
+			_ = k.Set("telemetry.otlp_user", raw)
+		}
+	}
+	if !k.Exists("telemetry.otlp_token") || k.String("telemetry.otlp_token") == "" {
+		if raw := k.Get("telemetry.otlp.token"); raw != nil {
+			_ = k.Set("telemetry.otlp_token", raw)
 		}
 	}
 }

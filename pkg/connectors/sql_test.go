@@ -65,8 +65,9 @@ func TestSQLToolGeneration(t *testing.T) {
 	}
 
 	for _, tool := range tools {
-		if !expectedNames[tool.Function.Name] {
-			t.Errorf("Unexpected tool name: %s", tool.Function.Name)
+		name := tool.ToolDefinition().Function.Name
+		if !expectedNames[name] {
+			t.Errorf("Unexpected tool name: %s", name)
 		}
 	}
 }
@@ -93,8 +94,9 @@ func TestSQLReadOnlyMode(t *testing.T) {
 	}
 
 	for _, tool := range tools {
-		if tool.Function.Name != "list_users" && tool.Function.Name != "get_users" {
-			t.Errorf("Unexpected write tool in read-only mode: %s", tool.Function.Name)
+		name := tool.ToolDefinition().Function.Name
+		if name != "list_users" && name != "get_users" {
+			t.Errorf("Unexpected write tool in read-only mode: %s", name)
 		}
 	}
 }
@@ -115,8 +117,9 @@ func TestSQLToolPrefix(t *testing.T) {
 	tools := c.Tools()
 
 	for _, tool := range tools {
-		if tool.Function.Name[:3] != "db_" {
-			t.Errorf("Expected tool name to start with 'db_', got %s", tool.Function.Name)
+		name := tool.ToolDefinition().Function.Name
+		if name[:3] != "db_" {
+			t.Errorf("Expected tool name to start with 'db_', got %s", name)
 		}
 	}
 }

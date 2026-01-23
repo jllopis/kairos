@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jllopis/kairos/pkg/core"
 	"github.com/jllopis/kairos/pkg/llm"
 )
 
@@ -111,27 +112,27 @@ func (c *SQLConnector) introspect() error {
 	switch c.driver {
 	case "postgres", "postgresql":
 		query = `
-			SELECT 
+			SELECT
 				table_name,
 				column_name,
 				data_type,
 				is_nullable,
 				character_maximum_length,
 				column_default
-			FROM information_schema.columns 
+			FROM information_schema.columns
 			WHERE table_schema = 'public'
 			ORDER BY table_name, ordinal_position
 		`
 	case "mysql":
 		query = `
-			SELECT 
+			SELECT
 				table_name,
 				column_name,
 				data_type,
 				is_nullable,
 				character_maximum_length,
 				column_default
-			FROM information_schema.columns 
+			FROM information_schema.columns
 			WHERE table_schema = DATABASE()
 			ORDER BY table_name, ordinal_position
 		`
@@ -141,14 +142,14 @@ func (c *SQLConnector) introspect() error {
 	default:
 		// Generic approach using information_schema
 		query = `
-			SELECT 
+			SELECT
 				table_name,
 				column_name,
 				data_type,
 				is_nullable,
 				character_maximum_length,
 				column_default
-			FROM information_schema.columns 
+			FROM information_schema.columns
 			ORDER BY table_name, ordinal_position
 		`
 	}
@@ -268,19 +269,19 @@ func (c *SQLConnector) introspectPrimaryKeys(ctx context.Context) error {
 	switch c.driver {
 	case "postgres", "postgresql":
 		query = `
-			SELECT 
-				kcu.table_name, 
+			SELECT
+				kcu.table_name,
 				kcu.column_name
 			FROM information_schema.table_constraints tc
-			JOIN information_schema.key_column_usage kcu 
+			JOIN information_schema.key_column_usage kcu
 				ON tc.constraint_name = kcu.constraint_name
 			WHERE tc.constraint_type = 'PRIMARY KEY'
 			AND tc.table_schema = 'public'
 		`
 	case "mysql":
 		query = `
-			SELECT 
-				table_name, 
+			SELECT
+				table_name,
 				column_name
 			FROM information_schema.key_column_usage
 			WHERE constraint_name = 'PRIMARY'
@@ -316,8 +317,12 @@ func (c *SQLConnector) introspectPrimaryKeys(ctx context.Context) error {
 	return nil
 }
 
-// Tools generates llm.Tool from discovered tables.
-func (c *SQLConnector) Tools() []llm.Tool {
+// Tools generates core tools from discovered tables.
+func (c *SQLConnector) Tools() []core.Tool {
+	return coreToolsFromDefinitions(c.toolDefinitions(), c)
+}
+
+func (c *SQLConnector) toolDefinitions() []llm.Tool {
 	var tools []llm.Tool
 
 	for _, table := range c.tables {

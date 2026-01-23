@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/jllopis/kairos/pkg/core"
 	"github.com/jllopis/kairos/pkg/llm"
 )
 
@@ -26,29 +27,29 @@ type GraphQLConnector struct {
 
 // GraphQLSchema represents the introspected GraphQL schema.
 type GraphQLSchema struct {
-	QueryType        *GraphQLType   `json:"queryType"`
-	MutationType     *GraphQLType   `json:"mutationType"`
-	SubscriptionType *GraphQLType   `json:"subscriptionType"`
-	Types            []GraphQLType  `json:"types"`
+	QueryType        *GraphQLType  `json:"queryType"`
+	MutationType     *GraphQLType  `json:"mutationType"`
+	SubscriptionType *GraphQLType  `json:"subscriptionType"`
+	Types            []GraphQLType `json:"types"`
 }
 
 // GraphQLType represents a GraphQL type.
 type GraphQLType struct {
-	Kind        string            `json:"kind"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Fields      []GraphQLField    `json:"fields"`
-	InputFields []GraphQLField    `json:"inputFields"`
+	Kind        string             `json:"kind"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Fields      []GraphQLField     `json:"fields"`
+	InputFields []GraphQLField     `json:"inputFields"`
 	EnumValues  []GraphQLEnumValue `json:"enumValues"`
-	OfType      *GraphQLType      `json:"ofType"`
+	OfType      *GraphQLType       `json:"ofType"`
 }
 
 // GraphQLField represents a field in a GraphQL type.
 type GraphQLField struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Args        []GraphQLArg    `json:"args"`
-	Type        GraphQLTypeRef  `json:"type"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Args        []GraphQLArg   `json:"args"`
+	Type        GraphQLTypeRef `json:"type"`
 }
 
 // GraphQLArg represents an argument to a GraphQL field.
@@ -61,8 +62,8 @@ type GraphQLArg struct {
 
 // GraphQLTypeRef represents a reference to a GraphQL type.
 type GraphQLTypeRef struct {
-	Kind   string         `json:"kind"`
-	Name   string         `json:"name"`
+	Kind   string          `json:"kind"`
+	Name   string          `json:"name"`
 	OfType *GraphQLTypeRef `json:"ofType"`
 }
 
@@ -278,8 +279,12 @@ func (c *GraphQLConnector) introspect() error {
 	return nil
 }
 
-// Tools generates llm.Tool from the GraphQL schema queries and mutations.
-func (c *GraphQLConnector) Tools() []llm.Tool {
+// Tools generates core tools from the GraphQL schema queries and mutations.
+func (c *GraphQLConnector) Tools() []core.Tool {
+	return coreToolsFromDefinitions(c.toolDefinitions(), c)
+}
+
+func (c *GraphQLConnector) toolDefinitions() []llm.Tool {
 	if c.schema == nil {
 		return nil
 	}

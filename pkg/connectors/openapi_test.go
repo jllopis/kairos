@@ -111,7 +111,7 @@ func TestToolGeneration(t *testing.T) {
 	// Check tool names
 	toolNames := make(map[string]bool)
 	for _, tool := range tools {
-		toolNames[tool.Function.Name] = true
+		toolNames[tool.ToolDefinition().Function.Name] = true
 	}
 
 	expectedNames := []string{"listUsers", "createUser", "getUser", "deleteUser"}
@@ -133,8 +133,9 @@ func TestToolParameters(t *testing.T) {
 		params map[string]interface{}
 	}
 	for _, tool := range connector.Tools() {
-		if tool.Function.Name == "getUser" {
-			params, ok := tool.Function.Parameters.(map[string]interface{})
+		def := tool.ToolDefinition()
+		if def.Function.Name == "getUser" {
+			params, ok := def.Function.Parameters.(map[string]interface{})
 			if ok {
 				getUserTool = &struct{ params map[string]interface{} }{params}
 			}
@@ -185,7 +186,7 @@ func TestExecuteWithMockServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listUsers failed: %v", err)
 	}
-	if result == "" {
+	if resStr, ok := result.(string); !ok || resStr == "" {
 		t.Error("expected non-empty result from listUsers")
 	}
 
@@ -194,7 +195,7 @@ func TestExecuteWithMockServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("getUser failed: %v", err)
 	}
-	if result == "" {
+	if resStr, ok := result.(string); !ok || resStr == "" {
 		t.Error("expected non-empty result from getUser")
 	}
 
@@ -206,7 +207,7 @@ func TestExecuteWithMockServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("createUser failed: %v", err)
 	}
-	if result == "" {
+	if resStr, ok := result.(string); !ok || resStr == "" {
 		t.Error("expected non-empty result from createUser")
 	}
 }
@@ -241,7 +242,7 @@ func TestAuthenticationOptions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("request with API key failed: %v", err)
 		}
-		if result == "" {
+		if resStr, ok := result.(string); !ok || resStr == "" {
 			t.Error("expected non-empty result")
 		}
 	})
@@ -258,7 +259,7 @@ func TestAuthenticationOptions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("request with Bearer token failed: %v", err)
 		}
-		if result == "" {
+		if resStr, ok := result.(string); !ok || resStr == "" {
 			t.Error("expected non-empty result")
 		}
 	})
@@ -277,7 +278,7 @@ func TestExecuteJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExecuteJSON failed: %v", err)
 	}
-	if result == "" {
+	if resStr, ok := result.(string); !ok || resStr == "" {
 		t.Error("expected non-empty result")
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jllopis/kairos/pkg/core"
 	"github.com/jllopis/kairos/pkg/llm"
 	"gopkg.in/yaml.v3"
 )
@@ -130,7 +131,7 @@ const (
 )
 
 // ToolHandler executes a tool call against the API.
-type ToolHandler func(ctx context.Context, args map[string]interface{}) (string, error)
+type ToolHandler func(ctx context.Context, args map[string]interface{}) (any, error)
 
 // Option configures the OpenAPIConnector.
 type Option func(*OpenAPIConnector)
@@ -262,25 +263,25 @@ func NewFromBytes(data []byte, opts ...Option) (*OpenAPIConnector, error) {
 	return c, nil
 }
 
-// Tools returns the generated LLM tools.
-func (c *OpenAPIConnector) Tools() []llm.Tool {
-	return c.tools
+// Tools returns the generated tools as core.Tool adapters.
+func (c *OpenAPIConnector) Tools() []core.Tool {
+	return coreToolsFromDefinitions(c.tools, c)
 }
 
 // Execute runs a tool by name with the given arguments.
-func (c *OpenAPIConnector) Execute(ctx context.Context, name string, args map[string]interface{}) (string, error) {
+func (c *OpenAPIConnector) Execute(ctx context.Context, name string, args map[string]interface{}) (any, error) {
 	handler, ok := c.handlers[name]
 	if !ok {
-		return "", fmt.Errorf("unknown tool: %s", name)
+		return nil, fmt.Errorf("unknown tool: %s", name)
 	}
 	return handler(ctx, args)
 }
 
 // ExecuteJSON runs a tool with JSON string arguments.
-func (c *OpenAPIConnector) ExecuteJSON(ctx context.Context, name, argsJSON string) (string, error) {
+func (c *OpenAPIConnector) ExecuteJSON(ctx context.Context, name, argsJSON string) (any, error) {
 	var args map[string]interface{}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
-		return "", fmt.Errorf("invalid JSON arguments: %w", err)
+		return nil, fmt.Errorf("invalid JSON arguments: %w", err)
 	}
 	return c.Execute(ctx, name, args)
 }
@@ -438,7 +439,7 @@ func (c *OpenAPIConnector) schemaToMap(schema *Schema) map[string]interface{} {
 
 // createHandler creates an HTTP handler for an operation.
 func (c *OpenAPIConnector) createHandler(path, method string, op *Operation) ToolHandler {
-	return func(ctx context.Context, args map[string]interface{}) (string, error) {
+	return func(ctx context.Context, args map[string]interface{}) (any, error) {
 		// Build URL with path parameters
 		finalPath := path
 		queryParams := url.Values{}
@@ -502,7 +503,7 @@ func (c *OpenAPIConnector) createHandler(path, method string, op *Operation) Too
 
 		req, err := http.NewRequestWithContext(ctx, method, finalURL, bodyReader)
 		if err != nil {
-			return "", fmt.Errorf("failed to create request: %w", err)
+			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
 
 		// Set headers
@@ -521,19 +522,19 @@ func (c *OpenAPIConnector) createHandler(path, method string, op *Operation) Too
 		// Execute request
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
-			return "", fmt.Errorf("request failed: %w", err)
+			return nil, fmt.Errorf("request failed: %w", err)
 		}
 		defer resp.Body.Close()
 
 		// Read response
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return "", fmt.Errorf("failed to read response: %w", err)
+			return nil, fmt.Errorf("failed to read response: %w", err)
 		}
 
 		// Check for errors
 		if resp.StatusCode >= 400 {
-			return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(respBody))
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(respBody))
 		}
 
 		return string(respBody), nil

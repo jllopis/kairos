@@ -135,7 +135,7 @@ func TestGraphQLToolGeneration(t *testing.T) {
 	// Check tool names
 	toolNames := make(map[string]bool)
 	for _, tool := range tools {
-		toolNames[tool.Function.Name] = true
+		toolNames[tool.ToolDefinition().Function.Name] = true
 	}
 
 	expectedTools := []string{"user", "users", "search", "createUser", "deleteUser"}
@@ -157,8 +157,9 @@ func TestGraphQLToolParameters(t *testing.T) {
 		required []string
 	}
 	for _, tool := range tools {
-		if tool.Function.Name == "user" {
-			params := tool.Function.Parameters.(map[string]interface{})
+		def := tool.ToolDefinition()
+		if def.Function.Name == "user" {
+			params := def.Function.Parameters.(map[string]interface{})
 			userTool = &struct {
 				params   map[string]interface{}
 				required []string
@@ -204,8 +205,9 @@ func TestGraphQLToolPrefix(t *testing.T) {
 
 	// All tools should have the prefix
 	for _, tool := range tools {
-		if tool.Function.Name[:4] != "gql_" {
-			t.Errorf("Expected tool name to start with 'gql_', got %s", tool.Function.Name)
+		name := tool.ToolDefinition().Function.Name
+		if name[:4] != "gql_" {
+			t.Errorf("Expected tool name to start with 'gql_', got %s", name)
 		}
 	}
 }

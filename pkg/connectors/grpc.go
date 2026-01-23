@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jllopis/kairos/pkg/core"
 	"github.com/jllopis/kairos/pkg/llm"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -251,8 +252,12 @@ func (c *GRPCConnector) parseFileDescriptors(serviceName string, fdProtos [][]by
 	return nil
 }
 
-// Tools generates llm.Tool from discovered gRPC services.
-func (c *GRPCConnector) Tools() []llm.Tool {
+// Tools generates core tools from discovered gRPC services.
+func (c *GRPCConnector) Tools() []core.Tool {
+	return coreToolsFromDefinitions(c.toolDefinitions(), c)
+}
+
+func (c *GRPCConnector) toolDefinitions() []llm.Tool {
 	var tools []llm.Tool
 
 	for _, svc := range c.services {
@@ -347,7 +352,7 @@ func (c *GRPCConnector) fieldToJSONSchema(field protoreflect.FieldDescriptor) ma
 	if field.IsMap() {
 		valueField := field.MapValue()
 		return map[string]interface{}{
-			"type": "object",
+			"type":                 "object",
 			"additionalProperties": c.kindToJSONSchema(valueField),
 		}
 	}

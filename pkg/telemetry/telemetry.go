@@ -5,6 +5,7 @@ package telemetry
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"time"
@@ -34,6 +35,9 @@ type Config struct {
 	OTLPEndpoint       string
 	OTLPInsecure       bool
 	OTLPTimeoutSeconds int
+	OTLPHeaders        map[string]string
+	OTLPUser           string
+	OTLPToken          string
 }
 
 // Init initializes OpenTelemetry with stdout exporters using default settings.
@@ -144,6 +148,21 @@ func initOTLP(res *resource.Resource, cfg Config) (*sdktrace.TracerProvider, *me
 	if cfg.OTLPInsecure {
 		traceOpts = append(traceOpts, otlptracegrpc.WithInsecure())
 		metricOpts = append(metricOpts, otlpmetricgrpc.WithInsecure())
+	}
+
+	headers := make(map[string]string)
+	for k, v := range cfg.OTLPHeaders {
+		headers[k] = v
+	}
+
+	if cfg.OTLPUser != "" && cfg.OTLPToken != "" {
+		auth := cfg.OTLPUser + ":" + cfg.OTLPToken
+		headers["Authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+	}
+
+	if len(headers) > 0 {
+		traceOpts = append(traceOpts, otlptracegrpc.WithHeaders(headers))
+		metricOpts = append(metricOpts, otlpmetricgrpc.WithHeaders(headers))
 	}
 
 	traceExporter, err := otlptracegrpc.New(context.Background(), traceOpts...)

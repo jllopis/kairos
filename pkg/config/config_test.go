@@ -83,11 +83,11 @@ log:
 	}
 
 	tests := []struct {
-		name            string
-		profile         string
-		wantProvider    string
-		wantLogLevel    string
-		wantModel       string // Should inherit from base when not overridden
+		name         string
+		profile      string
+		wantProvider string
+		wantLogLevel string
+		wantModel    string // Should inherit from base when not overridden
 	}{
 		{
 			name:         "no profile - base only",
@@ -199,6 +199,55 @@ llm:
 				t.Errorf("provider: got %s, want %s", cfg.LLM.Provider, tc.wantProvider)
 			}
 		})
+	}
+}
+
+func TestLoadWithCLITelemetryHeaders(t *testing.T) {
+	args := []string{
+		"--set", "telemetry.exporter=otlp",
+		"--set", "telemetry.otlp_endpoint=http://localhost:4317",
+		"--set", "telemetry.otlp_headers.x-api-key=secret-token",
+		"--set", "telemetry.otlp_headers.x-org-id=org-123",
+	}
+
+	cfg, err := LoadWithCLI(args)
+	if err != nil {
+		t.Fatalf("LoadWithCLI failed: %v", err)
+	}
+
+	if cfg.Telemetry.Exporter != "otlp" {
+		t.Errorf("expected exporter otlp, got %s", cfg.Telemetry.Exporter)
+	}
+	if cfg.Telemetry.OTLPEndpoint != "http://localhost:4317" {
+		t.Errorf("expected endpoint, got %s", cfg.Telemetry.OTLPEndpoint)
+	}
+
+	headers := cfg.Telemetry.OTLPHeaders
+	if headers["x-api-key"] != "secret-token" {
+		t.Errorf("expected x-api-key=secret-token, got %s", headers["x-api-key"])
+	}
+	if headers["x-org-id"] != "org-123" {
+		t.Errorf("expected x-org-id=org-123, got %s", headers["x-org-id"])
+	}
+}
+
+func TestLoadWithCLITelemetryBasicAuth(t *testing.T) {
+	args := []string{
+		"--set", "telemetry.exporter=otlp",
+		"--set", "telemetry.otlp_user=admin",
+		"--set", "telemetry.otlp_token=password123",
+	}
+
+	cfg, err := LoadWithCLI(args)
+	if err != nil {
+		t.Fatalf("LoadWithCLI failed: %v", err)
+	}
+
+	if cfg.Telemetry.OTLPUser != "admin" {
+		t.Errorf("expected user admin, got %s", cfg.Telemetry.OTLPUser)
+	}
+	if cfg.Telemetry.OTLPToken != "password123" {
+		t.Errorf("expected token password123, got %s", cfg.Telemetry.OTLPToken)
 	}
 }
 
