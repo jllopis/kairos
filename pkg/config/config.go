@@ -85,15 +85,16 @@ type DiscoveryConfig struct {
 
 // MCPServerConfig describes an MCP server endpoint and client settings.
 type MCPServerConfig struct {
-	Command         string   `koanf:"command"`
-	Args            []string `koanf:"args"`
-	ProtocolVersion string   `koanf:"protocol_version"`
-	Transport       string   `koanf:"transport"` // stdio, http
-	URL             string   `koanf:"url"`
-	TimeoutSeconds  *int     `koanf:"timeout_seconds"`
-	RetryCount      *int     `koanf:"retry_count"`
-	RetryBackoffMs  *int     `koanf:"retry_backoff_ms"`
-	CacheTTLSeconds *int     `koanf:"cache_ttl_seconds"`
+	Command         string            `koanf:"command"`
+	Args            []string          `koanf:"args"`
+	ProtocolVersion string            `koanf:"protocol_version"`
+	Transport       string            `koanf:"transport"` // stdio, http
+	URL             string            `koanf:"url"`
+	TimeoutSeconds  *int              `koanf:"timeout_seconds"`
+	RetryCount      *int              `koanf:"retry_count"`
+	RetryBackoffMs  *int              `koanf:"retry_backoff_ms"`
+	CacheTTLSeconds *int              `koanf:"cache_ttl_seconds"`
+	Env             map[string]string `koanf:"env"`
 }
 
 // TelemetryConfig configures OpenTelemetry exporters.

@@ -190,7 +190,7 @@ El código del agent no cambia al añadir providers - solo consume la interfaz `
 
 ## Arquitectura de Conectores (Tools)
 
-Los **Conectores** son el complemento de los **Providers**. Mientras los providers conectan con LLMs, los conectores generan `[]llm.Tool` desde especificaciones externas.
+Los **Conectores** son el complemento de los **Providers**. Mientras los providers conectan con LLMs, los conectores generan `[]core.Tool` desde especificaciones externas.
 
 ### Relación Providers ↔ Connectors
 
@@ -211,7 +211,7 @@ Los **Conectores** son el complemento de los **Providers**. Mientras los provide
 │   └──────────────────┘         └──────────────────────────┘ │
 │            │                              │                  │
 │            │       ┌──────────────┐       │                  │
-│            │       │  llm.Tool[]  │       │                  │
+│            │       │  core.Tool[] │       │                  │
 │            │       │ (formato     │◄──────┘                  │
 │            └──────►│  común)      │                          │
 │                    └──────────────┘                          │
@@ -222,8 +222,8 @@ Los **Conectores** son el complemento de los **Providers**. Mientras los provide
 ### Principio de diseño
 
 1. **Providers** → Hablan con LLMs (OpenAI, Claude, Gemini, etc.)
-2. **Connectors** → Generan `[]llm.Tool` desde especificaciones externas
-3. **Tools** → Formato común (`llm.Tool`) que todos los providers entienden
+2. **Connectors** → Generan `[]core.Tool` desde especificaciones externas
+3. **Tools** → Cada `core.Tool` expone su `llm.Tool` via `ToolDefinition()`
 
 Esta separación permite:
 - Usar **cualquier conector** con **cualquier provider**
@@ -246,8 +246,8 @@ Cada conector implementa:
 
 ```go
 type Connector interface {
-    // Tools genera []llm.Tool desde la especificación
-    Tools() []llm.Tool
+    // Tools genera []core.Tool desde la especificación
+    Tools() []core.Tool
     
     // Execute invoca un tool por nombre con argumentos
     Execute(ctx context.Context, toolName string, args map[string]any) (any, error)
@@ -264,7 +264,7 @@ connector, _ := connectors.NewOpenAPIConnector(
 )
 
 // 2. Obtener tools generados automáticamente
-tools := connector.Tools()  // []llm.Tool
+tools := connector.Tools()  // []core.Tool
 
 // 3. Usar con cualquier provider
 agent := kairos.NewAgent(
@@ -284,7 +284,7 @@ result, _ := connector.Execute(ctx, "createPet", map[string]any{
 Convierte especificaciones OpenAPI/Swagger en tools ejecutables:
 
 - **Parsea** OpenAPI 3.x y Swagger 2.0 (YAML/JSON)
-- **Genera** un `llm.Tool` por cada operación (GET, POST, PUT, DELETE...)
+- **Genera** un `core.Tool` por cada operación (GET, POST, PUT, DELETE...)
 - **Extrae** parámetros (path, query, header) y request body como JSON Schema
 - **Ejecuta** llamadas HTTP con autenticación configurada
 

@@ -1,0 +1,25 @@
+log:
+  level: disabled # O "error"
+  # si quieres ver fallos graves
+  # format: text
+  # level: info
+llm:
+  provider: gemini
+  model: gemini-3-flash-preview
+telemetry:
+  exporter: none
+  # exporter: stdout
+
+mcp:
+  servers:
+    openweather:
+      command: "docker"
+      args:
+        - "run"
+        - "-i"
+        - "--rm"
+        - "-e"
+        - "OWM_API_KEY"
+        - "mcp/openweather"
+      # env:
+      #   OWM_API_KEY: "tu_api_key_aqui"

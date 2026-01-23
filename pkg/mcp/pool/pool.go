@@ -81,6 +81,9 @@ type ServerConfig struct {
 	// For HTTP servers
 	URL string
 
+	// Env holds environment variables for stdio servers.
+	Env map[string]string
+
 	// MaxConnections limits concurrent connections (0 = unlimited).
 	MaxConnections int
 
@@ -428,7 +431,7 @@ func (p *Pool) ServerInfo(name string) (ServerConfig, bool) {
 func (p *Pool) createClient(ctx context.Context, config *ServerConfig) (*mcp.Client, error) {
 	switch config.Type {
 	case ServerTypeStdio:
-		return mcp.NewClientWithStdio(config.Command, config.Args, config.ClientOptions...)
+		return mcp.NewClientWithStdio(config.Command, config.Args, config.Env, config.ClientOptions...)
 	case ServerTypeHTTP:
 		return mcp.NewClientWithStreamableHTTP(config.URL, config.ClientOptions...)
 	default:

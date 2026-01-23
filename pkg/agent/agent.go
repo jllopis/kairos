@@ -194,7 +194,7 @@ func WithMCPServerConfigs(servers map[string]config.MCPServerConfig) Option {
 				if strings.TrimSpace(server.Command) == "" {
 					return fmt.Errorf("mcp server %q missing command", name)
 				}
-				client, err := kmcp.NewClientWithStdioProtocol(server.Command, server.Args, server.ProtocolVersion, opts...)
+				client, err := kmcp.NewClientWithStdioProtocol(server.Command, server.Args, server.Env, server.ProtocolVersion, opts...)
 				if err != nil {
 					return fmt.Errorf("mcp server %q: %w", name, err)
 				}

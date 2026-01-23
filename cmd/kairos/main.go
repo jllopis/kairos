@@ -812,7 +812,7 @@ func newMCPClient(name string, cfg config.MCPServerConfig) (*kairosmcp.Client, e
 		if strings.TrimSpace(cfg.Command) == "" {
 			return nil, fmt.Errorf("mcp server %q missing command", name)
 		}
-		return kairosmcp.NewClientWithStdioProtocol(cfg.Command, cfg.Args, cfg.ProtocolVersion, opts...)
+		return kairosmcp.NewClientWithStdioProtocol(cfg.Command, cfg.Args, cfg.Env, cfg.ProtocolVersion, opts...)
 	}
 	if transport == "http" {
 		if strings.TrimSpace(cfg.URL) == "" {

@@ -1,6 +1,12 @@
 # Conectores - Kairos
 
-Los **Conectores** transforman especificaciones externas (OpenAPI, GraphQL, etc.) en `[]llm.Tool` que cualquier LLM provider puede usar.
+Los **Conectores** transforman especificaciones externas (OpenAPI, GraphQL, etc.) en `[]core.Tool` listos para el agent. Cada tool expone su `llm.Tool` via `ToolDefinition()`.
+
+## Cambio breaking (Tools y Execute)
+
+- `Tools()` ahora devuelve `[]core.Tool` (antes `[]llm.Tool`).
+- Usa `tool.ToolDefinition()` si necesitas el schema `llm.Tool`.
+- `OpenAPIConnector.Execute` y `ExecuteJSON` ahora devuelven `any`.
 
 ## Arquitectura
 
@@ -20,11 +26,10 @@ Los **Conectores** transforman especificaciones externas (OpenAPI, GraphQL, etc.
 │   │ Ollama      ✅   │         │ SQLConnector        🔜   │ │
 │   └──────────────────┘         └──────────────────────────┘ │
 │            │                              │                  │
-│            │       ┌──────────────┐       │                  │
-│            └──────►│  llm.Tool[]  │◄──────┘                  │
-│                    │ (formato     │                          │
-│                    │  común)      │                          │
-│                    └──────────────┘                          │
+│            │       ┌───────────────┐      │                  │
+│            └──────►│  core.Tool[]  │◄─────┘                  │
+│                    │ (ToolDefinition)                       │
+│                    └───────────────┘                         │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -34,7 +39,7 @@ Los **Conectores** transforman especificaciones externas (OpenAPI, GraphQL, etc.
 | Componente | Responsabilidad |
 |------------|-----------------|
 | **Providers** | Comunicación con LLMs (OpenAI, Claude, Gemini...) |
-| **Connectors** | Generación de `[]llm.Tool` desde specs externos |
+| **Connectors** | Generación de `[]core.Tool` desde specs externos |
 | **Tools** | Formato común que todos los providers entienden |
 
 Esta separación permite:
@@ -59,7 +64,7 @@ Convierte especificaciones OpenAPI/Swagger en tools ejecutables automáticamente
 ### Características
 
 - **Parsea** OpenAPI 3.x y Swagger 2.0 (YAML y JSON)
-- **Genera** un `llm.Tool` por cada operación (GET, POST, PUT, DELETE, PATCH)
+- **Genera** un `core.Tool` por cada operación (GET, POST, PUT, DELETE, PATCH)
 - **Extrae** parámetros de path, query, header y request body
 - **Convierte** schemas a JSON Schema para validación del LLM
 - **Ejecuta** llamadas HTTP reales con autenticación configurada
@@ -75,7 +80,7 @@ connector, err := connectors.NewOpenAPIConnector(
 )
 
 // Obtener tools generados
-tools := connector.Tools()  // []llm.Tool
+tools := connector.Tools()  // []core.Tool
 
 // Usar con cualquier provider
 agent := kairos.NewAgent(
@@ -141,7 +146,7 @@ Convierte esquemas GraphQL en tools ejecutables mediante introspección.
 ### Características
 
 - **Introspección automática**: Descubre queries y mutations del endpoint
-- **Genera** un `llm.Tool` por cada query y mutation
+- **Genera** un `core.Tool` por cada query y mutation
 - **Mapea** argumentos GraphQL a JSON Schema
 - **Ejecuta** queries/mutations con los argumentos proporcionados
 - **Soporta** autenticación (Bearer, API Key, headers personalizados)
@@ -157,7 +162,7 @@ connector, err := connectors.NewGraphQLConnector(
 )
 
 // Obtener tools generados
-tools := connector.Tools()  // []llm.Tool
+tools := connector.Tools()  // []core.Tool
 
 // Usar con cualquier provider
 agent := kairos.NewAgent(
@@ -220,7 +225,7 @@ Convierte servicios gRPC en tools mediante reflection del servidor.
 ### Características
 
 - **Server reflection**: Descubre servicios y métodos automáticamente
-- **Genera** un `llm.Tool` por cada método RPC (excepto streaming)
+- **Genera** un `core.Tool` por cada método RPC (excepto streaming)
 - **Mapea** tipos protobuf a JSON Schema
 - **Ejecuta** llamadas gRPC dinámicamente
 - **Soporta** conexiones seguras e inseguras
@@ -238,7 +243,7 @@ connector, err := connectors.NewGRPCConnector(
 defer connector.Close()
 
 // Obtener tools generados
-tools := connector.Tools()  // []llm.Tool
+tools := connector.Tools()  // []core.Tool
 
 // Usar con cualquier provider
 agent := kairos.NewAgent(
@@ -413,27 +418,44 @@ type MyConnector struct {
     // ...
 }
 
-// Tools genera []llm.Tool desde tu especificación
-func (c *MyConnector) Tools() []llm.Tool {
-    return []llm.Tool{
-        {
-            Type: "function",
-            Function: llm.FunctionDef{
-                Name:        "myTool",
-                Description: "Does something useful",
-                Parameters: map[string]any{
-                    "type": "object",
-                    "properties": map[string]any{
-                        "input": map[string]any{
-                            "type":        "string",
-                            "description": "Input value",
-                        },
+// Tools genera []core.Tool desde tu especificación
+func (c *MyConnector) Tools() []core.Tool {
+    return []core.Tool{
+        &MyTool{connector: c},
+    }
+}
+
+type MyTool struct {
+    connector *MyConnector
+}
+
+func (t *MyTool) Name() string {
+    return "myTool"
+}
+
+func (t *MyTool) ToolDefinition() llm.Tool {
+    return llm.Tool{
+        Type: llm.ToolTypeFunction,
+        Function: llm.FunctionDef{
+            Name:        "myTool",
+            Description: "Does something useful",
+            Parameters: map[string]any{
+                "type": "object",
+                "properties": map[string]any{
+                    "input": map[string]any{
+                        "type":        "string",
+                        "description": "Input value",
                     },
-                    "required": []string{"input"},
                 },
+                "required": []string{"input"},
             },
         },
     }
+}
+
+func (t *MyTool) Call(ctx context.Context, input any) (any, error) {
+    args := input.(map[string]any)
+    return t.connector.Execute(ctx, "myTool", args)
 }
 
 // Execute invoca el tool con los argumentos dados
@@ -469,7 +491,9 @@ El agent loop detecta tool calls del LLM y las ejecuta:
 ```go
 // En el agent loop (simplificado)
 for _, toolCall := range response.ToolCalls {
-    result, err := connector.Execute(ctx, toolCall.Function.Name, toolCall.Function.Arguments)
+    args := map[string]any{}
+    _ = json.Unmarshal([]byte(toolCall.Function.Arguments), &args)
+    result, err := connector.Execute(ctx, toolCall.Function.Name, args)
     // ... añade resultado al contexto
 }
 ```

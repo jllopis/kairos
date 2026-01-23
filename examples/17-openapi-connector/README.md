@@ -5,7 +5,7 @@ Este ejemplo demuestra cómo usar el conector OpenAPI para convertir automática
 ## Características
 
 - **Conversión automática**: Parsea specs OpenAPI 3.x (YAML o JSON)
-- **Generación de tools**: Crea `llm.Tool` para cada operación
+- **Generación de tools**: Crea `core.Tool` para cada operación
 - **Autenticación**: Soporte para API Key, Bearer token y Basic auth
 - **Ejecución integrada**: Ejecuta las llamadas HTTP automáticamente
 
@@ -51,7 +51,7 @@ connector, err := connectors.NewFromFile("spec.yaml",
 // Obtener todos los tools para pasarlos al agente
 tools := connector.Tools()
 
-// Los tools son compatibles con llm.Tool
+// Cada tool expone su llm.Tool via ToolDefinition()
 agent := agent.New(
     agent.WithProvider(provider),
     agent.WithTools(tools...),
@@ -113,15 +113,11 @@ Executing Tools:
 // El conector puede integrarse con un agente Kairos
 connector, _ := connectors.NewFromFile("api-spec.yaml")
 
-// Crear skill handler que delega en el conector
-handler := func(ctx context.Context, call llm.ToolCall) (string, error) {
-    return connector.ExecuteJSON(ctx, call.Function.Name, call.Function.Arguments)
-}
-
-// Registrar tools en el agente
-for _, tool := range connector.Tools() {
-    agent.RegisterTool(tool, handler)
-}
+agent, _ := agent.New(
+    "openapi-agent",
+    provider,
+    agent.WithTools(connector.Tools()...),
+)
 ```
 
 ## Specs soportados

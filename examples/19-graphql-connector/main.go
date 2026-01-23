@@ -9,7 +9,7 @@
 // The connector:
 // 1. Connects to a GraphQL endpoint
 // 2. Performs introspection to discover queries and mutations
-// 3. Generates llm.Tool for each operation
+// 3. Generates tools for each operation
 // 4. Executes operations when called
 //
 // Usage:
@@ -56,9 +56,10 @@ func main() {
 			fmt.Printf("   ... and %d more\n", len(tools)-10)
 			break
 		}
-		fmt.Printf("   📦 %s\n", tool.Function.Name)
-		if tool.Function.Description != "" {
-			desc := tool.Function.Description
+		def := tool.ToolDefinition()
+		fmt.Printf("   📦 %s\n", def.Function.Name)
+		if def.Function.Description != "" {
+			desc := def.Function.Description
 			if len(desc) > 60 {
 				desc = desc[:57] + "..."
 			}
@@ -66,7 +67,7 @@ func main() {
 		}
 
 		// Show parameters
-		if params, ok := tool.Function.Parameters.(map[string]interface{}); ok {
+		if params, ok := def.Function.Parameters.(map[string]interface{}); ok {
 			if props, ok := params["properties"].(map[string]interface{}); ok && len(props) > 0 {
 				fmt.Printf("      Args: ")
 				first := true
@@ -89,13 +90,14 @@ func main() {
 
 		// Try to find and execute the 'countries' query
 		for _, tool := range tools {
-			if tool.Function.Name == "countries" || tool.Function.Name == "country" {
-				fmt.Printf("\n   Calling: %s\n", tool.Function.Name)
+			name := tool.ToolDefinition().Function.Name
+			if name == "countries" || name == "country" {
+				fmt.Printf("\n   Calling: %s\n", name)
 
 				var result interface{}
 				var err error
 
-				if tool.Function.Name == "country" {
+				if name == "country" {
 					// Get a specific country
 					result, err = connector.Execute(ctx, "country", map[string]interface{}{
 						"code": "ES",

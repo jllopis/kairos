@@ -167,7 +167,7 @@ func newMCPClient(server config.MCPServerConfig) (*kmcp.Client, error) {
 		if strings.TrimSpace(server.Command) == "" {
 			return nil, fmt.Errorf("missing command for stdio transport")
 		}
-		return kmcp.NewClientWithStdioProtocol(server.Command, server.Args, server.ProtocolVersion)
+		return kmcp.NewClientWithStdioProtocol(server.Command, server.Args, server.Env, server.ProtocolVersion)
 	case "http", "streamable-http", "streamablehttp":
 		return kmcp.NewClientWithStreamableHTTPProtocol(server.URL, server.ProtocolVersion)
 	default:

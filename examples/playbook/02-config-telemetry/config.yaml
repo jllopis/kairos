@@ -1,0 +1,7 @@
+log:
+  level: info
+llm:
+  provider: gemini
+  model: gemini-3-flash-preview
+telemetry:
+  exporter: stdout

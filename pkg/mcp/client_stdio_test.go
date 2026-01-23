@@ -37,7 +37,7 @@ func TestClient_Stdio_ListToolsAndCall(t *testing.T) {
 		t.Fatalf("os.Executable: %v", err)
 	}
 
-	client, err := NewClientWithStdioProtocol(exe, []string{"-test.run", "TestHelperMCPStdioServer"}, mcpgo.LATEST_PROTOCOL_VERSION)
+	client, err := NewClientWithStdioProtocol(exe, []string{"-test.run", "TestHelperMCPStdioServer"}, nil, mcpgo.LATEST_PROTOCOL_VERSION)
 	if err != nil {
 		t.Fatalf("NewClientWithStdioProtocol error: %v", err)
 	}

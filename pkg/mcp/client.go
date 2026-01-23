@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -100,18 +101,18 @@ func NewClient(c client.MCPClient, opts ...ClientOption) *Client {
 	return client
 }
 
-// NewClientWithStdio creates a new MCP client that connects via Stdio.
-func NewClientWithStdio(command string, args []string, opts ...ClientOption) (*Client, error) {
-	return NewClientWithStdioProtocol(command, args, mcp.LATEST_PROTOCOL_VERSION, opts...)
+// NewClientWithStdio creates a new MCP client that connects via Stdio with environment variables.
+func NewClientWithStdio(command string, args []string, env map[string]string, opts ...ClientOption) (*Client, error) {
+	return NewClientWithStdioProtocol(command, args, env, mcp.LATEST_PROTOCOL_VERSION, opts...)
 }
 
-// NewClientWithStdioProtocol creates a new MCP client that connects via Stdio using a specified protocol version.
-func NewClientWithStdioProtocol(command string, args []string, protocolVersion string, opts ...ClientOption) (*Client, error) {
+// NewClientWithStdioProtocol creates a new MCP client that connects via Stdio with environment variables and specified protocol version.
+func NewClientWithStdioProtocol(command string, args []string, env map[string]string, protocolVersion string, opts ...ClientOption) (*Client, error) {
 	if protocolVersion == "" {
 		protocolVersion = mcp.LATEST_PROTOCOL_VERSION
 	}
 	// client.NewStdioMCPClient returns a *client.Client which implements mcp.Client
-	stdioClient, err := client.NewStdioMCPClient(command, nil, args...)
+	stdioClient, err := client.NewStdioMCPClient(command, convertEnv(env), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -355,4 +356,12 @@ func normalizeStreamableHTTPURL(baseURL string) (string, error) {
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
 	return parsed.String(), nil
+}
+
+func convertEnv(env map[string]string) []string {
+	out := os.Environ()
+	for k, v := range env {
+		out = append(out, k+"="+v)
+	}
+	return out
 }

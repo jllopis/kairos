@@ -5,7 +5,7 @@ Este ejemplo demuestra cómo usar el conector GraphQL para generar automáticame
 ## Cómo funciona
 
 1. **Introspección**: El conector conecta al endpoint GraphQL y ejecuta una query de introspección
-2. **Generación**: Cada query y mutation se convierte en un `llm.Tool`
+2. **Generación**: Cada query y mutation se convierte en un `core.Tool`
 3. **Ejecución**: Cuando el LLM invoca un tool, el conector construye y ejecuta la query GraphQL
 
 ## Ejecutar

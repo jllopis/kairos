@@ -114,8 +114,9 @@ func main() {
 	fmt.Println("Generated Tools:")
 	fmt.Println("----------------")
 	for _, tool := range connector.Tools() {
-		fmt.Printf("• %s: %s\n", tool.Function.Name, tool.Function.Description)
-		params, _ := json.MarshalIndent(tool.Function.Parameters, "  ", "  ")
+		def := tool.ToolDefinition()
+		fmt.Printf("• %s: %s\n", def.Function.Name, def.Function.Description)
+		params, _ := json.MarshalIndent(def.Function.Parameters, "  ", "  ")
 		fmt.Printf("  Parameters: %s\n\n", params)
 	}
 
@@ -134,7 +135,7 @@ func main() {
 	if err != nil {
 		log.Printf("Error: %v", err)
 	} else {
-		fmt.Printf("   Result: %s\n", result)
+		fmt.Printf("   Result: %v\n", result)
 	}
 
 	// Create a new pet
@@ -147,7 +148,7 @@ func main() {
 	if err != nil {
 		log.Printf("Error: %v", err)
 	} else {
-		fmt.Printf("   Result: %s\n", result)
+		fmt.Printf("   Result: %v\n", result)
 	}
 
 	// Get a specific pet
@@ -158,7 +159,7 @@ func main() {
 	if err != nil {
 		log.Printf("Error: %v", err)
 	} else {
-		fmt.Printf("   Result: %s\n", result)
+		fmt.Printf("   Result: %v\n", result)
 	}
 
 	// Using ExecuteJSON (useful when receiving tool calls from LLM)
@@ -167,7 +168,7 @@ func main() {
 	if err != nil {
 		log.Printf("Error: %v", err)
 	} else {
-		fmt.Printf("   Result: %s\n", result)
+		fmt.Printf("   Result: %v\n", result)
 	}
 
 	fmt.Println("\n✓ Demo completed!")
