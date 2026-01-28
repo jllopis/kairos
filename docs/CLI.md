@@ -171,9 +171,12 @@ Ejecuta un agente de forma interactiva o con un prompt único.
 - `--agent <id>`: ID del agente (default: `kairos-agent`)
 - `--role <text>`: Rol del agente (default: `Helpful Assistant`)
 - `--skills <dir>`: Directorio de skills a cargar
+- `--plan <path>`: Ejecutar un planner explícito (YAML/JSON)
 - `--interactive=false`: Modo pipe (lee de stdin)
 - `--no-telemetry`: Deshabilitar salida de telemetría
 - `--watch`: Hot-reload de config cuando el archivo cambie
+- `--approval-mode <auto|ask|approve|deny|off>`: HITL local para tool calls (default: auto)
+- `--approval-timeout <duration>`: Timeout para la aprobación local (ej: `30s`)
 
 **Modos de ejecución:**
 
@@ -215,6 +218,12 @@ kairos run --profile dev
 
 # Con skills personalizados
 kairos run --skills ./my-skills
+
+# Con planner explícito
+kairos run --plan ./plan.yaml --prompt "input inicial"
+
+# HITL local (solicita aprobación en terminal)
+kairos run --approval-mode ask --prompt "Process this invoice"
 
 # REPL interactivo
 kairos run --no-telemetry

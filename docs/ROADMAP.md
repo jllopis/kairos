@@ -2,22 +2,22 @@
 
 ## Estado del Proyecto
 
-Kairos es un framework de agentes IA en Go, **production-ready** con las siguientes capacidades:
+Kairos es un framework de agentes IA en Go. La auditoría técnica (2026-01-28) confirma una base amplia y funcional, pero **no es production-ready** todavía: hay gaps de integración y control plane aún por definir.
 
 | Área | Estado | Descripción |
 |------|--------|-------------|
-| Core Runtime | ✅ Completo | Agent loop, context propagation, lifecycle management |
+| Core Runtime | ✅ Completo | Agent loop base, context propagation, lifecycle management |
 | MCP Protocol | ✅ Completo | Client/server, stdio/HTTP, tool binding |
 | A2A Protocol | ✅ Completo | gRPC, HTTP+JSON, JSON-RPC, discovery |
-| Observability | ✅ Completo | OTLP traces/metrics, structured logs |
-| Planners | ✅ Completo | Explicit (graph) + Emergent (ReAct) |
-| Memory | ✅ Completo | In-memory, file, vector store |
-| Governance | ✅ Completo | Policies, AGENTS.md, HITL, audit |
+| Observability | 🟡 Parcial | OTLP traces/metrics y logs; faltan logs OTEL y “rich attributes” completos |
+| Planners | 🟡 Parcial | Planner explícito implementado, **no integrado** en runtime |
+| Memory | ✅ Completo | In-memory, file, vector store, conversation memory |
+| Governance | 🟡 Parcial | Policies y filtros; **HITL local** sin flujo interactivo |
 | LLM Providers | ✅ Completo | Ollama, OpenAI, Anthropic, Gemini, Qwen |
 | CLI | ✅ Completo | init, run, validate, explain, graph |
-| Streaming | ✅ Completo | Real-time responses para OpenAI/Anthropic/Gemini |
-| Connectors | ✅ Completo | OpenAPI → tools automáticos |
-| Security | ✅ Completo | Guardrails, PII filtering, prompt injection |
+| Streaming | ✅ Completo | Streaming providers (según providers) |
+| Connectors | ✅ Completo | OpenAPI, GraphQL, gRPC, SQL |
+| Security | 🟡 Parcial | Guardrails implementados, **no integrados por defecto** en runtime |
 | Testing | ✅ Completo | Scenarios, mock providers, assertions |
 
 ---
@@ -52,12 +52,63 @@ Kairos es un framework de agentes IA en Go, **production-ready** con las siguien
 
 ---
 
+## Auditoría Técnica (2026-01-28)
+
+Resumen de gaps relevantes (ver “Plan de Acción”):
+- Planner explícito no integrado con el loop del agente.
+- HITL local en tool calls no tiene workflow interactivo.
+- Observabilidad con atributos ricos y logs OTEL incompletos.
+- Guardrails no están “plugged” por defecto en el runtime.
+- Control plane (`kairosctl`) por definir: registries A2A/MCP/Skills, spaces/apps/workflows y ejecución de plataforma.
+
+## Plan de Acción (priorizado)
+
+### Prioridad 0: Integraciones de Runtime 🔴
+
+1) **Planner explícito integrado en runtime**
+   - Objetivo: unificar planner explícito + emergente bajo una interfaz común.
+   - Entregables:
+     - Interfaz `planner.Plan`/`planner.Executor` conectada al loop de `pkg/agent/`.
+     - Opción `agent.WithPlanner(...)` + soporte de YAML/JSON.
+     - Telemetría y eventos por nodo/edge en el loop.
+   - Resultado esperado: mismo agente puede ejecutar flujo declarativo o emergente.
+
+2) **HITL local en tool calls**
+   - Objetivo: cuando policy devuelve `pending`, activar flujo de aprobación interactivo.
+   - Entregables:
+     - Hook de aprobación local en `agent.Run` (bloqueante o async configurable).
+     - UI/CLI simple de approvals en modo local (reuse `pkg/a2a/server/approval_*`).
+     - Persistencia configurable (memoria/SQLite) para approvals locales.
+   - Resultado esperado: el agente local no responde “Policy denied” cuando es “pending”.
+
+### Prioridad 1: Observabilidad y Seguridad 🟡
+
+3) **Observabilidad enriquecida**
+   - Añadir atributos ricos (tool args/result, memoria, estado interno) de forma consistente.
+   - Exportador de logs OTEL o integración de logs estructurados con contexto de trace.
+
+4) **Guardrails integrados por defecto**
+   - Opciones en `agent.New` para activar guardrails en entrada/salida.
+   - Configuración vía `config` y CLI.
+
+### Prioridad 2: Control Plane (`kairosctl`) 🟢
+
+5) **Definición y primer MVP**
+   - **Objetivo:** `kairosctl` como plataforma de orquestación, con registros globales y ejecución multi‑tenant (spaces/apps/workflows).
+   - Alcance mínimo:
+     - Registries: A2A, MCP, Skills globales (versionado + metadatos).
+     - Gestión de espacios/apps/workflows + ejecución programada/manual.
+     - API y UI básica de operación (estado, histórico, replay).
+   - Nota: `kairos` mantiene CLI local; `kairosctl` gestiona plataforma.
+
 ## Próximos Pasos
 
 ### Prioridad Alta 🔴
 
 | Feature | Descripción | Ubicación |
 |---------|-------------|-----------|
+| Planner integrado en runtime | Unificar planner explícito + emergente en `agent` | Kairos |
+| HITL local | Workflow de aprobaciones en tool calls locales | Kairos |
 | OTLP Enriquecido | Atributos ricos en trazas (memoria, tool calls, estado interno) | Kairos |
 | UI Web Configurable | Habilitar/deshabilitar endpoints de `kairos web` | Kairos |
 
@@ -65,18 +116,19 @@ Kairos es un framework de agentes IA en Go, **production-ready** con las siguien
 
 | Feature | Descripción | Estado |
 |---------|-------------|--------|
-| Skill Marketplace | Registry de skills compartidos | Planificado |
+| Skill Registry | Registro global de skills versionadas | Planificado |
 | A2A Registry | Registro centralizado de agentes A2A | Planificado |
 | MCP Registry | Registro de servidores MCP disponibles | Planificado |
 | Agent Registry | Catálogo de agentes con versiones | Planificado |
+| Spaces/Apps/Workflows | Entidades lógicas para ejecución y gobierno | Planificado |
 | Dashboard Visual | Timeline, histórico, replay de ejecuciones | Planificado |
 
 ### Largo Plazo 🟢
 
 | Feature | Descripción | Estado |
 |---------|-------------|--------|
-| kairosctl MVP | Control plane, workflow store, registries | Planificado |
-| kairosctl Avanzado | Scheduler, queue distribuida, editor visual | Planificado |
+| kairosctl MVP | Control plane, registries, espacios/apps/workflows | Planificado |
+| kairosctl Avanzado | Scheduler, cola distribuida, editor visual | Planificado |
 
 ---
 

@@ -133,6 +133,9 @@ una tool MCP real mediante políticas.
 La parte de enforcement server-side y el flujo HITL están descritos en
 `docs/governance-hitl.md`.
 
+Para ejecución local con `kairos run`, puedes habilitar aprobaciones
+interactivas con `--approval-mode ask`.
+
 Para habilitar aprobaciones, configura `SimpleHandler.ApprovalStore` y usa
 `effect: "pending"` en las reglas. Para expirar aprobaciones, ajusta
 `SimpleHandler.ApprovalTimeout` y llama a `ExpireApprovals`.

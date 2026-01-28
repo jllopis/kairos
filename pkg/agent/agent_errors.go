@@ -141,6 +141,18 @@ func WrapTimeoutError(err error, operation string, maxIterations int) *errors.Ka
 	return ke
 }
 
+// WrapPlannerError wraps an explicit planner execution error with context.
+func WrapPlannerError(err error, planID string) *errors.KairosError {
+	if err == nil {
+		return nil
+	}
+	ke := errors.New(errors.CodeInternal, "planner execution failed", err).
+		WithContext("plan_id", planID).
+		WithAttribute("planner.id", planID).
+		WithRecoverable(false)
+	return ke
+}
+
 // NewInvalidInputError creates a new invalid input error.
 func NewInvalidInputError(msg string) *errors.KairosError {
 	return errors.New(errors.CodeInvalidInput, msg, nil).

@@ -308,6 +308,7 @@ Ver `pkg/connectors/openapi.go` y `examples/17-openapi-connector/` para detalles
 - Esquema de grafos (`pkg/planner`): nodos, edges y start opcional.
 - Parsers JSON/YAML con validación.
 - Executor con trazas por nodo, branching y evaluación multi-edge.
+- Integración en runtime: `agent.WithPlanner(graph)` o `kairos run --plan`.
 
 ## Flujo de ejecución (runtime)
 

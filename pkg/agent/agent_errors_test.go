@@ -196,6 +196,19 @@ func TestWrapTimeoutError(t *testing.T) {
 	}
 }
 
+func TestWrapPlannerError(t *testing.T) {
+	ke := WrapPlannerError(errors.New(errors.CodeInternal, "test error", nil), "plan-1")
+	if ke == nil {
+		t.Fatal("WrapPlannerError() = nil, want non-nil")
+	}
+	if ke.Code != errors.CodeInternal {
+		t.Errorf("WrapPlannerError().Code = %v, want %v", ke.Code, errors.CodeInternal)
+	}
+	if ke.Context["plan_id"] != "plan-1" {
+		t.Errorf("WrapPlannerError().Context[plan_id] = %v, want %v", ke.Context["plan_id"], "plan-1")
+	}
+}
+
 func TestNewInvalidInputError(t *testing.T) {
 	ke := NewInvalidInputError("test message")
 	if ke == nil {

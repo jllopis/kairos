@@ -20,6 +20,7 @@ import (
 	"github.com/jllopis/kairos/pkg/llm"
 	kmcp "github.com/jllopis/kairos/pkg/mcp"
 	"github.com/jllopis/kairos/pkg/memory"
+	"github.com/jllopis/kairos/pkg/planner"
 	"github.com/jllopis/kairos/pkg/skills"
 	"github.com/jllopis/kairos/pkg/telemetry"
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
@@ -50,6 +51,11 @@ type Agent struct {
 	toolFilter            *governance.ToolFilter // Centralized tool filtering
 	eventEmitter          core.EventEmitter
 	agentsDoc             *governance.AgentInstructions
+	plannerGraph          *planner.Graph
+	plannerHandlers       map[string]planner.Handler
+	plannerAuditStore     planner.AuditStore
+	plannerAuditHook      func(context.Context, planner.AuditEvent)
+	approvalHook          governance.ApprovalHook
 }
 
 // Option configures an Agent instance.
@@ -213,6 +219,47 @@ func WithMCPServerConfigs(servers map[string]config.MCPServerConfig) Option {
 	}
 }
 
+// WithPlanner configures an explicit planner graph for deterministic execution.
+func WithPlanner(graph *planner.Graph) Option {
+	return func(a *Agent) error {
+		if graph == nil {
+			return errors.New("planner graph is required")
+		}
+		if err := graph.Validate(); err != nil {
+			return err
+		}
+		a.plannerGraph = graph
+		return nil
+	}
+}
+
+// WithPlannerHandlers registers custom handlers for planner node types.
+func WithPlannerHandlers(handlers map[string]planner.Handler) Option {
+	return func(a *Agent) error {
+		if len(handlers) == 0 {
+			return nil
+		}
+		a.plannerHandlers = copyPlannerHandlers(handlers)
+		return nil
+	}
+}
+
+// WithPlannerAuditStore attaches an audit store for planner executions.
+func WithPlannerAuditStore(store planner.AuditStore) Option {
+	return func(a *Agent) error {
+		a.plannerAuditStore = store
+		return nil
+	}
+}
+
+// WithPlannerAuditHook attaches an audit hook for planner executions.
+func WithPlannerAuditHook(hook func(context.Context, planner.AuditEvent)) Option {
+	return func(a *Agent) error {
+		a.plannerAuditHook = hook
+		return nil
+	}
+}
+
 // WithMemory attaches a memory backend to the agent.
 func WithMemory(memory core.Memory) Option {
 	return func(a *Agent) error {
@@ -267,6 +314,14 @@ func WithPolicyEngine(engine governance.PolicyEngine) Option {
 	}
 }
 
+// WithApprovalHook sets a local approval hook for pending policy decisions.
+func WithApprovalHook(hook governance.ApprovalHook) Option {
+	return func(a *Agent) error {
+		a.approvalHook = hook
+		return nil
+	}
+}
+
 // WithEventEmitter attaches a semantic event emitter to the agent.
 func WithEventEmitter(emitter core.EventEmitter) Option {
 	return func(a *Agent) error {
@@ -310,10 +365,19 @@ func (a *Agent) Tools() []core.Tool {
 func (a *Agent) Memory() core.Memory { return a.memory }
 
 // Run executes the agent loop.
+// If a planner graph is configured, it runs the explicit planner; otherwise it uses the emergent ReAct loop.
+func (a *Agent) Run(ctx context.Context, input any) (any, error) {
+	if a.plannerGraph != nil {
+		return a.runPlanner(ctx, input)
+	}
+	return a.runEmergent(ctx, input)
+}
+
+// runEmergent executes the emergent agent loop (ReAct).
 // Implements a ReAct Loop: Thought -> Action -> Observation -> Thought -> Final Answer.
 // If ConversationMemory is configured, loads previous messages from the session
 // and stores new messages after completion.
-func (a *Agent) Run(ctx context.Context, input any) (any, error) {
+func (a *Agent) runEmergent(ctx context.Context, input any) (any, error) {
 	ctx, runID := core.EnsureRunID(ctx)
 	ctx, span := a.tracer.Start(ctx, "Agent.Run")
 	defer span.End()
@@ -1333,6 +1397,26 @@ func (a *Agent) evaluatePolicy(ctx context.Context, log *slog.Logger, runID, tra
 			"tool_call_id": toolCallID,
 		},
 	})
+	if decision.IsPending() && a.approvalHook != nil {
+		action := governance.Action{
+			Type: governance.ActionTool,
+			Name: toolName,
+			Metadata: map[string]string{
+				"agent_id":     a.id,
+				"tool_call_id": toolCallID,
+			},
+		}
+		if decision.Reason != "" {
+			action.Metadata["policy_reason"] = decision.Reason
+		}
+		if decision.RuleID != "" {
+			action.Metadata["policy_rule_id"] = decision.RuleID
+		}
+		hookDecision := a.approvalHook.Request(ctx, action)
+		if hookDecision.Status != "" || hookDecision.Allowed || hookDecision.Reason != "" {
+			decision = hookDecision
+		}
+	}
 	if decision.IsPending() && strings.TrimSpace(decision.Reason) == "" {
 		decision.Reason = "approval required"
 	}

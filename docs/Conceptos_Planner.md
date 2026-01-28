@@ -50,6 +50,36 @@ if err != nil {
 fmt.Printf("last output: %v\n", state.Last)
 ```
 
+## Integración con el runtime del agente
+
+El planner explícito se puede ejecutar dentro del runtime del agente:
+
+```go
+graph, _ := planner.ParseYAML(planBytes)
+ag, _ := agent.New("my-agent", provider, agent.WithPlanner(graph))
+out, _ := ag.Run(ctx, "input inicial")
+```
+
+Desde CLI:
+
+```bash
+kairos run --plan ./plan.yaml --prompt "input inicial"
+```
+
+### Tipos de nodo por defecto
+
+- `tool`: ejecuta una herramienta usando `node.tool` o `metadata.tool`.
+- `agent`: ejecuta el loop emergente del agente con el `input` del nodo.
+- `llm`: llamada directa al LLM sin tool calling.
+- `decision` / `noop`: no-op (mantiene `state.Last`).
+- Si `node.type` coincide con el nombre de una tool, se ejecuta esa tool.
+
+### Entrada y estado
+
+- Si `input` no está definido, se usa `state.Last`.
+- El input inicial está disponible como `state.Outputs["input"]`.
+- Si hay memoria configurada, su contexto se expone en `state.Outputs["memory"]`.
+
 ## Branching
 
 Las transiciones pueden tener condiciones. Se evalúa la primera que encaje y se

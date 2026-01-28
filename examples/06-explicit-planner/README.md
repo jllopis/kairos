@@ -19,29 +19,36 @@ go run .
 
 ```yaml
 # plan.yaml
+id: example-graph
+start: start
 nodes:
-  - id: start
+  start:
     type: init
-    next: [validate]
-    
-  - id: validate
+  validate:
     type: validation
-    next: [process, error]
-    
-  - id: process
+  process:
     type: llm_call
-    next: [format]
-    
-  - id: format
+  format:
     type: format_output
-    next: [end]
-    
-  - id: error
+  error:
     type: error_handler
-    next: [end]
-    
-  - id: end
+  end:
     type: terminal
+edges:
+  - from: start
+    to: validate
+  - from: validate
+    to: process
+    condition: "last==ok"
+  - from: validate
+    to: error
+    condition: "default"
+  - from: process
+    to: format
+  - from: format
+    to: end
+  - from: error
+    to: end
 ```
 
 ## Código clave
@@ -65,7 +72,7 @@ executor := planner.NewExecutor(handlers)
 
 // Ejecutar el plan
 state := planner.NewState()
-result, _ := executor.Run(ctx, graph, state)
+result, _ := executor.Execute(ctx, graph, state)
 ```
 
 ## Cuándo usar planner explícito

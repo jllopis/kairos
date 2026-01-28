@@ -12,7 +12,7 @@ funciona el flujo de aprobación humana (HITL).
 ## Fuera de alcance (por ahora)
 
 - Autenticación/autorización completa (OIDC/mTLS).
-- Flujos UI/CLI para aprobaciones (se rastrean en la fase UI/CLI).
+- UI avanzada de aprobaciones (dashboard, histórico y replay).
 
 ## Enforcement en A2A
 
@@ -40,3 +40,22 @@ con `governance.approval_timeout_seconds` y los sweeps con
 `runtime.approval_sweep_timeout_seconds`.
 
 Las aprobaciones quedan auditadas y vinculadas a la traza original.
+
+## HITL local (kairos run)
+
+Cuando ejecutas un agente localmente con `kairos run`, las decisiones
+`pending` pueden resolverse de forma interactiva en terminal.
+
+Flags relevantes:
+
+- `--approval-mode auto|ask|approve|deny|off`
+- `--approval-timeout 30s` (opcional)
+
+Ejemplo:
+
+```bash
+kairos run --approval-mode ask --prompt "Procesa esta factura"
+```
+
+Si el modo es `auto`, el CLI pregunta en TTY y, si no hay TTY, deniega por
+defecto.
