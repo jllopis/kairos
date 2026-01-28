@@ -49,7 +49,7 @@ estado en tiempo real, con capacidad de intervenir cuando haga falta.
 - Mapeo de Task/Message/Artifact con respuestas por streaming.
 - Bindings HTTP+JSON y JSON-RPC (`pkg/a2a/httpjson`, `pkg/a2a/jsonrpc`) con SSE.
 - Task store + push config store (in-memory + SQLite).
-- Demo multiagente (demoKairos) con delegación (orchestrator -> knowledge/spreadsheet).
+- Playbook multiagente en `examples/playbook/` con delegación y orquestación.
 
 ### Backends de almacenamiento A2A
 
@@ -430,6 +430,6 @@ Ejemplo completo con telemetría:
 ## Enlaces relacionados
 
 - Planner: `docs/Conceptos_Planner.md`
-- Demo: `docs/Demo_Kairos.md`
+- Playbook: `examples/playbook/README.md`
 - A2A bindings: `docs/protocols/A2A/topics/bindings.md`
 - Governance: `docs/governance-usage.md`

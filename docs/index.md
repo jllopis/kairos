@@ -21,7 +21,7 @@ abiertos y una base sólida para producción.
 | Entender la visión del proyecto     | [Especificación Funcional](EspecificaciónFuncional.md) |
 | Ver la arquitectura general         | [Arquitectura](ARCHITECTURE.md)                   |
 | Aprender sobre los protocolos       | [MCP](protocols/MCP.md) / [A2A](protocols/A2A/Overview.md) |
-| Ver un flujo multiagente completo   | [Demo Kairos](Demo_Kairos.md)                     |
+| Ver un flujo multiagente completo   | [Playbook](../examples/playbook/README.md)        |
 
 ## 🛠️ CLI y Herramientas
 

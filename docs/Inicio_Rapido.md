@@ -37,7 +37,7 @@ Response: Hello from Kairos Agent!
 
 Si quieres un ejemplo con modelo real, prueba `examples/02-basic-agent`. Para un
 flujo multiagente con A2A, planner y MCP, revisa la demo en
-[Demo Kairos](Demo_Kairos.md).
+[Playbook de ejemplos](../examples/playbook/README.md).
 
 ## Ejemplo con modelo real (opcional)
 

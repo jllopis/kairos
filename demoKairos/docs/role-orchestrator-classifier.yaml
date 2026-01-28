@@ -1,9 +1,0 @@
-role: OrchestratorClassifier
-responsibility: >
-  Clasifica la intencion del usuario para enrutar la consulta.
-inputs:
-  - user_query
-outputs:
-  - intent_id
-constraints:
-  output_format: intent_id_only

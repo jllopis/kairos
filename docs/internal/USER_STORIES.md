@@ -32,7 +32,7 @@ Current implementation (MVP, gRPC binding):
 - A2AService server with SendMessage + SendStreamingMessage + Get/List/Cancel Task.
 - AgentCard publishing + discovery client.
 - Task/Message/Artifact mapping + streaming responses.
-- Demo multi-agent flow (demoKairos) with orchestrator delegating to knowledge/spreadsheet agents.
+- Playbook multi-agent flow (examples/playbook) with orchestrator delegating to knowledge/spreadsheet agents.
 Notes:
 - HTTP+JSON/JSON-RPC client helpers are available alongside server bindings.
 Acceptance criteria:
