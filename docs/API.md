@@ -66,6 +66,9 @@ Tipos de nodo soportados por defecto:
 - `llm`: llamada directa al LLM (sin tools).
 - `decision` / `noop`: no-op (mantiene `state.Last`).
 - Si `node.type` coincide con el nombre de una tool, se ejecuta esa tool.
+  
+Aliases soportados (ejemplos legacy): `init`, `validation`, `llm_call`,
+`format_output`, `error_handler`, `terminal`.
 
 Entrada por nodo:
 - Si `node.input` no está definido, se usa `state.Last`.

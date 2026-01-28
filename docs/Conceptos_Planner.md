@@ -74,6 +74,9 @@ kairos run --plan ./plan.yaml --prompt "input inicial"
 - `decision` / `noop`: no-op (mantiene `state.Last`).
 - Si `node.type` coincide con el nombre de una tool, se ejecuta esa tool.
 
+Aliases soportados (para ejemplos legacy): `init`, `validation`, `llm_call`,
+`format_output`, `error_handler`, `terminal`.
+
 ### Entrada y estado
 
 - Si `input` no está definido, se usa `state.Last`.

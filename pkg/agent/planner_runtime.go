@@ -192,6 +192,23 @@ func (a *Agent) buildPlannerHandlers(toolset []core.Tool, log *slog.Logger, runI
 		handlers[tool.Name()] = a.plannerNamedToolHandler(tool, log, runID, traceID, spanID)
 	}
 
+	alias := map[string]string{
+		"init":          plannerNodeNoop,
+		"validation":    plannerNodeDecision,
+		"llm_call":      plannerNodeLLM,
+		"format_output": plannerNodeNoop,
+		"error_handler": plannerNodeNoop,
+		"terminal":      plannerNodeNoop,
+	}
+	for name, target := range alias {
+		if _, ok := handlers[name]; ok {
+			continue
+		}
+		if handler, ok := handlers[target]; ok {
+			handlers[name] = handler
+		}
+	}
+
 	if len(a.plannerHandlers) > 0 {
 		for name, handler := range a.plannerHandlers {
 			if handler != nil {
