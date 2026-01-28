@@ -36,6 +36,12 @@ edges:
 			return node.Input, nil
 		},
 	})
+	exec.HandlersByID = map[string]planner.Handler{
+		"step-2": func(_ context.Context, _ planner.Node, _ *planner.State) (any, error) {
+			fmt.Println("override handler for step-2")
+			return "override", nil
+		},
+	}
 
 	state, err := exec.Execute(context.Background(), graph, nil)
 	if err != nil {

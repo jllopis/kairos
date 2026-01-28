@@ -75,6 +75,21 @@ state := planner.NewState()
 result, _ := executor.Execute(ctx, graph, state)
 ```
 
+### Override por node.id (opt-in)
+
+Si necesitas un handler específico para un nodo concreto, puedes sobrescribirlo
+por `node.id` sin cambiar el `type`:
+
+```go
+executor.HandlersByID = map[string]planner.Handler{
+    "format": func(ctx context.Context, node planner.Node, state *planner.State) (any, error) {
+        return "override", nil
+    },
+}
+```
+
+La resolución es: `node.id` (si existe) → `node.type`.
+
 ## Cuándo usar planner explícito
 
 | Escenario | Usar |
