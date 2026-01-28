@@ -9,7 +9,7 @@ Kairos es un framework de agentes IA en Go. La auditoría técnica (2026-01-28) 
 | Core Runtime | ✅ Completo | Agent loop base, context propagation, lifecycle management |
 | MCP Protocol | ✅ Completo | Client/server, stdio/HTTP, tool binding |
 | A2A Protocol | ✅ Completo | gRPC, HTTP+JSON, JSON-RPC, discovery |
-| Observability | 🟡 Parcial | OTLP traces/metrics y logs; atributos ricos para planner/guardrails; faltan logs OTEL |
+| Observability | ✅ Completo | OTLP traces/metrics + logs estructurados con correlación de trace |
 | Planners | ✅ Completo | Planner explícito + emergente integrados en runtime |
 | Memory | ✅ Completo | In-memory, file, vector store, conversation memory |
 | Governance | 🟡 Parcial | Policies y filtros; HITL local integrado |
@@ -57,7 +57,7 @@ Kairos es un framework de agentes IA en Go. La auditoría técnica (2026-01-28) 
 Resumen de gaps relevantes (ver “Plan de Acción”):
 - Planner explícito no integrado con el loop del agente. (✅ Resuelto)
 - HITL local en tool calls no tiene workflow interactivo. (✅ Resuelto)
-- Observabilidad con atributos ricos y logs OTEL incompletos. (🟡 Parcial: atributos planner/guardrails integrados, faltan logs OTEL)
+- Observabilidad con atributos ricos y logs correlados. (✅ Resuelto)
 - Guardrails no están “plugged” por defecto en el runtime. (✅ Resuelto)
 - Control plane (`kairosctl`) por definir: registries A2A/MCP/Skills, spaces/apps/workflows y ejecución de plataforma.
 
@@ -88,7 +88,7 @@ Resumen de gaps relevantes (ver “Plan de Acción”):
 3) **Observabilidad enriquecida**
    - Añadir atributos ricos (tool args/result, memoria, estado interno) de forma consistente.
    - Exportador de logs OTEL o integración de logs estructurados con contexto de trace.
-   - Estado: 🟡 En progreso (planner/guardrails añadidos, logs OTEL pendientes)
+   - Estado: ✅ Completado (2026-01-28)
 
 4) **Guardrails integrados por defecto**
    - Opciones en `agent.New` para activar guardrails en entrada/salida.
@@ -111,10 +111,7 @@ Resumen de gaps relevantes (ver “Plan de Acción”):
 
 | Feature | Descripción | Ubicación |
 |---------|-------------|-----------|
-| Planner integrado en runtime | Unificar planner explícito + emergente en `agent` | Kairos |
-| HITL local | Workflow de aprobaciones en tool calls locales | Kairos |
-| OTLP Enriquecido | Atributos ricos en trazas (memoria, tool calls, estado interno) | Kairos |
-| UI Web Configurable | Habilitar/deshabilitar endpoints de `kairos web` | Kairos |
+| UI Web Configurable | ✅ Completado (2026-01-28) | Kairos |
 
 ### Para kairosctl 🟡
 

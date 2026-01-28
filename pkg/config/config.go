@@ -26,6 +26,7 @@ type Config struct {
 	Discovery  DiscoveryConfig                `koanf:"discovery"`
 	Telemetry  TelemetryConfig                `koanf:"telemetry"`
 	Runtime    RuntimeConfig                  `koanf:"runtime"`
+	Web        WebConfig                      `koanf:"web"`
 	Governance GovernanceConfig               `koanf:"governance"`
 	Guardrails GuardrailsConfig               `koanf:"guardrails"`
 }
@@ -113,6 +114,15 @@ type TelemetryConfig struct {
 type RuntimeConfig struct {
 	ApprovalSweepIntervalSeconds int `koanf:"approval_sweep_interval_seconds"`
 	ApprovalSweepTimeoutSeconds  int `koanf:"approval_sweep_timeout_seconds"`
+}
+
+// WebConfig configures the local web UI.
+type WebConfig struct {
+	Enabled         bool   `koanf:"enabled"`
+	Addr            string `koanf:"addr"`
+	EnableAgents    bool   `koanf:"enable_agents"`
+	EnableTasks     bool   `koanf:"enable_tasks"`
+	EnableApprovals bool   `koanf:"enable_approvals"`
 }
 
 // GovernanceConfig defines policy and instruction loading options.
@@ -205,6 +215,12 @@ func loadWithOverrides(path, profile string, overrides map[string]any) (*Config,
 
 	k.Set("runtime.approval_sweep_interval_seconds", 0)
 	k.Set("runtime.approval_sweep_timeout_seconds", 0)
+
+	k.Set("web.enabled", false)
+	k.Set("web.addr", ":8088")
+	k.Set("web.enable_agents", true)
+	k.Set("web.enable_tasks", true)
+	k.Set("web.enable_approvals", true)
 
 	k.Set("governance.policies", []PolicyRuleConfig{})
 	k.Set("governance.approval_timeout_seconds", 0)

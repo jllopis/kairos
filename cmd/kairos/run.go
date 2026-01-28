@@ -57,6 +57,7 @@ func runRun(ctx context.Context, flags globalFlags, args []string) {
 	if err != nil {
 		fatal(fmt.Errorf("failed to load config: %w", err))
 	}
+	telemetry.ConfigureSlog(os.Stdout, cfg.Log.Level, cfg.Log.Format)
 
 	// Setup config watcher if requested
 	var configWatcher *config.Watcher

@@ -1458,6 +1458,8 @@ func (a *Agent) evaluatePolicy(ctx context.Context, log *slog.Logger, runID, tra
 	if decision.IsDenied() && strings.TrimSpace(decision.Reason) == "" {
 		decision.Reason = "blocked by policy"
 	}
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(telemetry.PolicyAttributes(true, decision.IsAllowed(), decision.Reason)...)
 	if !decision.IsAllowed() {
 		event := "agent.policy.denied"
 		if decision.IsPending() {

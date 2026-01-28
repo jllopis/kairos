@@ -191,6 +191,11 @@ Agent.Run (350ms)
     └── kairos.tool.duration_ms: 98.5
 ```
 
+### Logs correlados con tracing
+
+Kairos configura logs estructurados (slog) y añade `trace_id`/`span_id` cuando
+hay contexto de tracing. Esto facilita correlación entre logs y spans en OTEL.
+
 ---
 
 ## Métricas Disponibles

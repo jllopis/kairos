@@ -25,6 +25,7 @@ import (
 	"github.com/jllopis/kairos/pkg/config"
 	"github.com/jllopis/kairos/pkg/discovery"
 	kairosmcp "github.com/jllopis/kairos/pkg/mcp"
+	"github.com/jllopis/kairos/pkg/telemetry"
 	mcptypes "github.com/mark3labs/mcp-go/mcp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -52,6 +53,12 @@ type globalFlags struct {
 	WebEnableAgents    bool
 	WebEnableTasks     bool
 	WebEnableApprovals bool
+	// Track explicit web flag overrides (CLI/env)
+	WebSet                bool
+	WebAddrSet            bool
+	WebEnableAgentsSet    bool
+	WebEnableTasksSet     bool
+	WebEnableApprovalsSet bool
 }
 
 type statusResult struct {
@@ -89,6 +96,8 @@ func main() {
 		fatal(err)
 	}
 	applyAgentDefaults(&global, cfg)
+	applyWebDefaults(&global, cfg)
+	telemetry.ConfigureSlog(os.Stdout, cfg.Log.Level, cfg.Log.Format)
 
 	if global.Help || len(args) == 0 {
 		if global.Help {
@@ -168,12 +177,15 @@ func parseGlobalFlags(args []string) (globalFlags, []string, error) {
 	// Check environment variables for web endpoint toggles
 	if getenv("KAIROS_WEB_DISABLE_AGENTS", "") == "true" {
 		flags.WebEnableAgents = false
+		flags.WebEnableAgentsSet = true
 	}
 	if getenv("KAIROS_WEB_DISABLE_TASKS", "") == "true" {
 		flags.WebEnableTasks = false
+		flags.WebEnableTasksSet = true
 	}
 	if getenv("KAIROS_WEB_DISABLE_APPROVALS", "") == "true" {
 		flags.WebEnableApprovals = false
+		flags.WebEnableApprovalsSet = true
 	}
 
 	for i := 0; i < len(args); i++ {
@@ -192,28 +204,40 @@ func parseGlobalFlags(args []string) (globalFlags, []string, error) {
 			flags.JSON = true
 		case arg == "--web":
 			flags.Web = true
+			flags.WebSet = true
 		case arg == "--web-addr":
 			if i+1 >= len(args) {
 				return flags, nil, fmt.Errorf("missing value for --web-addr")
 			}
 			flags.WebAddr = args[i+1]
+			flags.WebAddrSet = true
 			i++
 		case strings.HasPrefix(arg, "--web-addr="):
 			flags.WebAddr = strings.TrimPrefix(arg, "--web-addr=")
+			flags.WebAddrSet = true
 		case arg == "--web-disable-agents":
 			flags.WebEnableAgents = false
+			flags.WebEnableAgentsSet = true
 		case arg == "--web-disable-tasks":
 			flags.WebEnableTasks = false
+			flags.WebEnableTasksSet = true
 		case arg == "--web-disable-approvals":
 			flags.WebEnableApprovals = false
+			flags.WebEnableApprovalsSet = true
 		case arg == "--web-only-agents":
 			flags.WebEnableAgents = true
 			flags.WebEnableTasks = false
 			flags.WebEnableApprovals = false
+			flags.WebEnableAgentsSet = true
+			flags.WebEnableTasksSet = true
+			flags.WebEnableApprovalsSet = true
 		case arg == "--web-only-tasks":
 			flags.WebEnableAgents = false
 			flags.WebEnableTasks = true
 			flags.WebEnableApprovals = false
+			flags.WebEnableAgentsSet = true
+			flags.WebEnableTasksSet = true
+			flags.WebEnableApprovalsSet = true
 		case arg == "--config":
 			if i+1 >= len(args) {
 				return flags, nil, fmt.Errorf("missing value for --config")
@@ -1242,5 +1266,27 @@ func applyAgentDefaults(flags *globalFlags, cfg *config.Config) {
 	}
 	if flags.HTTPURL == defaultHTTPURL && strings.TrimSpace(agentCfg.HTTPURL) != "" {
 		flags.HTTPURL = strings.TrimSpace(agentCfg.HTTPURL)
+	}
+}
+
+func applyWebDefaults(flags *globalFlags, cfg *config.Config) {
+	if flags == nil || cfg == nil {
+		return
+	}
+	webCfg := cfg.Web
+	if !flags.WebSet && webCfg.Enabled {
+		flags.Web = true
+	}
+	if !flags.WebAddrSet && strings.TrimSpace(webCfg.Addr) != "" {
+		flags.WebAddr = strings.TrimSpace(webCfg.Addr)
+	}
+	if !flags.WebEnableAgentsSet {
+		flags.WebEnableAgents = webCfg.EnableAgents
+	}
+	if !flags.WebEnableTasksSet {
+		flags.WebEnableTasks = webCfg.EnableTasks
+	}
+	if !flags.WebEnableApprovalsSet {
+		flags.WebEnableApprovals = webCfg.EnableApprovals
 	}
 }

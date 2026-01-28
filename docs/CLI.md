@@ -28,6 +28,8 @@ Variables de entorno sugeridas:
 - `KAIROS_GRPC_ADDR`
 - `KAIROS_HTTP_URL`
 - `KAIROS_AGENT_CARD_URLS` (lista separada por comas)
+- `KAIROS_WEB_ENABLED=true` activa la UI web
+- `KAIROS_WEB_ADDR=:8088` cambia el bind
 - `KAIROS_WEB_DISABLE_AGENTS=true` deshabilita `/agents` endpoint
 - `KAIROS_WEB_DISABLE_TASKS=true` deshabilita `/tasks` endpoint
 - `KAIROS_WEB_DISABLE_APPROVALS=true` deshabilita `/approvals` endpoint
@@ -47,6 +49,19 @@ kairos --web --web-only-tasks
 
 # Sin aprobaciones (para entornos sin HITL)
 kairos --web --web-disable-approvals
+```
+
+También puedes activar la UI desde configuración:
+
+```json
+{
+  "web": {
+    "enabled": true,
+    "enable_tasks": true,
+    "enable_agents": false,
+    "enable_approvals": false
+  }
+}
 ```
 
 ### Endpoints disponibles

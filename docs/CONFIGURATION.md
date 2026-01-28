@@ -20,6 +20,10 @@ Ejemplo (mínimo):
 
 ```json
 {
+  "log": {
+    "level": "info",
+    "format": "text"
+  },
   "llm": {
     "provider": "ollama",
     "model": "qwen2.5-coder:7b-instruct-q5_K_M"
@@ -57,6 +61,13 @@ Ejemplo (con MCP y discovery):
       "http_url": "http://127.0.0.1:8080",
       "labels": {"env": "local", "tier": "core"}
     }
+  },
+  "web": {
+    "enabled": false,
+    "addr": ":8088",
+    "enable_agents": true,
+    "enable_tasks": true,
+    "enable_approvals": true
   },
   "runtime": {
     "approval_sweep_interval_seconds": 30,
@@ -119,6 +130,27 @@ Configuración disponible:
 - `guardrails.pii_mode` (string): `mask`, `redact` o `hash`.
 - `guardrails.pii_types` ([]string): tipos de PII a filtrar (email, phone, ssn, credit_card, ip_address, date_of_birth, passport).
 - `guardrails.fail_open` (bool): si true, los errores no bloquean.
+
+## Logging
+
+Configuración de logs estructurados (slog):
+
+- `log.level` (string): `debug`, `info`, `warn`, `error`.
+- `log.format` (string): `text` o `json`.
+
+Los logs incluyen `trace_id` y `span_id` cuando hay contexto de tracing.
+
+## Web UI
+
+Configuración del modo `kairos --web`:
+
+- `web.enabled` (bool): activa la UI web (equivalente a `--web`).
+- `web.addr` (string): dirección de bind (por defecto `:8088`).
+- `web.enable_agents` (bool): habilita `/agents`.
+- `web.enable_tasks` (bool): habilita `/tasks`.
+- `web.enable_approvals` (bool): habilita `/approvals`.
+
+Los flags CLI siguen teniendo prioridad sobre la configuración.
 
 ## Sobrescrituras de CLI
 
