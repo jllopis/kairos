@@ -31,4 +31,4 @@ go.sum
 docs-site/site/
 
 # Binary
-kairos
+/kairos
