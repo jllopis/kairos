@@ -30,6 +30,7 @@ Opciones comunes:
 - `agent.WithGuardrails(...)`: integra guardrails de entrada/salida en el runtime.
 - `agent.WithPlanner(...)`: ejecuta un plan explícito (grafo) en el runtime.
 - `agent.WithPlannerHandlers(...)`: handlers custom por tipo de nodo.
+- `agent.WithPlannerIDHandlers(...)`: handlers opt-in por `node.id` (sobrescriben el tipo).
 - `agent.WithPlannerAuditStore(...)`: persistencia de auditoría del planner.
 - `agent.WithPlannerAuditHook(...)`: hook de auditoría en tiempo real.
 
@@ -70,6 +71,10 @@ Tipos de nodo soportados por defecto:
   
 Aliases soportados (ejemplos legacy): `init`, `validation`, `llm_call`,
 `format_output`, `error_handler`, `terminal`.
+
+Resolución de handlers:
+- Por defecto se resuelve por `node.type`.
+- Si se configuran handlers por `node.id`, estos tienen prioridad sobre el tipo.
 
 Entrada por nodo:
 - Si `node.input` no está definido, se usa `state.Last`.

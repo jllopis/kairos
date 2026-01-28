@@ -123,6 +123,9 @@ func (a *Agent) runPlanner(ctx context.Context, input any) (any, error) {
 	exec.RunID = runID
 	exec.AuditStore = a.plannerAuditStore
 	exec.AuditHook = a.plannerAuditHook
+	if len(a.plannerIDHandlers) > 0 {
+		exec.HandlersByID = a.plannerIDHandlers
+	}
 
 	result, err := exec.Execute(ctx, a.plannerGraph, state)
 	if err != nil {

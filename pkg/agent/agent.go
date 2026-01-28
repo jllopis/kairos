@@ -54,6 +54,7 @@ type Agent struct {
 	agentsDoc             *governance.AgentInstructions
 	plannerGraph          *planner.Graph
 	plannerHandlers       map[string]planner.Handler
+	plannerIDHandlers     map[string]planner.Handler
 	plannerAuditStore     planner.AuditStore
 	plannerAuditHook      func(context.Context, planner.AuditEvent)
 	approvalHook          governance.ApprovalHook
@@ -242,6 +243,18 @@ func WithPlannerHandlers(handlers map[string]planner.Handler) Option {
 			return nil
 		}
 		a.plannerHandlers = copyPlannerHandlers(handlers)
+		return nil
+	}
+}
+
+// WithPlannerIDHandlers registers custom handlers for specific planner node IDs.
+// If a handler exists for a node ID, it overrides the type handler.
+func WithPlannerIDHandlers(handlers map[string]planner.Handler) Option {
+	return func(a *Agent) error {
+		if len(handlers) == 0 {
+			return nil
+		}
+		a.plannerIDHandlers = copyPlannerHandlers(handlers)
 		return nil
 	}
 }

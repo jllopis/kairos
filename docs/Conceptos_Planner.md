@@ -109,6 +109,11 @@ kairos run --plan ./plan.yaml --prompt "input inicial"
 Aliases soportados (para ejemplos legacy): `init`, `validation`, `llm_call`,
 `format_output`, `error_handler`, `terminal`.
 
+### Resolución de handlers
+
+- Por defecto se resuelve por `node.type`.
+- Si se configuran handlers por `node.id`, estos **sobrescriben** el tipo.
+
 ### Entrada y estado
 
 - Si `input` no está definido, se usa `state.Last`.

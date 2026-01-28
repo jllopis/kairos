@@ -28,11 +28,12 @@ func NewState() *State {
 
 // Executor runs a graph using node handlers.
 type Executor struct {
-	Handlers   map[string]Handler
-	AuditStore AuditStore
-	AuditHook  func(ctx context.Context, event AuditEvent)
-	RunID      string
-	tracer     trace.Tracer
+	Handlers     map[string]Handler
+	HandlersByID map[string]Handler
+	AuditStore   AuditStore
+	AuditHook    func(ctx context.Context, event AuditEvent)
+	RunID        string
+	tracer       trace.Tracer
 }
 
 // NewExecutor creates an executor with provided handlers.
@@ -97,6 +98,11 @@ func (e *Executor) Execute(ctx context.Context, graph *Graph, state *State) (*St
 		}
 
 		handler := e.Handlers[node.Type]
+		if e.HandlersByID != nil {
+			if byID, ok := e.HandlersByID[node.ID]; ok && byID != nil {
+				handler = byID
+			}
+		}
 		if handler == nil {
 			return nil, fmt.Errorf("no handler for node type %q", node.Type)
 		}

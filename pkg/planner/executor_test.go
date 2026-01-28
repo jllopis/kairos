@@ -99,3 +99,39 @@ func TestExecutorAuditHook(t *testing.T) {
 		t.Fatalf("unexpected audit statuses: %+v", events)
 	}
 }
+
+func TestExecutorHandlersByIDOverridesType(t *testing.T) {
+	graph := &Graph{
+		ID:    "graph-id",
+		Start: "n1",
+		Nodes: map[string]Node{
+			"n1": {Type: "noop", Input: "type-1"},
+			"n2": {Type: "noop", Input: "type-2"},
+		},
+		Edges: []Edge{
+			{From: "n1", To: "n2"},
+		},
+	}
+
+	exec := NewExecutor(map[string]Handler{
+		"noop": func(_ context.Context, node Node, _ *State) (any, error) {
+			return node.Input, nil
+		},
+	})
+	exec.HandlersByID = map[string]Handler{
+		"n1": func(_ context.Context, _ Node, _ *State) (any, error) {
+			return "id-override", nil
+		},
+	}
+
+	state, err := exec.Execute(context.Background(), graph, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if state.Outputs["n1"] != "id-override" {
+		t.Fatalf("expected id override output, got: %v", state.Outputs["n1"])
+	}
+	if state.Outputs["n2"] != "type-2" {
+		t.Fatalf("expected type handler output, got: %v", state.Outputs["n2"])
+	}
+}
