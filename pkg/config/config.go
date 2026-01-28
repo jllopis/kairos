@@ -27,6 +27,7 @@ type Config struct {
 	Telemetry  TelemetryConfig                `koanf:"telemetry"`
 	Runtime    RuntimeConfig                  `koanf:"runtime"`
 	Governance GovernanceConfig               `koanf:"governance"`
+	Guardrails GuardrailsConfig               `koanf:"guardrails"`
 }
 
 // LogConfig controls logging output.
@@ -120,6 +121,17 @@ type GovernanceConfig struct {
 	ApprovalTimeoutSeconds int                `koanf:"approval_timeout_seconds"`
 }
 
+// GuardrailsConfig configures default guardrails behavior.
+type GuardrailsConfig struct {
+	Enabled           bool     `koanf:"enabled"`
+	PromptInjection   bool     `koanf:"prompt_injection"`
+	ContentCategories []string `koanf:"content_categories"`
+	PIIEnabled        bool     `koanf:"pii_enabled"`
+	PIIMode           string   `koanf:"pii_mode"`
+	PIITypes          []string `koanf:"pii_types"`
+	FailOpen          bool     `koanf:"fail_open"`
+}
+
 // PolicyRuleConfig defines a single policy rule.
 type PolicyRuleConfig struct {
 	ID     string `koanf:"id"`
@@ -199,6 +211,14 @@ func loadWithOverrides(path, profile string, overrides map[string]any) (*Config,
 	k.Set("discovery.order", []string{})
 	k.Set("discovery.auto_register", false)
 	k.Set("discovery.heartbeat_seconds", 0)
+
+	k.Set("guardrails.enabled", false)
+	k.Set("guardrails.prompt_injection", true)
+	k.Set("guardrails.content_categories", []string{})
+	k.Set("guardrails.pii_enabled", false)
+	k.Set("guardrails.pii_mode", "mask")
+	k.Set("guardrails.pii_types", []string{})
+	k.Set("guardrails.fail_open", false)
 
 	// 1. Load from file
 	configPath := path

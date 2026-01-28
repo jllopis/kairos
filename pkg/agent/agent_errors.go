@@ -10,6 +10,7 @@ import (
 
 	"github.com/jllopis/kairos/pkg/core"
 	"github.com/jllopis/kairos/pkg/errors"
+	"github.com/jllopis/kairos/pkg/guardrails"
 	"github.com/jllopis/kairos/pkg/telemetry"
 )
 
@@ -149,6 +150,19 @@ func WrapPlannerError(err error, planID string) *errors.KairosError {
 	ke := errors.New(errors.CodeInternal, "planner execution failed", err).
 		WithContext("plan_id", planID).
 		WithAttribute("planner.id", planID).
+		WithRecoverable(false)
+	return ke
+}
+
+// WrapGuardrailError wraps a guardrail rejection as a KairosError.
+func WrapGuardrailError(result guardrails.CheckResult) *errors.KairosError {
+	if !result.Blocked {
+		return nil
+	}
+	ke := errors.New(errors.CodeInvalidInput, "guardrail blocked input", nil).
+		WithContext("guardrail_id", result.GuardrailID).
+		WithContext("reason", result.Reason).
+		WithContext("confidence", result.Confidence).
 		WithRecoverable(false)
 	return ke
 }

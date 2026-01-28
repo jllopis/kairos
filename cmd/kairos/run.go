@@ -18,6 +18,7 @@ import (
 	"github.com/jllopis/kairos/pkg/agent"
 	"github.com/jllopis/kairos/pkg/config"
 	"github.com/jllopis/kairos/pkg/governance"
+	"github.com/jllopis/kairos/pkg/guardrails"
 	"github.com/jllopis/kairos/pkg/llm"
 	"github.com/jllopis/kairos/pkg/planner"
 	"github.com/jllopis/kairos/pkg/telemetry"
@@ -60,7 +61,7 @@ func runRun(ctx context.Context, flags globalFlags, args []string) {
 	// Setup config watcher if requested
 	var configWatcher *config.Watcher
 	reloadableCfg := config.NewReloadableConfig(cfg)
-	
+
 	if *watch {
 		// Find config file path for watching
 		configPath := findConfigPath(configArgs)
@@ -134,6 +135,11 @@ func runRun(ctx context.Context, flags globalFlags, args []string) {
 		if hook != nil {
 			opts = append(opts, agent.WithApprovalHook(hook))
 		}
+	}
+
+	// Add guardrails if configured
+	if gr := buildGuardrails(cfg.Guardrails); gr != nil {
+		opts = append(opts, agent.WithGuardrails(gr))
 	}
 
 	// Add skills if directory specified
@@ -501,4 +507,135 @@ func hasPendingPolicies(policies []config.PolicyRuleConfig) bool {
 		}
 	}
 	return false
+}
+
+func buildGuardrails(cfg config.GuardrailsConfig) *guardrails.Guardrails {
+	if !cfg.Enabled {
+		return nil
+	}
+	opts := []guardrails.Option{}
+	if cfg.PromptInjection {
+		opts = append(opts, guardrails.WithPromptInjectionDetector())
+	}
+	categories := parseContentCategories(cfg.ContentCategories)
+	if len(categories) > 0 {
+		opts = append(opts, guardrails.WithContentFilter(categories...))
+	}
+	if cfg.PIIEnabled {
+		mode := parsePIIMode(cfg.PIIMode)
+		piiOpts := []guardrails.PIIFilterOption{}
+		types := parsePIITypes(cfg.PIITypes)
+		if len(types) > 0 {
+			piiOpts = append(piiOpts, guardrails.WithPIITypes(types...))
+		}
+		opts = append(opts, guardrails.WithPIIFilter(mode, piiOpts...))
+	}
+	if cfg.FailOpen {
+		opts = append(opts, guardrails.WithFailOpen(true))
+	}
+	if len(opts) == 0 {
+		return nil
+	}
+	return guardrails.New(opts...)
+}
+
+func parseContentCategories(values []string) []guardrails.ContentCategory {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]guardrails.ContentCategory, 0, len(values))
+	seen := map[guardrails.ContentCategory]bool{}
+	for _, value := range values {
+		key := strings.ToLower(strings.TrimSpace(value))
+		if key == "" {
+			continue
+		}
+		var cat guardrails.ContentCategory
+		switch key {
+		case "profanity":
+			cat = guardrails.ContentCategoryProfanity
+		case "violence":
+			cat = guardrails.ContentCategoryViolence
+		case "hate":
+			cat = guardrails.ContentCategoryHate
+		case "sexual":
+			cat = guardrails.ContentCategorySexual
+		case "dangerous":
+			cat = guardrails.ContentCategoryDangerous
+		case "self_harm", "self-harm":
+			cat = guardrails.ContentCategorySelfHarm
+		case "illegal":
+			cat = guardrails.ContentCategoryIllegal
+		case "medical", "medical_advice":
+			cat = guardrails.ContentCategoryMedical
+		case "financial", "financial_advice":
+			cat = guardrails.ContentCategoryFinancial
+		case "malware":
+			cat = guardrails.ContentCategoryMalware
+		case "phishing":
+			cat = guardrails.ContentCategoryPhishing
+		case "spam":
+			cat = guardrails.ContentCategorySpam
+		default:
+			continue
+		}
+		if !seen[cat] {
+			seen[cat] = true
+			out = append(out, cat)
+		}
+	}
+	return out
+}
+
+func parsePIITypes(values []string) []guardrails.PIIType {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]guardrails.PIIType, 0, len(values))
+	seen := map[guardrails.PIIType]bool{}
+	for _, value := range values {
+		key := strings.ToLower(strings.TrimSpace(value))
+		if key == "" {
+			continue
+		}
+		var pii guardrails.PIIType
+		switch key {
+		case "email":
+			pii = guardrails.PIITypeEmail
+		case "phone":
+			pii = guardrails.PIITypePhone
+		case "ssn":
+			pii = guardrails.PIITypeSSN
+		case "credit_card", "creditcard":
+			pii = guardrails.PIITypeCreditCard
+		case "ip_address", "ip":
+			pii = guardrails.PIITypeIPAddress
+		case "name":
+			pii = guardrails.PIITypeName
+		case "address":
+			pii = guardrails.PIITypeAddress
+		case "passport":
+			pii = guardrails.PIITypePassport
+		case "date_of_birth", "dob":
+			pii = guardrails.PIITypeDateOfBirth
+		default:
+			continue
+		}
+		if !seen[pii] {
+			seen[pii] = true
+			out = append(out, pii)
+		}
+	}
+	return out
+}
+
+func parsePIIMode(value string) guardrails.PIIFilterMode {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "redact":
+		return guardrails.PIIFilterRedact
+	case "hash":
+		return guardrails.PIIFilterHash
+	default:
+		return guardrails.PIIFilterMask
+	}
 }

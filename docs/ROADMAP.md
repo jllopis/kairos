@@ -9,15 +9,15 @@ Kairos es un framework de agentes IA en Go. La auditoría técnica (2026-01-28) 
 | Core Runtime | ✅ Completo | Agent loop base, context propagation, lifecycle management |
 | MCP Protocol | ✅ Completo | Client/server, stdio/HTTP, tool binding |
 | A2A Protocol | ✅ Completo | gRPC, HTTP+JSON, JSON-RPC, discovery |
-| Observability | 🟡 Parcial | OTLP traces/metrics y logs; faltan logs OTEL y “rich attributes” completos |
-| Planners | 🟡 Parcial | Planner explícito implementado, **no integrado** en runtime |
+| Observability | 🟡 Parcial | OTLP traces/metrics y logs; atributos ricos para planner/guardrails; faltan logs OTEL |
+| Planners | ✅ Completo | Planner explícito + emergente integrados en runtime |
 | Memory | ✅ Completo | In-memory, file, vector store, conversation memory |
-| Governance | 🟡 Parcial | Policies y filtros; **HITL local** sin flujo interactivo |
+| Governance | 🟡 Parcial | Policies y filtros; HITL local integrado |
 | LLM Providers | ✅ Completo | Ollama, OpenAI, Anthropic, Gemini, Qwen |
 | CLI | ✅ Completo | init, run, validate, explain, graph |
 | Streaming | ✅ Completo | Streaming providers (según providers) |
 | Connectors | ✅ Completo | OpenAPI, GraphQL, gRPC, SQL |
-| Security | 🟡 Parcial | Guardrails implementados, **no integrados por defecto** en runtime |
+| Security | 🟡 Parcial | Guardrails integrados vía runtime/CLI; cobertura extensible |
 | Testing | ✅ Completo | Scenarios, mock providers, assertions |
 
 ---
@@ -55,10 +55,10 @@ Kairos es un framework de agentes IA en Go. La auditoría técnica (2026-01-28) 
 ## Auditoría Técnica (2026-01-28)
 
 Resumen de gaps relevantes (ver “Plan de Acción”):
-- Planner explícito no integrado con el loop del agente.
-- HITL local en tool calls no tiene workflow interactivo.
-- Observabilidad con atributos ricos y logs OTEL incompletos.
-- Guardrails no están “plugged” por defecto en el runtime.
+- Planner explícito no integrado con el loop del agente. (✅ Resuelto)
+- HITL local en tool calls no tiene workflow interactivo. (✅ Resuelto)
+- Observabilidad con atributos ricos y logs OTEL incompletos. (🟡 Parcial: atributos planner/guardrails integrados, faltan logs OTEL)
+- Guardrails no están “plugged” por defecto en el runtime. (✅ Resuelto)
 - Control plane (`kairosctl`) por definir: registries A2A/MCP/Skills, spaces/apps/workflows y ejecución de plataforma.
 
 ## Plan de Acción (priorizado)
@@ -72,6 +72,7 @@ Resumen de gaps relevantes (ver “Plan de Acción”):
      - Opción `agent.WithPlanner(...)` + soporte de YAML/JSON.
      - Telemetría y eventos por nodo/edge en el loop.
    - Resultado esperado: mismo agente puede ejecutar flujo declarativo o emergente.
+   - Estado: ✅ Completado (2026-01-28)
 
 2) **HITL local en tool calls**
    - Objetivo: cuando policy devuelve `pending`, activar flujo de aprobación interactivo.
@@ -80,16 +81,19 @@ Resumen de gaps relevantes (ver “Plan de Acción”):
      - UI/CLI simple de approvals en modo local (reuse `pkg/a2a/server/approval_*`).
      - Persistencia configurable (memoria/SQLite) para approvals locales.
    - Resultado esperado: el agente local no responde “Policy denied” cuando es “pending”.
+   - Estado: ✅ Completado (2026-01-28)
 
 ### Prioridad 1: Observabilidad y Seguridad 🟡
 
 3) **Observabilidad enriquecida**
    - Añadir atributos ricos (tool args/result, memoria, estado interno) de forma consistente.
    - Exportador de logs OTEL o integración de logs estructurados con contexto de trace.
+   - Estado: 🟡 En progreso (planner/guardrails añadidos, logs OTEL pendientes)
 
 4) **Guardrails integrados por defecto**
    - Opciones en `agent.New` para activar guardrails en entrada/salida.
    - Configuración vía `config` y CLI.
+   - Estado: ✅ Completado (2026-01-28)
 
 ### Prioridad 2: Control Plane (`kairosctl`) 🟢
 

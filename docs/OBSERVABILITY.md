@@ -96,6 +96,8 @@ Kairos añade atributos semánticos ricos a los spans de OTEL para facilitar deb
 | `Agent.Run` | Ejecución completa del agente |
 | `Agent.LLM.Chat` | Llamada al LLM |
 | `Agent.Tool.Call` | Ejecución de una tool |
+| `Planner.Execute` | Ejecución completa del planner explícito |
+| `Planner.Node` | Ejecución de un nodo del planner |
 
 ### Atributos del Agente (`Agent.Run`)
 
@@ -144,6 +146,28 @@ Kairos añade atributos semánticos ricos a los spans de OTEL para facilitar deb
 | `kairos.tool.success` | bool | Si tuvo éxito |
 | `kairos.tool.arguments` | string | Argumentos (truncados) |
 | `kairos.tool.result` | string | Resultado (truncado) |
+
+### Atributos del Planner (`Planner.Execute` / `Planner.Node`)
+
+| Atributo | Tipo | Descripción |
+|----------|------|-------------|
+| `kairos.planner.id` | string | Identificador del grafo |
+| `kairos.planner.run_id` | string | Run ID asociado |
+| `kairos.planner.node.id` | string | ID del nodo |
+| `kairos.planner.node.type` | string | Tipo del nodo |
+| `kairos.planner.node.status` | string | Estado: started/completed/failed |
+| `kairos.planner.node.input` | string | Input (truncado) |
+| `kairos.planner.node.output` | string | Output (truncado) |
+
+### Atributos de Guardrails (en `Agent.Run`)
+
+| Atributo | Tipo | Descripción |
+|----------|------|-------------|
+| `kairos.guardrails.input.blocked` | bool | Si el input fue bloqueado |
+| `kairos.guardrails.input.id` | string | Guardrail que bloqueó |
+| `kairos.guardrails.input.confidence` | float | Confianza del detector |
+| `kairos.guardrails.output.modified` | bool | Si hubo redacciones |
+| `kairos.guardrails.output.redactions` | int | Número de redacciones |
 
 ### Ejemplo en Jaeger
 

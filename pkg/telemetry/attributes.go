@@ -13,38 +13,38 @@ import (
 // These follow OpenTelemetry naming conventions where applicable.
 const (
 	// Agent attributes
-	AttrAgentID       = "kairos.agent.id"
-	AttrAgentRole     = "kairos.agent.role"
-	AttrAgentModel    = "kairos.agent.model"
-	AttrAgentRunID    = "kairos.agent.run_id"
+	AttrAgentID        = "kairos.agent.id"
+	AttrAgentRole      = "kairos.agent.role"
+	AttrAgentModel     = "kairos.agent.model"
+	AttrAgentRunID     = "kairos.agent.run_id"
 	AttrAgentIteration = "kairos.agent.iteration"
-	AttrAgentMaxIter  = "kairos.agent.max_iterations"
+	AttrAgentMaxIter   = "kairos.agent.max_iterations"
 
 	// Session/Conversation attributes
-	AttrSessionID           = "kairos.session.id"
-	AttrConversationEnabled = "kairos.conversation.enabled"
+	AttrSessionID            = "kairos.session.id"
+	AttrConversationEnabled  = "kairos.conversation.enabled"
 	AttrConversationMsgCount = "kairos.conversation.message_count"
 	AttrConversationStrategy = "kairos.conversation.truncation_strategy"
 
 	// Memory attributes
-	AttrMemoryEnabled     = "kairos.memory.enabled"
-	AttrMemoryType        = "kairos.memory.type"
-	AttrMemoryRetrieved   = "kairos.memory.retrieved_count"
-	AttrMemoryStored      = "kairos.memory.stored"
+	AttrMemoryEnabled   = "kairos.memory.enabled"
+	AttrMemoryType      = "kairos.memory.type"
+	AttrMemoryRetrieved = "kairos.memory.retrieved_count"
+	AttrMemoryStored    = "kairos.memory.stored"
 
 	// Tool attributes
-	AttrToolName      = "kairos.tool.name"
-	AttrToolCallID    = "kairos.tool.call_id"
-	AttrToolArgs      = "kairos.tool.arguments"
-	AttrToolResult    = "kairos.tool.result"
+	AttrToolName       = "kairos.tool.name"
+	AttrToolCallID     = "kairos.tool.call_id"
+	AttrToolArgs       = "kairos.tool.arguments"
+	AttrToolResult     = "kairos.tool.result"
 	AttrToolDurationMs = "kairos.tool.duration_ms"
-	AttrToolSuccess   = "kairos.tool.success"
-	AttrToolSource    = "kairos.tool.source" // "local", "mcp", "skill"
+	AttrToolSuccess    = "kairos.tool.success"
+	AttrToolSource     = "kairos.tool.source" // "local", "mcp", "skill"
 
 	// Tool set attributes
-	AttrToolsCount    = "kairos.tools.count"
-	AttrToolsNames    = "kairos.tools.names"
-	AttrToolsMCPCount = "kairos.tools.mcp_count"
+	AttrToolsCount      = "kairos.tools.count"
+	AttrToolsNames      = "kairos.tools.names"
+	AttrToolsMCPCount   = "kairos.tools.mcp_count"
 	AttrToolsLocalCount = "kairos.tools.local_count"
 	AttrToolsSkillCount = "kairos.tools.skill_count"
 
@@ -73,6 +73,22 @@ const (
 	AttrTaskID     = "kairos.task.id"
 	AttrTaskGoal   = "kairos.task.goal"
 	AttrTaskStatus = "kairos.task.status"
+
+	// Planner attributes
+	AttrPlannerID         = "kairos.planner.id"
+	AttrPlannerRunID      = "kairos.planner.run_id"
+	AttrPlannerNodeID     = "kairos.planner.node.id"
+	AttrPlannerNodeType   = "kairos.planner.node.type"
+	AttrPlannerNodeStatus = "kairos.planner.node.status"
+	AttrPlannerNodeInput  = "kairos.planner.node.input"
+	AttrPlannerNodeOutput = "kairos.planner.node.output"
+
+	// Guardrails attributes
+	AttrGuardrailsInputBlocked     = "kairos.guardrails.input.blocked"
+	AttrGuardrailsInputID          = "kairos.guardrails.input.id"
+	AttrGuardrailsInputConfidence  = "kairos.guardrails.input.confidence"
+	AttrGuardrailsOutputModified   = "kairos.guardrails.output.modified"
+	AttrGuardrailsOutputRedactions = "kairos.guardrails.output.redactions"
 
 	// Event attributes
 	AttrEventType    = "kairos.event.type"
@@ -216,6 +232,79 @@ func LLMUsageAttributes(inputTokens, outputTokens int, durationMs float64, finis
 	return attrs
 }
 
+// PlannerAttributes returns attributes for planner executions.
+func PlannerAttributes(planID, runID string) []attribute.KeyValue {
+	attrs := []attribute.KeyValue{}
+	if planID != "" {
+		attrs = append(attrs, attribute.String(AttrPlannerID, planID))
+	}
+	if runID != "" {
+		attrs = append(attrs, attribute.String(AttrPlannerRunID, runID))
+	}
+	return attrs
+}
+
+// PlannerNodeAttributes returns attributes for planner node spans.
+func PlannerNodeAttributes(nodeID, nodeType, status, planID, runID string) []attribute.KeyValue {
+	attrs := []attribute.KeyValue{}
+	if planID != "" {
+		attrs = append(attrs, attribute.String(AttrPlannerID, planID))
+	}
+	if runID != "" {
+		attrs = append(attrs, attribute.String(AttrPlannerRunID, runID))
+	}
+	if nodeID != "" {
+		attrs = append(attrs, attribute.String(AttrPlannerNodeID, nodeID))
+	}
+	if nodeType != "" {
+		attrs = append(attrs, attribute.String(AttrPlannerNodeType, nodeType))
+	}
+	if status != "" {
+		attrs = append(attrs, attribute.String(AttrPlannerNodeStatus, status))
+	}
+	return attrs
+}
+
+// PlannerNodeIO returns truncated input/output attributes for planner nodes.
+func PlannerNodeIO(input, output string, maxLen int) []attribute.KeyValue {
+	if maxLen <= 0 {
+		maxLen = 200
+	}
+	attrs := []attribute.KeyValue{}
+	if input != "" {
+		attrs = append(attrs, attribute.String(AttrPlannerNodeInput, truncateAttr(input, maxLen)))
+	}
+	if output != "" {
+		attrs = append(attrs, attribute.String(AttrPlannerNodeOutput, truncateAttr(output, maxLen)))
+	}
+	return attrs
+}
+
+// GuardrailInputAttributes returns attributes for guardrails input checks.
+func GuardrailInputAttributes(blocked bool, guardrailID string, confidence float64) []attribute.KeyValue {
+	attrs := []attribute.KeyValue{
+		attribute.Bool(AttrGuardrailsInputBlocked, blocked),
+	}
+	if guardrailID != "" {
+		attrs = append(attrs, attribute.String(AttrGuardrailsInputID, guardrailID))
+	}
+	if confidence > 0 {
+		attrs = append(attrs, attribute.Float64(AttrGuardrailsInputConfidence, confidence))
+	}
+	return attrs
+}
+
+// GuardrailOutputAttributes returns attributes for guardrails output filtering.
+func GuardrailOutputAttributes(modified bool, redactions int) []attribute.KeyValue {
+	attrs := []attribute.KeyValue{
+		attribute.Bool(AttrGuardrailsOutputModified, modified),
+	}
+	if redactions > 0 {
+		attrs = append(attrs, attribute.Int(AttrGuardrailsOutputRedactions, redactions))
+	}
+	return attrs
+}
+
 // SkillAttributes returns attributes for skill activation spans.
 func SkillAttributes(name, action, resource string) []attribute.KeyValue {
 	attrs := []attribute.KeyValue{
@@ -261,4 +350,11 @@ func TaskAttributes(taskID, goal, status string) []attribute.KeyValue {
 		attrs = append(attrs, attribute.String(AttrTaskStatus, status))
 	}
 	return attrs
+}
+
+func truncateAttr(value string, maxLen int) string {
+	if maxLen <= 0 || len(value) <= maxLen {
+		return value
+	}
+	return value[:maxLen] + "..."
 }

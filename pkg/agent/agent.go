@@ -17,6 +17,7 @@ import (
 	"github.com/jllopis/kairos/pkg/core"
 	kerrors "github.com/jllopis/kairos/pkg/errors"
 	"github.com/jllopis/kairos/pkg/governance"
+	"github.com/jllopis/kairos/pkg/guardrails"
 	"github.com/jllopis/kairos/pkg/llm"
 	kmcp "github.com/jllopis/kairos/pkg/mcp"
 	"github.com/jllopis/kairos/pkg/memory"
@@ -56,6 +57,7 @@ type Agent struct {
 	plannerAuditStore     planner.AuditStore
 	plannerAuditHook      func(context.Context, planner.AuditEvent)
 	approvalHook          governance.ApprovalHook
+	guardrails            *guardrails.Guardrails
 }
 
 // Option configures an Agent instance.
@@ -314,6 +316,14 @@ func WithPolicyEngine(engine governance.PolicyEngine) Option {
 	}
 }
 
+// WithGuardrails attaches guardrails to the agent runtime.
+func WithGuardrails(gr *guardrails.Guardrails) Option {
+	return func(a *Agent) error {
+		a.guardrails = gr
+		return nil
+	}
+}
+
 // WithApprovalHook sets a local approval hook for pending policy decisions.
 func WithApprovalHook(hook governance.ApprovalHook) Option {
 	return func(a *Agent) error {
@@ -382,6 +392,7 @@ func (a *Agent) runEmergent(ctx context.Context, input any) (any, error) {
 	ctx, span := a.tracer.Start(ctx, "Agent.Run")
 	defer span.End()
 	traceID, spanID := traceIDs(span)
+	log := slog.Default()
 
 	inputStr, ok := input.(string)
 	if !ok {
@@ -390,6 +401,14 @@ func (a *Agent) runEmergent(ctx context.Context, input any) (any, error) {
 
 	// Add rich agent attributes to span
 	span.SetAttributes(telemetry.AgentAttributes(a.id, a.role, a.model, runID, 0, a.maxIterations)...)
+
+	if err := a.checkGuardrailsInput(ctx, log, runID, traceID, spanID, inputStr); err != nil {
+		agentErrorCounter.Add(ctx, 1)
+		if task, ok := core.TaskFromContext(ctx); ok && task != nil {
+			task.Fail(err.Error())
+		}
+		return nil, err
+	}
 
 	// Track task if present
 	if task, ok := core.TaskFromContext(ctx); ok && task != nil {
@@ -406,7 +425,6 @@ func (a *Agent) runEmergent(ctx context.Context, input any) (any, error) {
 	initAgentMetrics()
 	agentRunCounter.Add(ctx, 1)
 	start := time.Now()
-	log := slog.Default()
 
 	// Get session ID for conversation memory
 	sessionID, hasSession := core.SessionID(ctx)
@@ -610,6 +628,7 @@ Final Answer: the final answer to the original input question
 			parts := strings.Split(content, "Final Answer:")
 			if len(parts) > 1 {
 				finalAnswer := strings.TrimSpace(parts[1])
+				finalAnswer = a.applyGuardrailsOutput(ctx, log, runID, traceID, spanID, finalAnswer)
 				logDecision(log, decisionPayload{
 					AgentID:       a.id,
 					RunID:         runID,
@@ -660,6 +679,7 @@ Final Answer: the final answer to the original input question
 				InputSummary:  summarizeText(inputStr),
 				OutputSummary: summarizeText(content),
 			})
+			content = a.applyGuardrailsOutput(ctx, log, runID, traceID, spanID, content)
 			a.storeMemory(ctx, mem, inputStr, content)
 			// Store assistant response in conversation memory
 			if a.conversationMemory != nil && hasSession {
@@ -701,6 +721,7 @@ Final Answer: the final answer to the original input question
 				InputSummary:  summarizeText(inputStr),
 				OutputSummary: summarizeText(content),
 			})
+			content = a.applyGuardrailsOutput(ctx, log, runID, traceID, spanID, content)
 			a.storeMemory(ctx, mem, inputStr, content)
 			// Store assistant response in conversation memory
 			if a.conversationMemory != nil && hasSession {
@@ -871,6 +892,7 @@ Final Answer: the final answer to the original input question
 
 		// If no tools defined, just return content (single turn behavior)
 		if len(toolset) == 0 {
+			content = a.applyGuardrailsOutput(ctx, log, runID, traceID, spanID, content)
 			a.storeMemory(ctx, mem, inputStr, content)
 			// Store assistant response in conversation memory
 			if a.conversationMemory != nil && hasSession {

@@ -23,6 +23,27 @@ output := g.FilterOutput(ctx, llmResponse)
 return output.Content
 ```
 
+## Runtime integration
+
+`kairos run` can enable guardrails automatically from config. Example:
+
+```json
+{
+  "guardrails": {
+    "enabled": true,
+    "prompt_injection": true,
+    "content_categories": ["dangerous", "malware"],
+    "pii_enabled": true,
+    "pii_mode": "mask",
+    "pii_types": ["email", "phone"],
+    "fail_open": false
+  }
+}
+```
+
+When enabled, input is checked before the LLM call and output is filtered
+before returning to the user.
+
 ## Architecture
 
 ```
@@ -353,34 +374,47 @@ func TestGuardrails(t *testing.T) {
 
 ## Integration with Agent
 
-The guardrails system is designed to integrate with the Kairos agent loop:
+Attach guardrails to the agent runtime so input/output is checked automatically:
 
 ```go
-// Future integration (planned):
-agent := kairos.NewAgent(
-    kairos.WithGuardrails(
-        guardrails.WithPromptInjectionDetector(),
-        guardrails.WithPIIFilter(guardrails.PIIFilterMask),
-    ),
+gr := guardrails.New(
+    guardrails.WithPromptInjectionDetector(),
+    guardrails.WithPIIFilter(guardrails.PIIFilterMask),
+)
+
+agent, _ := agent.New("kairos-agent", provider,
+    agent.WithGuardrails(gr),
 )
 ```
 
-For now, use guardrails directly in your agent handler:
+You can also enable guardrails in `kairos run` via config:
+
+```json
+{
+  "guardrails": {
+    "enabled": true,
+    "prompt_injection": true,
+    "content_categories": ["phishing", "malware"],
+    "pii_enabled": true,
+    "pii_mode": "mask",
+    "pii_types": ["email", "phone"]
+  }
+}
+```
+
+If you need custom flow control, you can still run guardrails directly:
 
 ```go
 func handleRequest(ctx context.Context, input string) (string, error) {
-    // Check input
     if result := g.CheckInput(ctx, input); result.Blocked {
         return "", fmt.Errorf("blocked: %s", result.Reason)
     }
-    
-    // Call LLM
+
     response, err := llm.Generate(ctx, input)
     if err != nil {
         return "", err
     }
-    
-    // Filter output
+
     filtered := g.FilterOutput(ctx, response)
     return filtered.Content, nil
 }

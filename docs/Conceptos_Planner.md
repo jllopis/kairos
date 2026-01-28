@@ -10,6 +10,38 @@ nodo.
 Un grafo tiene un `start` y un conjunto de `nodes`, con `edges` que conectan las
 transiciones. Si solo hay un nodo sin entradas, el `start` puede omitirse.
 
+## Contrato del grafo
+
+### Graph
+
+- `id` (string, opcional): identificador del plan.
+- `start` (string, opcional): id del nodo inicial.
+- `nodes` (map[string]Node): nodos indexados por id.
+- `edges` ([]Edge): transiciones entre nodos.
+
+### Node
+
+- `id` (string, opcional): si falta, se usa la clave del mapa.
+- `type` (string, **obligatorio**): tipo de nodo.
+- `tool` (string, opcional): nombre de tool cuando `type: tool`.
+- `input` (any, opcional): input explícito del nodo.
+- `metadata` (map[string]string, opcional): metadatos libres.
+
+### Edge
+
+- `from` (string, **obligatorio**): id del nodo origen.
+- `to` (string, **obligatorio**): id del nodo destino.
+- `condition` (string, opcional): condición de branching.
+
+### Condiciones soportadas
+
+- `last==<valor>` / `last!=<valor>`
+- `last.contains:<texto>`
+- `output.<node>.<path>==<valor>` / `output.<node>.<path>!=<valor>`
+- `output.<node>.<path>.contains:<texto>`
+
+`default` y `always` se consideran fallback.
+
 ## Ejecución
 
 El executor recorre el grafo y llama a un handler por tipo de nodo. El estado

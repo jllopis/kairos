@@ -160,26 +160,19 @@ WS     /api/v1/llm/stream          # Streaming LLM
 id: customer-support-workflow
 name: Customer Support Flow
 nodes:
-  - id: classify
+  classify:
     type: agent
-    config:
+    metadata:
       agent_id: classifier-agent
-      
-  - id: route
+  route:
     type: decision
-    config:
-      conditions:
-        - "output.classify.category == 'billing'"
-        - "output.classify.category == 'technical'"
-        
-  - id: billing-agent
+  billing-agent:
     type: agent
-    config:
+    metadata:
       agent_id: billing-specialist
-      
-  - id: tech-agent
+  tech-agent:
     type: agent
-    config:
+    metadata:
       agent_id: tech-support
       
 edges:

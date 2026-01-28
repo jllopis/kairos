@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jllopis/kairos/pkg/telemetry"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -67,6 +68,11 @@ func (e *Executor) Execute(ctx context.Context, graph *Graph, state *State) (*St
 		state = NewState()
 	}
 
+	execCtx, execSpan := e.tracer.Start(ctx, "Planner.Execute", trace.WithAttributes(
+		telemetry.PlannerAttributes(graph.ID, e.RunID)...,
+	))
+	defer execSpan.End()
+
 	startID, err := resolveStartNode(graph)
 	if err != nil {
 		return nil, err
@@ -107,15 +113,22 @@ func (e *Executor) Execute(ctx context.Context, graph *Graph, state *State) (*St
 			return nil, err
 		}
 
-		nodeCtx, span := e.tracer.Start(ctx, "Planner.Node",
+		nodeCtx, span := e.tracer.Start(execCtx, "Planner.Node",
 			trace.WithAttributes(
 				attribute.String("node.id", node.ID),
 				attribute.String("node.type", node.Type),
 			),
 		)
+		span.SetAttributes(telemetry.PlannerNodeAttributes(node.ID, node.Type, "started", graph.ID, e.RunID)...)
+		if node.Input != nil {
+			span.SetAttributes(telemetry.PlannerNodeIO(fmt.Sprint(node.Input), "", 200)...)
+		}
 		output, err := handler(nodeCtx, node, state)
-		span.End()
 		if err != nil {
+			span.RecordError(err)
+			span.SetAttributes(telemetry.PlannerNodeAttributes(node.ID, node.Type, "failed", graph.ID, e.RunID)...)
+			span.SetAttributes(telemetry.PlannerNodeIO("", fmt.Sprint(output), 200)...)
+			span.End()
 			if auditErr := e.emitAudit(ctx, AuditEvent{
 				GraphID:    graph.ID,
 				RunID:      e.RunID,
@@ -130,6 +143,9 @@ func (e *Executor) Execute(ctx context.Context, graph *Graph, state *State) (*St
 			}
 			return nil, fmt.Errorf("node %q failed: %w", node.ID, err)
 		}
+		span.SetAttributes(telemetry.PlannerNodeAttributes(node.ID, node.Type, "completed", graph.ID, e.RunID)...)
+		span.SetAttributes(telemetry.PlannerNodeIO("", fmt.Sprint(output), 200)...)
+		span.End()
 		if err := e.emitAudit(ctx, AuditEvent{
 			GraphID:    graph.ID,
 			RunID:      e.RunID,

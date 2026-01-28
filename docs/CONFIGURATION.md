@@ -64,6 +64,15 @@ Ejemplo (con MCP y discovery):
   },
   "governance": {
     "approval_timeout_seconds": 300
+  },
+  "guardrails": {
+    "enabled": true,
+    "prompt_injection": true,
+    "content_categories": ["dangerous", "malware"],
+    "pii_enabled": true,
+    "pii_mode": "mask",
+    "pii_types": ["email", "phone"],
+    "fail_open": false
   }
 }
 ```
@@ -98,6 +107,18 @@ KAIROS_LLM_MODEL=qwen2.5-coder:7b go run ./examples/02-basic-agent
 ```
 
 Las variables de entorno tienen precedencia sobre el archivo de configuración, pero los flags CLI (`--set`) tienen precedencia sobre ambos.
+
+## Guardrails
+
+Configuración disponible:
+
+- `guardrails.enabled` (bool): activa la integración en runtime.
+- `guardrails.prompt_injection` (bool): detector de prompt injection.
+- `guardrails.content_categories` ([]string): categorías a bloquear.
+- `guardrails.pii_enabled` (bool): filtro de PII en outputs.
+- `guardrails.pii_mode` (string): `mask`, `redact` o `hash`.
+- `guardrails.pii_types` ([]string): tipos de PII a filtrar (email, phone, ssn, credit_card, ip_address, date_of_birth, passport).
+- `guardrails.fail_open` (bool): si true, los errores no bloquean.
 
 ## Sobrescrituras de CLI
 

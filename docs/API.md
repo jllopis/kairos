@@ -27,6 +27,7 @@ Opciones comunes:
 - `agent.WithToolFilter(...)`: filtrado de tools via governance.
 - `agent.WithPolicyEngine(...)`: enforcement de políticas.
 - `agent.WithEventEmitter(...)`: eventos semánticos.
+- `agent.WithGuardrails(...)`: integra guardrails de entrada/salida en el runtime.
 - `agent.WithPlanner(...)`: ejecuta un plan explícito (grafo) en el runtime.
 - `agent.WithPlannerHandlers(...)`: handlers custom por tipo de nodo.
 - `agent.WithPlannerAuditStore(...)`: persistencia de auditoría del planner.
@@ -73,6 +74,12 @@ Aliases soportados (ejemplos legacy): `init`, `validation`, `llm_call`,
 Entrada por nodo:
 - Si `node.input` no está definido, se usa `state.Last`.
 - El input inicial está disponible como `state.Outputs["input"]`.
+
+Condiciones soportadas:
+- `last==<valor>` / `last!=<valor>`
+- `last.contains:<texto>`
+- `output.<node>.<path>==<valor>` / `output.<node>.<path>!=<valor>`
+- `output.<node>.<path>.contains:<texto>`
 
 ## Task (core)
 

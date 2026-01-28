@@ -38,6 +38,7 @@ func (a *Agent) runPlanner(ctx context.Context, input any) (any, error) {
 	ctx, span := a.tracer.Start(ctx, "Agent.Run")
 	defer span.End()
 	traceID, spanID := traceIDs(span)
+	log := slog.Default()
 
 	inputStr, ok := input.(string)
 	if !ok {
@@ -45,6 +46,15 @@ func (a *Agent) runPlanner(ctx context.Context, input any) (any, error) {
 	}
 
 	span.SetAttributes(telemetry.AgentAttributes(a.id, a.role, a.model, runID, 0, a.maxIterations)...)
+	span.SetAttributes(telemetry.PlannerAttributes(a.plannerGraph.ID, runID)...)
+
+	if err := a.checkGuardrailsInput(ctx, log, runID, traceID, spanID, inputStr); err != nil {
+		agentErrorCounter.Add(ctx, 1)
+		if task, ok := core.TaskFromContext(ctx); ok && task != nil {
+			task.Fail(err.Error())
+		}
+		return nil, err
+	}
 
 	if task, ok := core.TaskFromContext(ctx); ok && task != nil {
 		if task.Goal == "" {
@@ -60,7 +70,6 @@ func (a *Agent) runPlanner(ctx context.Context, input any) (any, error) {
 	initAgentMetrics()
 	agentRunCounter.Add(ctx, 1)
 	start := time.Now()
-	log := slog.Default()
 
 	sessionID, hasSession := core.SessionID(ctx)
 	if a.conversationMemory != nil && !hasSession {
@@ -147,6 +156,7 @@ func (a *Agent) runPlanner(ctx context.Context, input any) (any, error) {
 
 	output := result.Last
 	outputStr := strings.TrimSpace(fmt.Sprint(output))
+	outputStr = a.applyGuardrailsOutput(ctx, log, runID, traceID, spanID, outputStr)
 	a.storeMemory(ctx, mem, inputStr, outputStr)
 	if a.conversationMemory != nil && hasSession {
 		if err := a.storeConversationMessage(ctx, sessionID, llm.RoleAssistant, outputStr, ""); err != nil {
