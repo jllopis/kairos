@@ -27,6 +27,10 @@ Opciones comunes:
 - `agent.WithToolFilter(...)`: filtrado de tools via governance.
 - `agent.WithPolicyEngine(...)`: enforcement de políticas.
 - `agent.WithEventEmitter(...)`: eventos semánticos.
+- `agent.WithPlanner(...)`: ejecuta un plan explícito (grafo) en el runtime.
+- `agent.WithPlannerHandlers(...)`: handlers custom por tipo de nodo.
+- `agent.WithPlannerAuditStore(...)`: persistencia de auditoría del planner.
+- `agent.WithPlannerAuditHook(...)`: hook de auditoría en tiempo real.
 
 Los tools locales deben implementar `core.Tool`, incluyendo `ToolDefinition()`,
 que devuelve el schema (`llm.Tool`) usado para tool-calling.
@@ -43,6 +47,29 @@ Con sessionID para conversaciones:
 ctx := core.WithSessionID(context.Background(), "user-123")
 resp, err := a.Run(ctx, "Hola, me llamo Juan")
 ```
+
+## Planner explícito (runtime)
+
+Ejemplo de ejecución del planner desde el agente:
+
+```go
+graph, _ := planner.ParseYAML(planBytes)
+agent.New("demo-agent", llmProvider,
+  agent.WithPlanner(graph),
+)
+```
+
+Tipos de nodo soportados por defecto:
+
+- `tool`: ejecuta `node.tool` o `metadata.tool`.
+- `agent`: ejecuta el loop emergente del agente.
+- `llm`: llamada directa al LLM (sin tools).
+- `decision` / `noop`: no-op (mantiene `state.Last`).
+- Si `node.type` coincide con el nombre de una tool, se ejecuta esa tool.
+
+Entrada por nodo:
+- Si `node.input` no está definido, se usa `state.Last`.
+- El input inicial está disponible como `state.Outputs["input"]`.
 
 ## Task (core)
 

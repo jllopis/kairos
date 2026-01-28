@@ -1,0 +1,30 @@
+id: example-graph
+start: start
+nodes:
+  start:
+    type: init
+  validate:
+    type: validation
+  process:
+    type: llm_call
+  format:
+    type: format_output
+  error:
+    type: error_handler
+  end:
+    type: terminal
+edges:
+  - from: start
+    to: validate
+  - from: validate
+    to: process
+    condition: "last==ok"
+  - from: validate
+    to: error
+    condition: "default"
+  - from: process
+    to: format
+  - from: format
+    to: end
+  - from: error
+    to: end
