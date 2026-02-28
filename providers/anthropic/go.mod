@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.0.0
-	github.com/jllopis/kairos v0.0.0
+	github.com/jllopis/kairos v0.2.5
 )
 
 require (
@@ -13,5 +13,3 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 )
-
-replace github.com/jllopis/kairos => ../..

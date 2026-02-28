@@ -3,7 +3,7 @@ module github.com/jllopis/kairos/providers/gemini
 go 1.25
 
 require (
-	github.com/jllopis/kairos v0.0.0
+	github.com/jllopis/kairos v0.2.5
 	google.golang.org/genai v1.0.0
 )
 
@@ -25,5 +25,3 @@ require (
 	google.golang.org/grpc v1.77.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 )
-
-replace github.com/jllopis/kairos => ../..

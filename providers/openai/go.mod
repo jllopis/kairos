@@ -3,8 +3,8 @@ module github.com/jllopis/kairos/providers/openai
 go 1.25
 
 require (
-	github.com/jllopis/kairos v0.0.0
-	github.com/openai/openai-go v1.0.0
+	github.com/jllopis/kairos v0.2.5
+	github.com/openai/openai-go v1.12.0
 )
 
 require (
@@ -13,5 +13,3 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 )
-
-replace github.com/jllopis/kairos => ../..
