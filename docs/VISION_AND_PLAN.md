@@ -16,14 +16,14 @@ El objetivo es convertir a Kairos en una **plataforma de producción lista** par
 
 ## 📆 Propuesta de fases (Roadmap operativizado)
 
-| Fase | Duración estimada | Objetivo principal | Entregables clave |
-|------|-------------------|--------------------|-------------------|
-| **0 – Preparación** | 1 sprint | Auditoría, normas y gestión | Informe de auditoría, normas de lint/commit, tablero de proyecto | 
-| **1 – Documentación** | 3 sprints | Guías completas y ejemplos | Arquitectura, referencia API, tutoriales paso‑a‑paso, changelog, ejemplos 0‑3‑5‑7 | 
-| **2 – Calidad de código & pruebas** | 4 sprints | Código limpio, cobertura ≥ 80 % | TODOs eliminados, lint 0, tests unit/integration/E2E, benchmarks | 
-| **3 – CI/CD** | 2 sprints | Pipelines automáticos y artefactos | Build, lint, test, benchmark, Docker image, releases automáticas | 
-| **4 – Consistencia de API** | 2 sprints | API ergonomía y versiones | Firmas uniformes, deprecaciones controladas, SDK opcional | 
-| **5 – Rendimiento y producción** | 2 sprints | Observabilidad, load‑testing y seguridad | Profiling, alertas OTEL, pruebas de carga, escaneo de vulnerabilidades | 
+| Fase | Objetivo principal | Estado | Entregables clave |
+|------|--------------------|--------|-------------------|
+| **0 – Preparación** | Auditoría, normas y gestión | ✅ COMPLETA | Makefile, golangci-lint config, CI workflow, VISION_AND_PLAN.md |
+| **1 – Documentación** | Guías completas y ejemplos | ✅ COMPLETA | ARCHITECTURE.md (Mermaid), API.md (19 secciones), DEVELOPER_GUIDE.md, CHANGELOG.md, index.md, conceptos expandidos, cross-refs corregidos |
+| **2 – Calidad de código & pruebas** | Código limpio, cobertura ≥ 80 % | Pendiente | TODOs eliminados, lint 0, tests unit/integration/E2E, benchmarks |
+| **3 – CI/CD** | Pipelines automáticos y artefactos | Pendiente | Docker image, releases automáticas, Dependabot |
+| **4 – Consistencia de API** | API ergonomía y versiones | Pendiente | Firmas uniformes, deprecaciones controladas, SDK opcional |
+| **5 – Rendimiento y producción** | Observabilidad, load‑testing y seguridad | Pendiente | Profiling, alertas OTEL, pruebas de carga, escaneo de vulnerabilidades |
 
 ### Detalle de cada fase
 
@@ -103,9 +103,8 @@ Se añadirá un **índice** (`docs/index.md`) que enlazará este documento y los
 ---
 
 ## ✅ Próximos pasos inmediatos
-1. **Crear el tablero de proyecto** con las épicas descritas.
-2. **Abrir la primera issue** para la fase 0 (auditoría y normas).
-3. **Añadir este documento** al repositorio (ya creado).
-4. **Comunicar a los contributors** la nueva estructura y proceso.
+1. **Iniciar Fase 2 — Calidad de código & pruebas**: auditar TODOs/FIXMEs, aumentar cobertura a ≥ 80 %, añadir tests de integración y E2E.
+2. **Planificar Fase 3 — CI/CD**: Docker multi-stage, releases automáticas desde tags, Dependabot.
+3. **Comunicar a los contributors** la nueva estructura y proceso.
 
 Con este plan, Kairos avanzará de un proyecto **funcional** a una **plataforma de producción** robusta, bien documentada y con una experiencia de desarrollo / despliegue consistente.
