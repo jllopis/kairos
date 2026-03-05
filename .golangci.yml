@@ -1,0 +1,66 @@
+# Copyright 2026 © The Kairos Authors
+# SPDX-License-Identifier: Apache-2.0
+
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - misspell
+    - unconvert
+    - unparam
+    - bodyclose
+    - nilerr
+    - errorlint
+  exclusions:
+    paths:
+      - examples/
+    rules:
+      # Allow unchecked Close() in defer statements — idiomatic Go.
+      - linters: [errcheck]
+        source: "defer .+\\.Close\\("
+      # Allow unchecked error returns in test files.
+      - linters: [errcheck]
+        path: "_test\\.go$"
+      # Allow unchecked fmt.Fprint*/fmt.Fprintf in CLI output — intentional.
+      - linters: [errcheck]
+        source: "fmt\\.Fprint"
+      # Allow unchecked tabwriter.Flush in CLI output.
+      - linters: [errcheck]
+        source: "\\.Flush\\(\\)"
+      # Deprecated gRPC APIs (DialContext, reflection v1alpha) — migrate later.
+      - linters: [staticcheck]
+        text: "SA1019:"
+      # Style suggestions (QF*) — track but don't block CI.
+      - linters: [staticcheck]
+        text: "QF\\d+"
+      # Style suggestions (ST*) — track but don't block CI.
+      - linters: [staticcheck]
+        text: "ST\\d+"
+      # Allow type assertions on errors in existing code — migrate to errors.As later.
+      - linters: [errorlint]
+        path: "pkg/errors/"
+      # Allow direct error comparisons in test files.
+      - linters: [errorlint]
+        path: "_test\\.go$"
+      # unparam in cmd/ — CLI functions often have unused params for consistent signatures.
+      - linters: [unparam]
+        path: "cmd/"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+linters-settings:
+  govet:
+    enable-all: true
+  misspell:
+    locale: US
+  goimports:
+    local-prefixes:
+      - github.com/jllopis/kairos
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 5
