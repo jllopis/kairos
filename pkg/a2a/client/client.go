@@ -92,12 +92,11 @@ func (c *Client) withTimeout(ctx context.Context) (context.Context, context.Canc
 	return context.WithTimeout(ctx, c.timeout)
 }
 
-func (c *Client) streamContext(ctx context.Context) context.Context {
+func (c *Client) streamContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	if c.timeout <= 0 {
-		return ctx
+		return ctx, func() {}
 	}
-	streamCtx, _ := context.WithTimeout(ctx, c.timeout)
-	return streamCtx
+	return context.WithTimeout(ctx, c.timeout)
 }
 
 // WithCredentials attaches per-RPC credentials to outgoing calls.
@@ -189,7 +188,16 @@ func (c *Client) SendStreamingMessage(ctx context.Context, req *a2av1.SendMessag
 		return nil, err
 	}
 	c.emitDelegation(ctx, "SendStreamingMessage", req)
-	return c.raw.SendStreamingMessage(injectTraceContext(c.streamContext(ctx)), req, opts...)
+	streamCtx, cancel := c.streamContext(ctx)
+	stream, err := c.raw.SendStreamingMessage(injectTraceContext(streamCtx), req, opts...)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	// cancel is tied to the stream's lifecycle via the parent context;
+	// gRPC cancels the context when the stream closes. We attach cancel
+	// to a wrapper so callers don't leak the timeout timer.
+	return &cancelOnFinishStream[a2av1.StreamResponse]{ServerStreamingClient: stream, cancel: cancel}, nil
 }
 
 // GetTask forwards to the A2A GetTask RPC.
@@ -233,7 +241,13 @@ func (c *Client) SubscribeToTask(ctx context.Context, req *a2av1.SubscribeToTask
 	if err := c.ensureAllowed(ctx, "SubscribeToTask"); err != nil {
 		return nil, err
 	}
-	return c.raw.SubscribeToTask(injectTraceContext(c.streamContext(ctx)), req, opts...)
+	streamCtx, cancel := c.streamContext(ctx)
+	stream, err := c.raw.SubscribeToTask(injectTraceContext(streamCtx), req, opts...)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	return &cancelOnFinishStream[a2av1.StreamResponse]{ServerStreamingClient: stream, cancel: cancel}, nil
 }
 
 // GetExtendedAgentCard forwards to the A2A GetExtendedAgentCard RPC.
