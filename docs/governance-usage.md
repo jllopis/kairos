@@ -125,8 +125,8 @@ disparar un flujo HITL.
 
 ## Ejemplo completo
 
-Ver `examples/mcp-remote-policy-forbid` para un ejemplo ejecutable que bloquea
-una tool MCP real mediante políticas.
+Ver [`examples/08-governance-policies`](../examples/08-governance-policies/README.md) para un ejemplo ejecutable que
+aplica políticas de gobernanza sobre tools.
 
 ## Notas de diseño
 

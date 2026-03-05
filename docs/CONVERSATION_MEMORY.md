@@ -215,4 +215,4 @@ a, _ := agent.New("agent", llmProvider,
 
 ## Ejemplo completo
 
-Ver `examples/conversation-agent` para un ejemplo completo con persistencia.
+Ver [`examples/20-conversation-memory`](../examples/20-conversation-memory/README.md) para un ejemplo completo con persistencia.

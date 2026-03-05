@@ -423,5 +423,5 @@ func handleRequest(ctx context.Context, input string) (string, error) {
 ## See Also
 
 - [Example 14: Guardrails](../examples/14-guardrails/) - Working example
-- [Governance](./GOVERNANCE.md) - Action governance (approve/deny tool calls)
-- [Security Architecture](./architecture/SECURITY.md) - Overall security design
+- [Governance](./governance-usage.md) - Action governance (approve/deny tool calls)
+- [Architecture](./ARCHITECTURE.md) - Overall system architecture
