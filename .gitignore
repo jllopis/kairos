@@ -12,6 +12,8 @@ Icon?
 # Build artifacts and binaries
 /cmd/*/cmd
 /examples/*/example
+/examples/16-providers/16-providers
+/examples/18-streaming/18-streaming
 *.exe
 *.dll
 *.so
