@@ -1,158 +1,370 @@
 # Arquitectura - Kairos
 
-## Objetivos
+<!--
+Copyright 2026 © The Kairos Authors
+SPDX-License-Identifier: Apache-2.0
+-->
 
-- Runtime Go-first con SDK de primera clase.
-- Interoperabilidad por estándares: MCP, A2A/ACP, AgentSkills, AGENTS.md.
-- Observabilidad por defecto con OpenTelemetry (trazas, métricas y logs).
-- Ejecución multiagente distribuida con governance y foco en producción.
+## Visión general
+
+Kairos es un **framework de agentes IA nativo en Go** diseñado para entornos
+de producción. Combina bucles ReAct emergentes, planificadores declarativos,
+protocolos de interoperabilidad (MCP, A2A), observabilidad nativa (OpenTelemetry)
+y gobernanza integrada bajo una única API coherente.
 
 ## Arquitectura por capas
 
-1. Interfaces (UI/CLI)
-2. Control Plane (API, auth, políticas, governance)
-3. Runtime multiagente (Go)
-4. Planner + Memoria + Tools
-5. Interop: MCP + A2A/ACP + AGENTS.md
-6. Observabilidad + Storage
+El framework se organiza en 6 capas, desde la interfaz de usuario hasta el
+almacenamiento:
 
-## Componentes core (Go)
+```mermaid
+graph TB
+    subgraph "Capa 1 — Interfaces"
+        CLI["CLI (kairos run / init / validate)"]
+        API["Control Plane API (kairosctl)"]
+    end
 
-- Runtime de agente: ciclo de vida, scheduling, contexto, ejecución de tools.
-- Planner: grafos explícitos y planner emergente con un modelo interno común.
-- Memoria: corta, larga, compartida, persistente.
-- Tools/Skills: AgentSkills como capa semántica; binding a tools MCP.
-- Policy engine: scopes, allow/deny y eventos de auditoría.
+    subgraph "Capa 2 — Control Plane"
+        Auth["Auth & Policies"]
+        Gov["Governance Engine"]
+        Guard["Guardrails"]
+    end
 
-## Interoperabilidad
+    subgraph "Capa 3 — Runtime"
+        Agent["Agent Runtime"]
+        Planner["Planner (DAG / Emergente)"]
+        Skills["Skills & Tools"]
+    end
 
-- Cliente y servidor MCP.
-- A2A/ACP para discovery, delegación y ejecución remota.
-- AGENTS.md cargado automáticamente al inicio para aplicar reglas del repo.
+    subgraph "Capa 4 — Interop"
+        MCP["MCP Client/Server"]
+        A2A["A2A gRPC / HTTP / JSON-RPC"]
+        Conn["Connectors (OpenAPI, GraphQL, gRPC, SQL)"]
+    end
 
-## Integraciones enterprise
+    subgraph "Capa 5 — LLM & Memoria"
+        LLM["LLM Providers (OpenAI, Anthropic, Gemini, Qwen, Ollama)"]
+        Mem["Memory (Vector, Conversation, Semantic)"]
+    end
 
-La idea es que las integraciones con APIs externas y sistemas corporativos
-puedan declararse de forma estándar. En la práctica, esto encaja con MCP como
-puente de tools y con especificaciones tipo OpenAPI para describir servicios.
+    subgraph "Capa 6 — Observabilidad & Storage"
+        OTEL["OpenTelemetry (Trazas, Métricas, Logs)"]
+        Store["Storage (SQLite, In-Memory, Qdrant)"]
+    end
 
-## Depuración y control visual
-
-Además del CLI, el objetivo es una interfaz visual para ver flujos, trazas y
-estado en tiempo real, con capacidad de intervenir cuando haga falta.
-
-### Implementación A2A (estado actual)
-
-- Binding gRPC con streaming (SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask).
-- Tipos Go generados desde `pkg/a2a/proto/a2a.proto` (`scripts/gen-a2a.sh`).
-- Publicación de AgentCard + discovery, con servidor/cliente A2AService.
-- Mapeo de Task/Message/Artifact con respuestas por streaming.
-- Bindings HTTP+JSON y JSON-RPC (`pkg/a2a/httpjson`, `pkg/a2a/jsonrpc`) con SSE.
-- Task store + push config store (in-memory + SQLite).
-- Playbook multiagente en `examples/playbook/` con delegación y orquestación.
-
-### Backends de almacenamiento A2A
-
-- Stores in-memory: `MemoryTaskStore`, `MemoryPushConfigStore` (por defecto en handlers).
-- Stores SQLite (sin CGO): `SQLiteTaskStore`, `SQLitePushConfigStore` via `modernc.org/sqlite`.
-- Esquema creado al inicio; tasks/configs como JSON con índices por estado, contexto y update time.
-- Paginación con orden estable: `updated_at DESC`, luego `id ASC`.
-
-## Observabilidad
-
-- Trazas OpenTelemetry para ejecuciones de agente, pasos del planner, tools y hops A2A.
-- Métricas: latencia por paso, errores por agente, uso de tokens.
-- Logs estructurados con ids de trace/span y resúmenes de decisión.
-- Eventos por iteración, incluyendo resultados de tool calls para auditoría.
-- **Error Handling**: Typed errors con clasificación automática, retry, circuit breaker
-- **Production Monitoring**: 5 OTEL metrics, 6 alert rules, 3 dashboards
-
-**Para más detalles sobre error handling y observabilidad:**
-- Ver [Error Handling Guide](ERROR_HANDLING.md) (Phase 1-3 complete)
-- Ver [Observability Guide](OBSERVABILITY.md) (dashboards, alerts, SLOs)
-
-### Configuración de telemetría (OTLP)
-
-Ejemplo de config para exporter OTLP:
-
-```json
-{
-  "telemetry": {
-    "exporter": "otlp",
-    "otlp_endpoint": "localhost:4317",
-    "otlp_insecure": true
-  }
-}
+    CLI --> Agent
+    API --> Agent
+    Agent --> Auth
+    Agent --> Gov
+    Agent --> Guard
+    Agent --> Planner
+    Agent --> Skills
+    Agent --> LLM
+    Agent --> Mem
+    Skills --> MCP
+    Skills --> Conn
+    Agent --> A2A
+    Agent --> OTEL
+    Mem --> Store
+    A2A --> Store
 ```
 
-Variables de entorno equivalentes:
+## Diagrama C4 — Contexto del sistema
 
-- `KAIROS_TELEMETRY_EXPORTER`
-- `KAIROS_TELEMETRY_OTLP_ENDPOINT`
-- `KAIROS_TELEMETRY_OTLP_INSECURE`
-- `KAIROS_TELEMETRY_OTLP_TIMEOUT_SECONDS`
+```mermaid
+C4Context
+    title Kairos — Diagrama de contexto
 
-#### Verificación
+    Person(dev, "Desarrollador", "Construye agentes IA con Go")
+    Person(ops, "Operador", "Despliega y monitoriza agentes")
 
-1) Levanta un backend OTLP compatible (por ejemplo `localhost:4317`).
-2) Ejecuta un ejemplo con OTLP habilitado:
+    System(kairos, "Kairos Framework", "Framework Go para agentes IA con ReAct, planner DAG, MCP, A2A y OTEL")
+    System(kairosctl, "kairosctl", "Plano de control: observabilidad, evaluación, despliegue")
 
-```bash
-KAIROS_TELEMETRY_EXPORTER=otlp \
-KAIROS_TELEMETRY_OTLP_ENDPOINT=localhost:4317 \
-KAIROS_TELEMETRY_OTLP_INSECURE=true \
-go run ./examples/02-basic-agent
+    System_Ext(llm, "LLM Providers", "OpenAI, Anthropic, Gemini, Qwen, Ollama")
+    System_Ext(mcp_server, "MCP Servers", "Servidores de herramientas MCP externos")
+    System_Ext(a2a_agents, "Agentes remotos", "Otros agentes via A2A")
+    System_Ext(otel_backend, "OTEL Backend", "Jaeger, Prometheus, Grafana")
+    System_Ext(vector_db, "Vector DB", "Qdrant u otros backends de embeddings")
+
+    Rel(dev, kairos, "Construye agentes", "Go SDK")
+    Rel(ops, kairosctl, "Gestiona agentes", "CLI / HTTP")
+    Rel(kairosctl, kairos, "Importa", "Go module")
+    Rel(kairos, llm, "Envía prompts", "HTTPS")
+    Rel(kairos, mcp_server, "Descubre y ejecuta tools", "MCP (stdio / HTTP)")
+    Rel(kairos, a2a_agents, "Delega tareas", "gRPC / HTTP / JSON-RPC")
+    Rel(kairos, otel_backend, "Exporta trazas y métricas", "OTLP gRPC")
+    Rel(kairos, vector_db, "Almacena embeddings", "HTTP / gRPC")
 ```
 
-3) Confirma que las trazas y métricas llegan al backend.
+## Diagrama C4 — Contenedores
 
-Smoke test opcional:
+```mermaid
+C4Container
+    title Kairos — Diagrama de contenedores
 
-```bash
-KAIROS_OTLP_SMOKE_TEST=1 \
-KAIROS_TELEMETRY_OTLP_ENDPOINT=localhost:4317 \
-KAIROS_TELEMETRY_OTLP_INSECURE=true \
-KAIROS_TELEMETRY_OTLP_TIMEOUT_SECONDS=30 \
-go test ./pkg/telemetry -run TestOTLPSmoke -count=1
+    Person(dev, "Desarrollador")
+
+    Container_Boundary(kairos, "Kairos Framework") {
+        Container(agent, "Agent Runtime", "Go", "Bucle ReAct + planner DAG, resolución de tools, guardrails")
+        Container(planner, "Planner", "Go", "Ejecución de grafos DAG con branching condicional")
+        Container(llm_pkg, "LLM Package", "Go", "Interfaces Provider/StreamingProvider y tipos compartidos")
+        Container(mcp_pkg, "MCP Package", "Go", "Cliente MCP con pool, retry, caché de tools")
+        Container(a2a_pkg, "A2A Package", "Go", "Cliente/servidor A2A (gRPC, HTTP/JSON, JSON-RPC)")
+        Container(memory, "Memory", "Go", "Vector store, conversation memory, estrategias de truncación")
+        Container(governance, "Governance", "Go", "PolicyEngine, RuleSet, ApprovalHook, ToolFilter")
+        Container(guardrails, "Guardrails", "Go", "InputChecker, OutputFilter (PII, prompt injection)")
+        Container(resilience, "Resilience", "Go", "Retry, CircuitBreaker, Timeout, Fallback")
+        Container(telemetry, "Telemetry", "Go", "OTEL init, métricas, atributos semánticos, logging")
+        Container(connectors, "Connectors", "Go", "OpenAPI, GraphQL, gRPC, SQL → core.Tool[]")
+    }
+
+    System_Ext(llm, "LLM APIs")
+    System_Ext(mcp_ext, "MCP Servers")
+    System_Ext(a2a_ext, "Agentes remotos")
+    System_Ext(otel, "OTEL Backend")
+
+    Rel(dev, agent, "Crea y ejecuta agentes", "Go API")
+    Rel(agent, planner, "Ejecuta plan DAG")
+    Rel(agent, llm_pkg, "Envía ChatRequest")
+    Rel(agent, mcp_pkg, "Resuelve tools MCP")
+    Rel(agent, a2a_pkg, "Delega a agentes remotos")
+    Rel(agent, memory, "Store/Retrieve contexto")
+    Rel(agent, governance, "Evalúa políticas")
+    Rel(agent, guardrails, "Filtra input/output")
+    Rel(agent, resilience, "Retry/CB en operaciones")
+    Rel(agent, telemetry, "Emite trazas/métricas")
+    Rel(agent, connectors, "Genera tools desde specs")
+    Rel(llm_pkg, llm, "HTTPS")
+    Rel(mcp_pkg, mcp_ext, "stdio / HTTP")
+    Rel(a2a_pkg, a2a_ext, "gRPC / HTTP")
+    Rel(telemetry, otel, "OTLP gRPC")
 ```
 
-## Arquitectura de LLM Providers
+## Interfaces core
 
-El sistema de providers sigue una arquitectura de abstracción que permite añadir nuevos LLMs sin modificar el código del agent:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Agent / Core Code                         │
-│  (usa tipos genéricos: ChatRequest, ChatResponse, Tool)      │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   llm.Provider interface                     │
-│              Chat(ctx, ChatRequest) → ChatResponse           │
-└─────────────────────────────────────────────────────────────┘
-                              │
-        ┌───────────┬─────────┼─────────┬───────────┐
-        ▼           ▼         ▼         ▼           ▼
-┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐
-│  Ollama   │ │  OpenAI   │ │ Anthropic │ │   Qwen    │ │  Gemini   │
-│ Provider  │ │ Provider  │ │ Provider  │ │ Provider  │ │ Provider  │
-│    ✅     │ │    ✅     │ │    ✅     │ │    ✅     │ │    ✅     │
-└───────────┘ └───────────┘ └───────────┘ └───────────┘ └───────────┘
-```
-
-### Interface del Provider
+Las interfaces principales definen el contrato entre componentes:
 
 ```go
-// Provider define la interfaz para interactuar con backends LLM.
+// Agent define la interfaz de un agente ejecutable.
+type Agent interface {
+    ID() string
+    Role() string
+    Skills() []Skill
+    Memory() Memory
+    Run(ctx context.Context, input any) (any, error)
+}
+
+// Tool define una herramienta invocable por el agente.
+type Tool interface {
+    Name() string
+    Call(ctx context.Context, input any) (any, error)
+    ToolDefinition() llm.Tool
+}
+
+// Memory define almacenamiento de contexto.
+type Memory interface {
+    Store(ctx context.Context, data any) error
+    Retrieve(ctx context.Context, query any) (any, error)
+}
+
+// Provider define la interfaz para backends LLM.
 type Provider interface {
     Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error)
 }
+
+// StreamingProvider extiende Provider con streaming.
+type StreamingProvider interface {
+    Provider
+    ChatStream(ctx context.Context, req ChatRequest) (<-chan StreamChunk, error)
+}
 ```
 
-### Tipos Compartidos (pkg/llm/provider.go)
+## Flujo del Agent Loop (ReAct)
 
-Los tipos siguen el formato OpenAI que se ha convertido en estándar de facto:
+El bucle ReAct es el mecanismo principal de ejecución emergente:
+
+```mermaid
+flowchart TD
+    Start([Input del usuario]) --> GuardIn{Guardrails\nInput Check}
+    GuardIn -->|Bloqueado| Reject([Error: input rechazado])
+    GuardIn -->|OK| Resolve[Resolver tools:\nlocal + skills + MCP + connectors]
+    Resolve --> Filter[Filtrar por governance]
+    Filter --> SysPrompt[Construir system prompt:\nrole + AGENTS.md + tool defs]
+    SysPrompt --> LoadMem[Cargar memoria:\nconversation + semantic]
+    LoadMem --> LLMCall[Llamar LLM.Chat\ncon mensajes + tools]
+
+    LLMCall --> HasTools{¿Respuesta tiene\nToolCalls?}
+
+    HasTools -->|Sí| PolicyCheck{Policy Engine\n¿Permite ejecución?}
+    PolicyCheck -->|Deny| PolicyErr([Error: política denegada])
+    PolicyCheck -->|Approve| ExecTool[Ejecutar tool.Call]
+    ExecTool --> AppendResult[Append resultado\ncomo mensaje tool]
+    AppendResult --> IterCheck{¿Max iteraciones\nalcanzadas?}
+    IterCheck -->|No| LLMCall
+    IterCheck -->|Sí| Timeout([Error: max iterations])
+
+    HasTools -->|No| HasAnswer{¿Tiene contenido\nfinal?}
+    HasAnswer -->|Sí| GuardOut{Guardrails\nOutput Filter}
+    GuardOut -->|Redactado| Return([Respuesta filtrada])
+    GuardOut -->|OK| StoreMem[Almacenar en memoria]
+    StoreMem --> Return2([Respuesta final])
+    HasAnswer -->|No| LLMCall
+```
+
+## Flujo del Planner (DAG explícito)
+
+Cuando se configura un grafo explícito con `agent.WithPlanner(graph)`, el
+agente ejecuta un DAG en lugar del bucle ReAct:
+
+```mermaid
+flowchart TD
+    Start([Input]) --> ParseGraph[Parsear grafo\nJSON / YAML]
+    ParseGraph --> Validate[Validar:\nnodos, edges, ciclos]
+    Validate --> InitState[Inicializar State:\ninput, outputs map]
+    InitState --> FindStart[Resolver nodo inicio]
+
+    FindStart --> ExecNode[Ejecutar nodo actual]
+
+    ExecNode --> NodeType{Tipo de nodo}
+
+    NodeType -->|tool| ExecTool[Handler: ejecutar tool\npor nombre]
+    NodeType -->|llm| ExecLLM[Handler: llamar LLM\ncon input]
+    NodeType -->|agent| ExecAgent[Handler: ejecutar\nsub-agente]
+    NodeType -->|decision| ExecDecision[Handler: evaluar\ncondición]
+    NodeType -->|noop| ExecNoop[Handler: pass-through]
+
+    ExecTool --> StoreOutput
+    ExecLLM --> StoreOutput
+    ExecAgent --> StoreOutput
+    ExecDecision --> StoreOutput
+    ExecNoop --> StoreOutput
+
+    StoreOutput[Guardar output en State\n+ emitir AuditEvent] --> FindEdges[Buscar edges salientes]
+
+    FindEdges --> EvalCond{Evaluar condiciones\nen edges}
+    EvalCond -->|Match| NextNode[Siguiente nodo]
+    EvalCond -->|Sin match| End([Fin: retornar\núltimo output])
+
+    NextNode --> CycleCheck{¿Ciclo detectado?}
+    CycleCheck -->|No| ExecNode
+    CycleCheck -->|Sí| CycleErr([Error: ciclo en grafo])
+```
+
+### Condiciones soportadas en edges
+
+| Patrón | Descripción |
+|--------|-------------|
+| `last==valor` | Último output igual a valor |
+| `last!=valor` | Último output distinto de valor |
+| `last.contains:texto` | Último output contiene texto |
+| `output.nodeID==valor` | Output de nodo específico igual a valor |
+| (vacío) | Edge por defecto (siempre se toma) |
+
+## Interoperabilidad: MCP
+
+El protocolo MCP permite descubrir y ejecutar herramientas externas:
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant MCPClient as MCP Client
+    participant MCPPool as MCP Pool
+    participant MCPServer as MCP Server externo
+
+    Agent->>MCPClient: ListTools()
+    MCPClient->>MCPPool: GetConnection(server)
+    MCPPool->>MCPServer: tools/list
+    MCPServer-->>MCPPool: Tool definitions
+    MCPPool-->>MCPClient: Connection + tools
+    MCPClient->>MCPClient: Cache tools (TTL)
+    MCPClient-->>Agent: []core.Tool (via ToolAdapter)
+
+    Note over Agent: LLM elige tool call
+
+    Agent->>MCPClient: CallTool(name, args)
+    MCPClient->>MCPPool: GetConnection(server)
+    MCPPool->>MCPServer: tools/call
+    MCPServer-->>MCPPool: Resultado
+    MCPPool-->>MCPClient: Resultado
+    MCPClient-->>Agent: Tool result
+```
+
+### Componentes MCP
+
+| Componente | Paquete | Descripción |
+|------------|---------|-------------|
+| `Client` | `pkg/mcp` | Cliente MCP (Stdio + StreamableHTTP), retry exponencial, caché de tools |
+| `Server` | `pkg/mcp` | Servidor MCP con `RegisterTool()`, sirve via Stdio o HTTP |
+| `ToolAdapter` | `pkg/mcp` | Implementa `core.Tool` envolviendo herramientas MCP |
+| `Pool` | `pkg/mcp/pool` | Pool de conexiones con reference counting, health check, idle cleanup |
+
+## Interoperabilidad: A2A (Agent-to-Agent)
+
+El protocolo A2A permite arquitecturas distribuidas entre agentes:
+
+```mermaid
+sequenceDiagram
+    participant AgentA as Agente Local
+    participant A2AClient as A2A Client
+    participant A2AServer as A2A Server (remoto)
+    participant Handler as SimpleHandler
+    participant Executor as Executor
+    participant TaskStore as TaskStore
+
+    AgentA->>A2AClient: SendMessage(message)
+    A2AClient->>A2AServer: gRPC SendMessage
+    A2AServer->>Handler: SendMessage(ctx, msg)
+    Handler->>TaskStore: CreateTask()
+    Handler->>Executor: Run(ctx, message)
+    Executor-->>Handler: (output, artifacts)
+    Handler->>TaskStore: UpdateStatus(completed)
+    Handler-->>A2AServer: Task result
+    A2AServer-->>A2AClient: Task response
+    A2AClient-->>AgentA: Task result
+
+    Note over A2AClient,A2AServer: También soporta streaming,<br/>push notifications y approval flow
+```
+
+### Transportes A2A
+
+| Transporte | Paquete | Protocolo |
+|------------|---------|-----------|
+| gRPC | `pkg/a2a/server`, `pkg/a2a/client` | Protobuf + streaming bidireccional |
+| HTTP/JSON | `pkg/a2a/httpjson` | REST + SSE para streaming |
+| JSON-RPC | `pkg/a2a/jsonrpc` | JSON-RPC 2.0 + SSE |
+
+### Backends de almacenamiento A2A
+
+| Store | Implementación | Descripción |
+|-------|---------------|-------------|
+| `MemoryTaskStore` | In-memory | Por defecto, para desarrollo |
+| `SQLiteTaskStore` | SQLite (sin CGO) | Producción, via `modernc.org/sqlite` |
+| `MemoryPushConfigStore` | In-memory | Push notifications (dev) |
+| `SQLitePushConfigStore` | SQLite | Push notifications (prod) |
+
+## LLM Providers
+
+El sistema de providers sigue una arquitectura pluggable:
+
+```mermaid
+graph TB
+    Agent["Agent Runtime"] --> ProviderIF["llm.Provider interface<br/>Chat(ctx, ChatRequest) → ChatResponse"]
+
+    ProviderIF --> Ollama["Ollama Provider<br/>pkg/llm/ollama.go"]
+    ProviderIF --> OpenAI["OpenAI Provider<br/>providers/openai/"]
+    ProviderIF --> Anthropic["Anthropic Provider<br/>providers/anthropic/"]
+    ProviderIF --> Gemini["Gemini Provider<br/>providers/gemini/"]
+    ProviderIF --> Qwen["Qwen Provider<br/>providers/qwen/"]
+
+    style ProviderIF fill:#f9f,stroke:#333
+```
+
+Cada provider traduce entre los tipos genéricos (`ChatRequest`/`ChatResponse`)
+y el formato nativo del LLM. Todos soportan `StreamingProvider` para
+respuestas en tiempo real.
+
+### Tipos compartidos (`pkg/llm/provider.go`)
 
 | Tipo | Descripción |
 |------|-------------|
@@ -160,240 +372,164 @@ Los tipos siguen el formato OpenAI que se ha convertido en estándar de facto:
 | `ChatResponse` | Contenido, tool_calls, usage |
 | `Tool` | Definición de función (type + function) |
 | `ToolCall` | Llamada a tool del LLM (id, type, function) |
-| `FunctionDef` | Nombre, descripción, parameters (JSON Schema) |
 | `Message` | Role, content, tool_calls, tool_call_id |
+| `StreamChunk` | Delta de contenido para streaming |
 
-### Responsabilidades de cada Provider
+## Conectores (Tools)
 
-Cada provider implementa la traducción entre los tipos genéricos y el formato nativo:
+Los conectores generan `[]core.Tool` desde especificaciones externas:
 
-1. **Traducir `llm.Tool` → formato nativo** (ej: Anthropic usa `tool_use` blocks)
-2. **Traducir respuesta nativa → `llm.ToolCall`**
-3. **Manejar peculiaridades** (ej: Gemini usa `functionCall`, Qwen tiene formato propio)
-4. **Gestionar autenticación y rate limiting**
+```mermaid
+graph LR
+    subgraph "Specs externas"
+        OAS["OpenAPI 3.x / Swagger 2.0"]
+        GQL["GraphQL Schema"]
+        Proto[".proto files"]
+        DB["Database Schema"]
+    end
 
-### Flujo de Tool Calling
+    subgraph "Conectores"
+        OAPI["OpenAPIConnector"]
+        GQLC["GraphQLConnector"]
+        GRPC["GRPCConnector"]
+        SQL["SQLConnector"]
+    end
 
+    subgraph "Output"
+        Tools["[]core.Tool"]
+    end
+
+    OAS --> OAPI
+    GQL --> GQLC
+    Proto --> GRPC
+    DB --> SQL
+
+    OAPI --> Tools
+    GQLC --> Tools
+    GRPC --> Tools
+    SQL --> Tools
+
+    Tools --> Agent["Agent Runtime"]
 ```
-User Input → Agent Loop → LLM Provider (con tool definitions)
-                                    ↓
-                          LLM Response con ToolCalls
-                                    ↓
-                          handleToolCalls() → Policy Check
-                                    ↓
-                          MCP/Core Tool Execute()
-                                    ↓
-                          Tool Result → Next iteration
-```
-
-El código del agent no cambia al añadir providers - solo consume la interfaz `Provider`.
-
-## Arquitectura de Conectores (Tools)
-
-Los **Conectores** son el complemento de los **Providers**. Mientras los providers conectan con LLMs, los conectores generan `[]core.Tool` desde especificaciones externas.
-
-### Relación Providers ↔ Connectors
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                         Agent                                │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│   ┌──────────────────┐         ┌──────────────────────────┐ │
-│   │    Providers     │         │       Connectors         │ │
-│   │    (LLMs)        │         │       (Tools)            │ │
-│   ├──────────────────┤         ├──────────────────────────┤ │
-│   │ OpenAI      ✅   │         │ OpenAPIConnector    ✅   │ │
-│   │ Anthropic   ✅   │         │ MCPConnector        ✅   │ │
-│   │ Gemini      ✅   │         │ GraphQLConnector    ✅   │ │
-│   │ Qwen        ✅   │         │ GRPCConnector       ✅   │ │
-│   │ Ollama      ✅   │         │ SQLConnector        ✅   │ │
-│   └──────────────────┘         └──────────────────────────┘ │
-│            │                              │                  │
-│            │       ┌──────────────┐       │                  │
-│            │       │  core.Tool[] │       │                  │
-│            │       │ (formato     │◄──────┘                  │
-│            └──────►│  común)      │                          │
-│                    └──────────────┘                          │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Principio de diseño
-
-1. **Providers** → Hablan con LLMs (OpenAI, Claude, Gemini, etc.)
-2. **Connectors** → Generan `[]core.Tool` desde especificaciones externas
-3. **Tools** → Cada `core.Tool` expone su `llm.Tool` via `ToolDefinition()`
-
-Esta separación permite:
-- Usar **cualquier conector** con **cualquier provider**
-- Añadir nuevos conectores sin modificar providers
-- Añadir nuevos providers sin modificar conectores
 
 ### Conectores disponibles
 
-| Conector | Spec de entrada | Tools generados | Estado |
-|----------|-----------------|-----------------|--------|
-| `OpenAPIConnector` | OpenAPI 3.x, Swagger 2.0 | REST endpoints | ✅ |
-| `MCPConnector` | MCP protocol | MCP tools | ✅ |
-| `GraphQLConnector` | Schema introspection | Queries/Mutations | 🔜 |
-| `GRPCConnector` | `.proto` files | RPC methods | 🔜 |
-| `SQLConnector` | Database schema | CRUD operations | 🔜 |
+| Conector | Spec de entrada | Estado |
+|----------|-----------------|--------|
+| `OpenAPIConnector` | OpenAPI 3.x, Swagger 2.0 | Implementado |
+| `MCPConnector` | MCP protocol | Implementado |
+| `GraphQLConnector` | Schema introspection | Implementado |
+| `GRPCConnector` | `.proto` files | Implementado |
+| `SQLConnector` | Database schema | Implementado |
 
-### Interface común
+## Memoria
 
-Cada conector implementa:
+El sistema de memoria tiene dos dimensiones: **semántica** (vector) y
+**conversacional** (historial):
 
-```go
-type Connector interface {
-    // Tools genera []core.Tool desde la especificación
-    Tools() []core.Tool
-    
-    // Execute invoca un tool por nombre con argumentos
-    Execute(ctx context.Context, toolName string, args map[string]any) (any, error)
-}
+```mermaid
+graph TB
+    Agent["Agent"] --> VM["VectorMemory<br/>(core.Memory)"]
+    Agent --> CM["ConversationMemory"]
+
+    VM --> Embedder["Embedder interface<br/>Embed(text) → []float32"]
+    VM --> VectorStore["VectorStore interface<br/>Upsert / Search"]
+
+    Embedder --> OllamaEmb["Ollama Embedder"]
+    VectorStore --> Qdrant["Qdrant Store"]
+    VectorStore --> InMem["In-Memory Store"]
+
+    CM --> Trunc["TruncationStrategy"]
+    Trunc --> Window["WindowStrategy<br/>(últimos N mensajes)"]
+    Trunc --> Token["TokenStrategy<br/>(límite de tokens)"]
+    Trunc --> Summ["SummarizationStrategy<br/>(resumen via LLM)"]
 ```
 
-### Ejemplo de uso
+## Gobernanza y guardrails
 
-```go
-// 1. Crear conector desde spec
-connector, _ := connectors.NewOpenAPIConnector(
-    "https://api.example.com/openapi.yaml",
-    connectors.WithBearerToken(os.Getenv("API_TOKEN")),
-)
+### Governance
 
-// 2. Obtener tools generados automáticamente
-tools := connector.Tools()  // []core.Tool
+El `PolicyEngine` evalúa cada acción antes de ejecutarla:
 
-// 3. Usar con cualquier provider
-agent := kairos.NewAgent(
-    kairos.WithProvider(openaiProvider),   // o anthropic, gemini, qwen...
-    kairos.WithTools(tools...),            // tools del conector
-)
-
-// 4. Cuando el LLM invoca un tool, el conector lo ejecuta
-result, _ := connector.Execute(ctx, "createPet", map[string]any{
-    "name": "Buddy",
-    "type": "dog",
-})
+```mermaid
+flowchart LR
+    Action["Action<br/>(tool call, delegation)"] --> PE["PolicyEngine.Evaluate()"]
+    PE --> Rules["RuleSet<br/>allow/deny por scope"]
+    Rules --> Decision{Decision}
+    Decision -->|Allow| Exec["Ejecutar acción"]
+    Decision -->|Deny| Block["Bloquear + audit log"]
+    Decision -->|RequireApproval| HITL["Human-in-the-Loop<br/>ApprovalHook"]
+    HITL -->|Approved| Exec
+    HITL -->|Rejected| Block
 ```
 
-### OpenAPIConnector
+### Guardrails
 
-Convierte especificaciones OpenAPI/Swagger en tools ejecutables:
+Filtros de seguridad en input y output:
 
-- **Parsea** OpenAPI 3.x y Swagger 2.0 (YAML/JSON)
-- **Genera** un `core.Tool` por cada operación (GET, POST, PUT, DELETE...)
-- **Extrae** parámetros (path, query, header) y request body como JSON Schema
-- **Ejecuta** llamadas HTTP con autenticación configurada
+| Tipo | Interface | Función |
+|------|-----------|---------|
+| Input | `InputChecker` | Detecta prompt injection, contenido peligroso |
+| Output | `OutputFilter` | Redacta PII, contenido sensible |
 
-Opciones de autenticación:
-- `WithAPIKey(key, header)` - API key en header personalizado
-- `WithBearerToken(token)` - Bearer token en Authorization
-- `WithBasicAuth(user, pass)` - HTTP Basic Auth
+## Resiliencia
 
-Ver `pkg/connectors/openapi.go` y `examples/17-openapi-connector/` para detalles.
+Patrones de resiliencia integrados en el framework:
 
-## Modelo de datos (alto nivel)
+| Patrón | Tipo | Descripción |
+|--------|------|-------------|
+| Retry | `RetryConfig` | Exponential backoff con jitter, `IsRecoverable` check |
+| Circuit Breaker | `CircuitBreaker` | Closed → Open → HalfOpen, umbrales configurables |
+| Timeout | `TimeoutConfig` | Goroutine-based timeout con `CodeTimeout` error |
+| Fallback | `FallbackStrategy` | Static, Cached, Chained, `GracefulDegradation` |
 
-- Agent: id, role, skills, tools, memory, policies.
-- Skill: capacidad semántica (AgentSkills spec).
-- Tool: implementación MCP que cumple una skill.
-- Plan: grafo o estado emergente.
-- Memory: interfaz Store/Retrieve con backends plugables.
+## Observabilidad
 
-## Base del planner explícito
+### Instrumentación OTEL
 
-- Esquema de grafos (`pkg/planner`): nodos, edges y start opcional.
-- Parsers JSON/YAML con validación.
-- Executor con trazas por nodo, branching y evaluación multi-edge.
-- Integración en runtime: `agent.WithPlanner(graph)` o `kairos run --plan`.
+```mermaid
+graph TB
+    Agent["Agent Runtime"] --> Tracer["TracerProvider"]
+    Agent --> Meter["MeterProvider"]
+    Agent --> Logger["slog + TraceHandler"]
 
-## Flujo de ejecución (runtime)
+    Tracer --> StdoutT["stdout exporter"]
+    Tracer --> OTLPT["OTLP gRPC exporter"]
 
-1) Cargar AGENTS.md y aplicar reglas del repo.
-2) Inicializar agente con skills, memoria, tools y políticas.
-3) Construir plan (grafo explícito o emergente).
-4) Ejecutar pasos con propagación de contexto.
-5) Emitir trazas/métricas/logs y eventos de auditoría.
+    Meter --> StdoutM["stdout exporter"]
+    Meter --> OTLPM["OTLP gRPC exporter"]
 
-## Fuentes de configuración
+    Logger --> Console["Console (trace_id, span_id)"]
 
-- Archivo: `~/.kairos/settings.json` o `./.kairos/settings.json`.
-- Env: `KAIROS_*` (mapea a keys de config).
-- CLI: `--config=/ruta/a/settings.json` y `--set key=value` (repetible).
-
-Precedencia: valores por defecto < archivo < env < CLI.
-
-Ejemplo:
-
-```bash
-go run ./examples/02-basic-agent --config=./.kairos/settings.json \
-  --set llm.provider=ollama \
-  --set telemetry.exporter=stdout
+    OTLPT --> Backend["OTEL Backend<br/>(Jaeger, Tempo)"]
+    OTLPM --> Backend2["OTEL Backend<br/>(Prometheus)"]
 ```
 
-Ver `docs/CONFIGURATION.md` para la guía completa.
+### Métricas del agente
 
-## Taxonomía de eventos
+| Métrica | Tipo | Descripción |
+|---------|------|-------------|
+| `kairos.agent.run.count` | Counter | Ejecuciones totales del agente |
+| `kairos.agent.error.count` | Counter | Errores totales |
+| `kairos.agent.run.latency_ms` | Histogram | Latencia por ejecución |
+| `kairos.agent.llm.latency_ms` | Histogram | Latencia de llamadas LLM |
+| `kairos.agent.tool.latency_ms` | Histogram | Latencia de tool calls |
+| `kairos.agent.memory.latency_ms` | Histogram | Latencia de operaciones de memoria |
 
-Eventos semánticos para streaming/logs: `docs/EVENT_TAXONOMY.md`.
+### Métricas de errores y salud
 
-## Tasks
+| Métrica | Tipo | Descripción |
+|---------|------|-------------|
+| `kairos.errors.total` | Counter | Errores por código y severidad |
+| `kairos.errors.recovered` | Counter | Errores recuperados |
+| `kairos.errors.rate` | Gauge | Tasa de errores |
+| `kairos.health.status` | Gauge | Estado de salud (0=down, 1=degraded, 2=healthy) |
+| `kairos.circuitbreaker.state` | Gauge | Estado del circuit breaker |
 
-API core de Task y ciclo de vida: `docs/TASKS.md`.
-
-## Discovery
-
-Patrones de discovery: `docs/protocols/A2A/topics/agent-discovery.md`.
-
-## Opciones del agent loop
-
-- `agent.WithDisableActionFallback(true)` desactiva el parsing legacy "Action:".
-- `agent.WithActionFallbackWarning(true)` emite un aviso cuando se usa el fallback.
-- Config: `agent.disable_action_fallback` o `KAIROS_AGENT_DISABLE_ACTION_FALLBACK=true` (por defecto: true).
-- Sobrescrituras por agente bajo `agents.<agent_id>`.
-
-### Plan de deprecación del fallback
-
-- Fase 1 (actual): fallback desactivado por defecto; habilitar explícitamente.
-- Fase 2 (siguiente minor): aviso en cada uso + nota en docs/changelog.
-- Fase 3 (siguiente minor): requiere flag explícito y aviso al arranque.
-- Fase 4 (siguiente major): eliminar fallback y flags asociados.
-
-Activación:
-
-- Habilita fallback solo con `agent.disable_action_fallback=false`.
-
-Ejemplo de config:
+### Configuración de telemetría
 
 ```json
 {
-  "agent": {
-    "disable_action_fallback": false,
-    "warn_on_action_fallback": true
-  },
-  "agents": {
-    "mcp-agent": {
-      "disable_action_fallback": true
-    }
-  }
-}
-```
-
-Ejemplo completo con telemetría:
-
-```json
-{
-  "agent": {
-    "disable_action_fallback": false
-  },
-  "agents": {
-    "mcp-agent": {
-      "disable_action_fallback": true
-    }
-  },
   "telemetry": {
     "exporter": "otlp",
     "otlp_endpoint": "localhost:4317",
@@ -402,34 +538,73 @@ Ejemplo completo con telemetría:
 }
 ```
 
-## Governance y seguridad
+Variables de entorno: `KAIROS_TELEMETRY_EXPORTER`, `KAIROS_TELEMETRY_OTLP_ENDPOINT`,
+`KAIROS_TELEMETRY_OTLP_INSECURE`, `KAIROS_TELEMETRY_OTLP_TIMEOUT_SECONDS`.
 
-- Enforcement de políticas en tools y delegación.
-- Puntos human-in-the-loop.
-- Auditoría de cada acción y tool call.
+## Configuración
 
-## Despliegue
+Fuentes de configuración con precedencia creciente:
 
-- Binario Go único.
-- Docker/Kubernetes ready.
-- Escalado horizontal con federación A2A.
+1. **Valores por defecto** (hardcoded)
+2. **Archivo** (`~/.kairos/settings.json` o `./.kairos/settings.json`)
+3. **Variables de entorno** (`KAIROS_*`)
+4. **CLI flags** (`--config=...`, `--set key=value`)
 
-## Layout de paquetes (inicial)
+Ver [CONFIGURATION.md](CONFIGURATION.md) para la guía completa.
 
-- core/agent
-- core/runtime
-- core/planner
-- core/memory
-- core/tools
-- interop/mcp
-- interop/a2a
-- observability/otel
-- controlplane/api
-- ui (future)
+## Layout de paquetes
+
+```
+pkg/
+├── agent/          # Agent runtime (ReAct + planner integration)
+├── a2a/            # A2A protocol (client, server, types, agentcard)
+│   ├── client/
+│   ├── server/
+│   ├── httpjson/
+│   ├── jsonrpc/
+│   ├── agentcard/
+│   └── types/
+├── config/         # Configuration types
+├── connectors/     # External API connectors (OpenAPI, GraphQL, gRPC, SQL)
+├── core/           # Shared interfaces (Agent, Tool, Memory, Event, Health)
+├── discovery/      # Agent/service discovery
+├── errors/         # Typed errors (KairosError, ErrorCode)
+├── governance/     # Policy engine, rules, approval hooks
+├── guardrails/     # Input/output security filters
+├── llm/            # LLM provider interface + Ollama implementation
+├── mcp/            # MCP client/server + tool adapter
+│   └── pool/       # Connection pooling
+├── memory/         # Vector + conversation memory
+│   ├── ollama/     # Ollama embedder
+│   └── qdrant/     # Qdrant vector store
+├── planner/        # Graph-based DAG planner
+├── resilience/     # Retry, circuit breaker, timeout, fallback
+├── runtime/        # Runtime orchestration
+├── skills/         # AgentSkills spec loader
+├── telemetry/      # OpenTelemetry setup + metrics + logging
+└── testing/        # Test helpers, scenarios, mock provider
+
+providers/
+├── openai/         # OpenAI provider (GPT-4, GPT-5)
+├── anthropic/      # Anthropic provider (Claude)
+├── gemini/         # Google Gemini provider
+└── qwen/           # Alibaba Qwen provider (DashScope)
+
+examples/
+├── 01-hello-agent/ ... 20-conversation-memory/
+├── playbook/       # Narrativa completa multi-agente
+└── mcp-http-server/
+```
 
 ## Enlaces relacionados
 
-- Planner: `docs/Conceptos_Planner.md`
-- Playbook: `examples/playbook/README.md`
-- A2A bindings: `docs/protocols/A2A/topics/bindings.md`
-- Governance: `docs/governance-usage.md`
+- [API Reference](API.md)
+- [Planner conceptos](Conceptos_Planner.md)
+- [MCP Protocol](protocols/MCP.md)
+- [A2A Protocol](protocols/A2A/Overview.md)
+- [Error Handling](ERROR_HANDLING.md)
+- [Observability](OBSERVABILITY.md)
+- [Governance](governance-usage.md)
+- [Guardrails](GUARDRAILS.md)
+- [Testing](TESTING.md)
+- [Playbook](../examples/playbook/README.md)
