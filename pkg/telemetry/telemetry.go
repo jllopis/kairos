@@ -6,6 +6,7 @@ package telemetry
 import (
 	"context"
 	"encoding/base64"
+	stderrors "errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -198,7 +199,8 @@ func RecordError(span trace.Span, err error) {
 	span.RecordError(err)
 
 	// Extract KairosError for rich context
-	if ke, ok := err.(*errors.KairosError); ok {
+	var ke *errors.KairosError
+	if stderrors.As(err, &ke) {
 		// Add error code and recoverable flag as attributes
 		span.SetAttributes(
 			attribute.String("error.code", string(ke.Code)),

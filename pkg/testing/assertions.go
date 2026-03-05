@@ -415,7 +415,7 @@ func AssertToolCallArgs(t *testing.T, tc llm.ToolCall, expectedName string) map[
 	if tc.Function.Name != expectedName {
 		t.Errorf("expected tool %q, got %q", expectedName, tc.Function.Name)
 	}
-	
+
 	var args map[string]any
 	if tc.Function.Arguments != "" {
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {

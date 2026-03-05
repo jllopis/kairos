@@ -35,14 +35,14 @@ import (
 
 // Scenario defines a test scenario for an agent interaction.
 type Scenario struct {
-	name           string
-	description    string
-	input          string
-	context        context.Context
-	timeout        time.Duration
-	expectations   []Expectation
-	setupFuncs     []func() error
-	teardownFuncs  []func() error
+	name          string
+	description   string
+	input         string
+	context       context.Context
+	timeout       time.Duration
+	expectations  []Expectation
+	setupFuncs    []func() error
+	teardownFuncs []func() error
 }
 
 // Expectation defines a condition to verify after running a scenario.
@@ -335,7 +335,7 @@ type noErrorExpectation struct{}
 
 func (e *noErrorExpectation) Check(r *ScenarioResult) error {
 	if r.Error != nil {
-		return fmt.Errorf("expected no error, got: %v", r.Error)
+		return fmt.Errorf("expected no error, got: %w", r.Error)
 	}
 	return nil
 }

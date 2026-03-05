@@ -137,10 +137,10 @@ func (p *Provider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatResp
 // OpenAI-compatible request/response types
 
 type openAIRequest struct {
-	Model       string           `json:"model"`
-	Messages    []openAIMessage  `json:"messages"`
-	Tools       []openAITool     `json:"tools,omitempty"`
-	Temperature *float64         `json:"temperature,omitempty"`
+	Model       string          `json:"model"`
+	Messages    []openAIMessage `json:"messages"`
+	Tools       []openAITool    `json:"tools,omitempty"`
+	Temperature *float64        `json:"temperature,omitempty"`
 }
 
 type openAIMessage struct {
@@ -151,8 +151,8 @@ type openAIMessage struct {
 }
 
 type openAITool struct {
-	Type     string             `json:"type"`
-	Function openAIFunctionDef  `json:"function"`
+	Type     string            `json:"type"`
+	Function openAIFunctionDef `json:"function"`
 }
 
 type openAIFunctionDef struct {
@@ -162,9 +162,9 @@ type openAIFunctionDef struct {
 }
 
 type openAIToolCall struct {
-	ID       string               `json:"id"`
-	Type     string               `json:"type"`
-	Function openAIFunctionCall   `json:"function"`
+	ID       string             `json:"id"`
+	Type     string             `json:"type"`
+	Function openAIFunctionCall `json:"function"`
 }
 
 type openAIFunctionCall struct {
@@ -455,9 +455,9 @@ type openAIStreamEvent struct {
 	Choices []struct {
 		Index int `json:"index"`
 		Delta struct {
-			Role      string                    `json:"role,omitempty"`
-			Content   string                    `json:"content,omitempty"`
-			ToolCalls []openAIStreamToolCall    `json:"tool_calls,omitempty"`
+			Role      string                 `json:"role,omitempty"`
+			Content   string                 `json:"content,omitempty"`
+			ToolCalls []openAIStreamToolCall `json:"tool_calls,omitempty"`
 		} `json:"delta"`
 		FinishReason string `json:"finish_reason,omitempty"`
 	} `json:"choices"`

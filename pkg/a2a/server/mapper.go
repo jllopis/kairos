@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/uuid"
 	a2av1 "github.com/jllopis/kairos/pkg/a2a/types"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // ResponseMessage builds a message from an executor output.
@@ -92,15 +91,4 @@ func ExtractData(message *a2av1.Message) map[string]interface{} {
 		return data.AsMap()
 	}
 	return nil
-}
-
-func structFromMap(data map[string]interface{}) *structpb.Struct {
-	if len(data) == 0 {
-		return nil
-	}
-	payload, err := structpb.NewStruct(data)
-	if err != nil {
-		return nil
-	}
-	return payload
 }

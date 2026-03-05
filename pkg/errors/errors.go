@@ -72,10 +72,10 @@ func (e *KairosError) Unwrap() error {
 func (e *KairosError) MarshalJSON() ([]byte, error) {
 	type Alias KairosError
 	return json.Marshal(&struct {
-		Message   string `json:"message"`
-		Code      string `json:"code"`
-		Err       string `json:"error,omitempty"`
-		Recoverable bool `json:"recoverable"`
+		Message     string `json:"message"`
+		Code        string `json:"code"`
+		Err         string `json:"error,omitempty"`
+		Recoverable bool   `json:"recoverable"`
 		*Alias
 	}{
 		Message:     e.Error(),

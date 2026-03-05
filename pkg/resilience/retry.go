@@ -5,6 +5,7 @@ package resilience
 
 import (
 	"context"
+	stderrors "errors"
 	"math"
 	"math/rand"
 	"time"
@@ -157,7 +158,8 @@ func isRecoverableDefault(err error) bool {
 	}
 
 	// Check if it's a KairosError with explicit recoverable flag
-	if ke, ok := err.(*errors.KairosError); ok {
+	var ke *errors.KairosError
+	if stderrors.As(err, &ke) {
 		return ke.Recoverable
 	}
 

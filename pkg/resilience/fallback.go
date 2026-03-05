@@ -92,10 +92,10 @@ func WithFallback(ctx context.Context, fn func() (interface{}, error), fallback 
 
 // GracefulDegradation represents a service in degraded state.
 type GracefulDegradation struct {
-	Primary   func() (interface{}, error)
-	Fallback  FallbackStrategy
-	LogError  func(err error)
-	MaxErrors int
+	Primary    func() (interface{}, error)
+	Fallback   FallbackStrategy
+	LogError   func(err error)
+	MaxErrors  int
 	ErrorCount int
 }
 

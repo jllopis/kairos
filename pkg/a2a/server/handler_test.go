@@ -16,10 +16,9 @@ import (
 var errStub = fmt.Errorf("executor error")
 
 type streamRecorder struct {
-	mu     sync.Mutex
-	ctx    context.Context
-	sent   []*a2av1.StreamResponse
-	closed bool
+	mu   sync.Mutex
+	ctx  context.Context
+	sent []*a2av1.StreamResponse
 }
 
 func newStreamRecorder() *streamRecorder {

@@ -169,8 +169,8 @@ func validateLLM(cfg *config.Config) checkResult {
 			}
 		}
 		return checkResult{
-			Name:   "llm",
-			Status: "ok",
+			Name:    "llm",
+			Status:  "ok",
 			Message: fmt.Sprintf("ollama (%s)", model),
 		}
 
@@ -183,8 +183,8 @@ func validateLLM(cfg *config.Config) checkResult {
 			}
 		}
 		return checkResult{
-			Name:   "llm",
-			Status: "ok",
+			Name:    "llm",
+			Status:  "ok",
 			Message: "openai (api key configured)",
 		}
 

@@ -21,7 +21,7 @@ type Store struct {
 func New(addr string) (*Store, error) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("did not connect: %v", err)
+		return nil, fmt.Errorf("did not connect: %w", err)
 	}
 
 	return &Store{

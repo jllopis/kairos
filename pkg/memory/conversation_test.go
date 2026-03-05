@@ -168,9 +168,9 @@ func TestTokenStrategy(t *testing.T) {
 	}
 
 	messages := []ConversationMessage{
-		{Role: "user", Content: "This is a long message"},       // 22 chars
-		{Role: "assistant", Content: "Short"},                   // 5 chars
-		{Role: "user", Content: "Also short"},                   // 10 chars
+		{Role: "user", Content: "This is a long message"}, // 22 chars
+		{Role: "assistant", Content: "Short"},             // 5 chars
+		{Role: "user", Content: "Also short"},             // 10 chars
 	}
 
 	result, err := strategy.Truncate(context.Background(), messages)

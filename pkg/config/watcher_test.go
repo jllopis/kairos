@@ -177,7 +177,7 @@ func TestReloadableConfig(t *testing.T) {
 
 func TestWatchConfigWithProfiles(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create base config
 	basePath := filepath.Join(tmpDir, "config.yaml")
 	if err := os.WriteFile(basePath, []byte(`llm:

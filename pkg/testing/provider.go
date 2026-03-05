@@ -15,12 +15,12 @@ import (
 // ScenarioProvider is an enhanced mock provider for testing scenarios.
 // It supports scripted responses, tool call simulation, and request capture.
 type ScenarioProvider struct {
-	mu            sync.Mutex
-	responses     []ScriptedResponse
-	currentIndex  int
-	requests      []llm.ChatRequest
-	defaultError  error
-	onChat        func(req llm.ChatRequest) (*llm.ChatResponse, error)
+	mu           sync.Mutex
+	responses    []ScriptedResponse
+	currentIndex int
+	requests     []llm.ChatRequest
+	defaultError error
+	onChat       func(req llm.ChatRequest) (*llm.ChatResponse, error)
 }
 
 // ScriptedResponse defines a response for the scenario provider.
@@ -173,9 +173,9 @@ func (p *ScenarioProvider) Reset() {
 
 // ToolCallBuilder helps construct tool calls for testing.
 type ToolCallBuilder struct {
-	id       string
-	name     string
-	args     map[string]any
+	id   string
+	name string
+	args map[string]any
 }
 
 // NewToolCall creates a new tool call builder.

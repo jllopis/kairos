@@ -1128,33 +1128,6 @@ func (a *Agent) filterToolsByGovernance(ctx context.Context, tools []core.Tool) 
 	return filtered
 }
 
-// skillAllowList is deprecated - tool filtering should use governance.ToolFilter.
-// Kept for backward compatibility.
-func (a *Agent) skillAllowList() map[string]bool {
-	if len(a.skills) == 0 {
-		return nil
-	}
-	allowed := make(map[string]bool)
-	for _, skill := range a.skills {
-		for _, tool := range skill.AllowedTools {
-			if strings.TrimSpace(tool) == "" {
-				continue
-			}
-			allowed[tool] = true
-		}
-	}
-	if len(allowed) == 0 {
-		allowed = make(map[string]bool, len(a.skills))
-		for _, skill := range a.skills {
-			if strings.TrimSpace(skill.Name) == "" {
-				continue
-			}
-			allowed[skill.Name] = true
-		}
-	}
-	return allowed
-}
-
 func dedupeTools(tools []core.Tool) []core.Tool {
 	if len(tools) < 2 {
 		return tools

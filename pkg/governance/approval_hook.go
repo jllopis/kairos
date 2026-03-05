@@ -25,10 +25,10 @@ func (h StaticApprovalHook) Request(_ context.Context, _ Action) Decision {
 
 // ConsoleApprovalHook prompts for approval on stdin/stdout.
 type ConsoleApprovalHook struct {
-	in      *bufio.Reader
-	out     io.Writer
-	prompt  string
-	timeout time.Duration
+	in              *bufio.Reader
+	out             io.Writer
+	prompt          string
+	timeout         time.Duration
 	defaultDecision Decision
 }
 

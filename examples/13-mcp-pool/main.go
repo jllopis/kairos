@@ -31,9 +31,9 @@ func main() {
 	// Create a shared MCP connection pool
 	// This pool can be used across all agents in your application
 	mcpPool := pool.New(
-		pool.WithMaxConnectionsPerServer(5),    // Max 5 connections per MCP server
+		pool.WithMaxConnectionsPerServer(5),          // Max 5 connections per MCP server
 		pool.WithHealthCheckInterval(30*time.Second), // Check health every 30s
-		pool.WithIdleTimeout(5*time.Minute),    // Close idle connections after 5m
+		pool.WithIdleTimeout(5*time.Minute),          // Close idle connections after 5m
 	)
 	defer mcpPool.Close()
 

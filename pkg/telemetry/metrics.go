@@ -5,6 +5,7 @@ package telemetry
 
 import (
 	"context"
+	stderrors "errors"
 	"sync"
 
 	"go.opentelemetry.io/otel"
@@ -97,7 +98,8 @@ func (em *ErrorMetrics) RecordErrorMetric(ctx context.Context, err error, compon
 	em.mu.RLock()
 	defer em.mu.RUnlock()
 
-	if ke, ok := err.(*errors.KairosError); ok {
+	var ke *errors.KairosError
+	if stderrors.As(err, &ke) {
 		em.errorCounter.Add(ctx, 1,
 			metric.WithAttributes(
 				attribute.String("error.code", string(ke.Code)),

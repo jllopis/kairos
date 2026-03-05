@@ -162,7 +162,7 @@ func main() {
 			}
 			return "normal_operation", nil
 		},
-		Fallback: &resilience.StaticFallback{Value: "degraded_mode"},
+		Fallback:  &resilience.StaticFallback{Value: "degraded_mode"},
 		MaxErrors: 2,
 		LogError: func(err error) {
 			fmt.Printf("  Error logged: %v\n", err)

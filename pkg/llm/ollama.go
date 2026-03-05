@@ -126,12 +126,18 @@ func (p *OllamaProvider) ChatStream(ctx context.Context, req ChatRequest) (<-cha
 	if err != nil {
 		return nil, fmt.Errorf("ollama api call failed: %w", err)
 	}
+	bodyHandled := false
+	defer func() {
+		if !bodyHandled {
+			resp.Body.Close()
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
 		respBody, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("ollama api returned status %d: %s", resp.StatusCode, string(respBody))
 	}
+	bodyHandled = true
 
 	// Create output channel
 	chunks := make(chan StreamChunk, 100)

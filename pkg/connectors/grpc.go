@@ -310,7 +310,7 @@ func (c *GRPCConnector) messageToJSONSchema(msg protoreflect.MessageDescriptor) 
 	fields := msg.Fields()
 	for i := 0; i < fields.Len(); i++ {
 		field := fields.Get(i)
-		fieldName := string(field.JSONName())
+		fieldName := field.JSONName()
 		if fieldName == "" {
 			fieldName = string(field.Name())
 		}
@@ -478,7 +478,7 @@ func (c *GRPCConnector) populateMessage(msg *dynamicpb.Message, args map[string]
 		var field protoreflect.FieldDescriptor
 		for i := 0; i < fields.Len(); i++ {
 			f := fields.Get(i)
-			if string(f.JSONName()) == key || string(f.Name()) == key {
+			if f.JSONName() == key || string(f.Name()) == key {
 				field = f
 				break
 			}
@@ -578,7 +578,7 @@ func (c *GRPCConnector) messageToMap(msg *dynamicpb.Message) map[string]interfac
 	result := make(map[string]interface{})
 
 	msg.Range(func(field protoreflect.FieldDescriptor, value protoreflect.Value) bool {
-		key := string(field.JSONName())
+		key := field.JSONName()
 		if key == "" {
 			key = string(field.Name())
 		}

@@ -19,7 +19,6 @@ import (
 type ErrorMetricsIntegration struct {
 	metrics *telemetry.ErrorMetrics
 	enabled bool
-	mu      sync.RWMutex
 }
 
 var (

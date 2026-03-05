@@ -272,7 +272,7 @@ func TestAssertions(t *testing.T) {
 	// Use a sub-test to capture failures
 	t.Run("passing assertions", func(t *testing.T) {
 		a := NewAssertions(t)
-		
+
 		a.AssertEqual(1, 1, "equal")
 		a.AssertNotEqual(1, 2, "not equal")
 		a.AssertTrue(true, "true")
@@ -281,7 +281,7 @@ func TestAssertions(t *testing.T) {
 		a.AssertNotContains("hello", "world", "not contains")
 		a.AssertNoError(nil, "no error")
 		a.AssertError(errors.New("oops"), "error")
-		
+
 		if a.Failed() {
 			t.Error("assertions should not have failed")
 		}
@@ -290,7 +290,7 @@ func TestAssertions(t *testing.T) {
 
 func TestRequestAssertions(t *testing.T) {
 	a := NewAssertions(t)
-	
+
 	req := &llm.ChatRequest{
 		Model: "gpt-4",
 		Messages: []llm.Message{
@@ -301,7 +301,7 @@ func TestRequestAssertions(t *testing.T) {
 			NewToolDefinition("search").Build(),
 		},
 	}
-	
+
 	a.AssertRequest(req).
 		HasModel("gpt-4").
 		HasMessageCount(2).
@@ -313,14 +313,14 @@ func TestRequestAssertions(t *testing.T) {
 
 func TestResponseAssertions(t *testing.T) {
 	a := NewAssertions(t)
-	
+
 	resp := &llm.ChatResponse{
 		Content: "Hello, how can I help?",
 		ToolCalls: []llm.ToolCall{
 			NewToolCall("search").WithArg("q", "test").Build(),
 		},
 	}
-	
+
 	a.AssertResponse(resp).
 		HasContent("help").
 		HasToolCalls().

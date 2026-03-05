@@ -5,8 +5,6 @@ package connectors
 
 import (
 	"testing"
-
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // TestGRPCConnectorFromServices tests creating a connector from pre-defined services.
@@ -182,13 +180,6 @@ func TestKindToJSONSchema(t *testing.T) {
 		t.Fatal("Expected non-nil connector")
 	}
 }
-
-// MockFieldDescriptor is a minimal mock for testing (not actually usable for protobuf ops)
-type mockFieldDescriptor struct {
-	kind protoreflect.Kind
-}
-
-func (m mockFieldDescriptor) Kind() protoreflect.Kind { return m.kind }
 
 // TestGRPCFindMethodNotFound tests error handling for unknown methods.
 func TestGRPCFindMethodNotFound(t *testing.T) {

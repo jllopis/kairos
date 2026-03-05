@@ -54,8 +54,8 @@ func demoScriptedProvider() {
 	fmt.Printf("Turn 1: %s\n", resp1.Content)
 
 	resp2, _ := provider.Chat(ctx, llm.ChatRequest{})
-	fmt.Printf("Turn 2: Tool calls: %d (%s)\n", 
-		len(resp2.ToolCalls), 
+	fmt.Printf("Turn 2: Tool calls: %d (%s)\n",
+		len(resp2.ToolCalls),
 		resp2.ToolCalls[0].Function.Name)
 
 	resp3, _ := provider.Chat(ctx, llm.ChatRequest{})

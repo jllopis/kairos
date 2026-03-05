@@ -8,7 +8,6 @@ import (
 	"log/slog"
 
 	"github.com/jllopis/kairos/pkg/core"
-	"github.com/jllopis/kairos/pkg/guardrails"
 	"github.com/jllopis/kairos/pkg/telemetry"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -59,11 +58,4 @@ func (a *Agent) applyGuardrailsOutput(ctx context.Context, log *slog.Logger, run
 		)
 	}
 	return result.Content
-}
-
-func (a *Agent) guardrailsStats() guardrails.Stats {
-	if a.guardrails == nil {
-		return guardrails.Stats{}
-	}
-	return a.guardrails.Stats()
 }

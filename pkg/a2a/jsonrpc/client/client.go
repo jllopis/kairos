@@ -317,10 +317,16 @@ func (c *Client) stream(ctx context.Context, method string, params proto.Message
 	if err != nil {
 		return nil, err
 	}
+	bodyHandled := false
+	defer func() {
+		if !bodyHandled {
+			resp.Body.Close()
+		}
+	}()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		defer resp.Body.Close()
 		return nil, parseHTTPError(resp)
 	}
+	bodyHandled = true
 	out := make(chan *a2av1.StreamResponse)
 	go func() {
 		defer resp.Body.Close()

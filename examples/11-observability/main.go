@@ -109,10 +109,10 @@ func main() {
 		code  errors.ErrorCode
 		count int
 	}{
-		{errors.CodeLLMError, 2},       // 2 of 3 recovered
-		{errors.CodeTimeout, 2},        // 2 of 2 recovered
-		{errors.CodeToolFailure, 3},    // 3 of 4 recovered
-		{errors.CodeRateLimit, 1},      // 1 of 1 recovered
+		{errors.CodeLLMError, 2},    // 2 of 3 recovered
+		{errors.CodeTimeout, 2},     // 2 of 2 recovered
+		{errors.CodeToolFailure, 3}, // 3 of 4 recovered
+		{errors.CodeRateLimit, 1},   // 1 of 1 recovered
 	}
 
 	for _, pattern := range recoveryPatterns {

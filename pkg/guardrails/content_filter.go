@@ -13,18 +13,18 @@ import (
 type ContentCategory string
 
 const (
-	ContentCategoryProfanity  ContentCategory = "profanity"
-	ContentCategoryViolence   ContentCategory = "violence"
-	ContentCategoryHate       ContentCategory = "hate"
-	ContentCategorySexual     ContentCategory = "sexual"
-	ContentCategoryDangerous  ContentCategory = "dangerous"
-	ContentCategorySelfHarm   ContentCategory = "self_harm"
-	ContentCategoryIllegal    ContentCategory = "illegal"
-	ContentCategoryMedical    ContentCategory = "medical_advice"
-	ContentCategoryFinancial  ContentCategory = "financial_advice"
-	ContentCategoryMalware    ContentCategory = "malware"
-	ContentCategoryPhishing   ContentCategory = "phishing"
-	ContentCategorySpam       ContentCategory = "spam"
+	ContentCategoryProfanity ContentCategory = "profanity"
+	ContentCategoryViolence  ContentCategory = "violence"
+	ContentCategoryHate      ContentCategory = "hate"
+	ContentCategorySexual    ContentCategory = "sexual"
+	ContentCategoryDangerous ContentCategory = "dangerous"
+	ContentCategorySelfHarm  ContentCategory = "self_harm"
+	ContentCategoryIllegal   ContentCategory = "illegal"
+	ContentCategoryMedical   ContentCategory = "medical_advice"
+	ContentCategoryFinancial ContentCategory = "financial_advice"
+	ContentCategoryMalware   ContentCategory = "malware"
+	ContentCategoryPhishing  ContentCategory = "phishing"
+	ContentCategorySpam      ContentCategory = "spam"
 )
 
 // contentPattern defines patterns for a content category.
@@ -36,9 +36,9 @@ type contentPattern struct {
 
 // ContentFilter blocks or flags content based on category patterns.
 type ContentFilter struct {
-	categories       map[ContentCategory]contentPattern
+	categories        map[ContentCategory]contentPattern
 	enabledCategories map[ContentCategory]bool
-	blockMode        bool // true = block, false = flag only
+	blockMode         bool // true = block, false = flag only
 }
 
 // ContentFilterOption configures the content filter.
@@ -116,9 +116,9 @@ var defaultContentPatterns = map[ContentCategory]struct {
 // NewContentFilter creates a new content filter.
 func NewContentFilter(categories ...ContentCategory) *ContentFilter {
 	f := &ContentFilter{
-		categories:       make(map[ContentCategory]contentPattern),
+		categories:        make(map[ContentCategory]contentPattern),
 		enabledCategories: make(map[ContentCategory]bool),
-		blockMode:        true,
+		blockMode:         true,
 	}
 
 	// Compile patterns for requested categories

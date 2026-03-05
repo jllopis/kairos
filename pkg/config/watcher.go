@@ -179,16 +179,16 @@ func (w *Watcher) loadConfig() (*Config, error) {
 // It returns the watcher and initial config.
 func WatchConfig(ctx context.Context, configPath string, opts ...WatcherOption) (*Watcher, *Config, error) {
 	paths := []string{}
-	
+
 	if configPath != "" {
 		paths = append(paths, configPath)
-		
+
 		// Also watch profile-specific files if they exist
 		dir := filepath.Dir(configPath)
 		ext := filepath.Ext(configPath)
 		base := filepath.Base(configPath)
 		nameWithoutExt := base[:len(base)-len(ext)]
-		
+
 		// Check for common profiles
 		for _, profile := range []string{"dev", "prod", "staging", "local"} {
 			profilePath := filepath.Join(dir, nameWithoutExt+"."+profile+ext)

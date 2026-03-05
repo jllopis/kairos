@@ -359,10 +359,16 @@ func (c *Client) streamProto(ctx context.Context, method, endpoint string, req p
 	if err != nil {
 		return nil, err
 	}
+	bodyHandled := false
+	defer func() {
+		if !bodyHandled {
+			response.Body.Close()
+		}
+	}()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		defer response.Body.Close()
 		return nil, parseHTTPError(response)
 	}
+	bodyHandled = true
 	out := make(chan *a2av1.StreamResponse)
 	go func() {
 		defer response.Body.Close()
