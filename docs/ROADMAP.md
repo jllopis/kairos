@@ -174,27 +174,32 @@ Ver [PROVIDERS.md](PROVIDERS.md) para documentación completa.
 
 ---
 
-## Arquitectura de kairosctl (Futuro)
+## Arquitectura de kairosctl
 
-Plataforma de orquestación para workflows y agentes.
+Plataforma de operación de agentes IA estructurada en tres pilares:
+**Observability**, **Evaluation** y **Deployment & Orchestration**.
+
+> La visión completa, el alcance detallado, las fases de implementación y la
+> comparativa con plataformas de referencia están documentados en el repositorio
+> de kairosctl:
+> - **[kairosctl/docs/VISION.md](https://github.com/jllopis/kairosctl/blob/main/docs/VISION.md)** — Visión, pilares y plan de evolución.
+> - **[kairosctl/docs/ROADMAP.md](https://github.com/jllopis/kairosctl/blob/main/docs/ROADMAP.md)** — Roadmap operativo con fases y criterios.
 
 **Decisión de arquitectura:**
-- Dos repositorios: `kairos` (framework) + `kairosctl` (control plane)
-- `kairosctl` importa `kairos` como dependencia Go
-- Kairos mantiene su rol de biblioteca/framework
-- kairosctl añade: scheduling, persistence, registries, dashboard completo
+- Dos repositorios: `kairos` (framework) + `kairosctl` (control plane).
+- `kairosctl` importa `kairos` como dependencia Go.
+- Kairos mantiene su rol de biblioteca/framework.
+- kairosctl añade: observabilidad (trazas, dashboards, alertas), evaluación
+  (datasets, evals offline/online, human feedback), y orquestación (registries,
+  scheduler, task queues, multi-tenant, RBAC).
 
-**Componentes de kairosctl:**
+**Pilares de kairosctl:**
 
-| Componente | Descripción |
-|------------|-------------|
-| Skill Marketplace | Publicar, descubrir y versionar skills |
-| A2A Registry | Registro centralizado de agentes A2A |
-| MCP Registry | Catálogo de servidores MCP |
-| Agent Registry | Versiones, metadatos, health checks |
-| Dashboard | Timeline, histórico, replay, métricas |
-| Scheduler | Ejecución programada de workflows |
-| Queue | Cola distribuida para tareas |
+| Pilar | Capacidades clave |
+|-------|-------------------|
+| **Observability** | Receptor OTLP, trace explorer, dashboards (latencia, coste, error rate), alertas, insights |
+| **Evaluation** | Datasets, offline/online evals, LLM-as-judge, human feedback, comparador side-by-side, CI integration |
+| **Deployment & Orchestration** | Agent/Skill/MCP registries con versionado, scheduler cron, task queues, HITL, multi-tenant (RBAC), audit log |
 
 **Interfaces estables de Kairos (contrato con kairosctl):**
 - `core.Agent`, `core.Task`, `core.Skill`
@@ -203,6 +208,10 @@ Plataforma de orquestación para workflows y agentes.
 - `planner.Executor`
 - `core.EventEmitter`
 - `memory.ConversationMemory`
+
+**Política de compatibilidad:** Kairos sigue SemVer. kairosctl pinea una
+versión mínima en `go.mod`. Cambios breaking requieren PR coordinado en ambos
+repos.
 
 ---
 
