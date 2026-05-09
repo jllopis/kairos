@@ -8,8 +8,22 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
+
+// defaultOllamaTimeout is the http.Client timeout applied when the
+// caller does not configure one explicitly. Local models can take
+// well over a minute on a cold start, so the default is generous;
+// callers expecting longer should pass WithOllamaTimeout (or 0 to
+// fall back entirely to the request context's deadline).
+const defaultOllamaTimeout = 120 * time.Second
+
+// envOllamaTimeout names the environment variable parsed for the
+// fallback http.Client timeout. The value is parsed with
+// time.ParseDuration ("5m", "300s", "90s"). Set to "0" to disable
+// the http.Client timeout and rely solely on the request context.
+const envOllamaTimeout = "KAIROS_OLLAMA_TIMEOUT"
 
 // OllamaProvider implements the Provider interface for Ollama.
 type OllamaProvider struct {
@@ -17,15 +31,63 @@ type OllamaProvider struct {
 	client  *http.Client
 }
 
-// NewOllama creates a new OllamaProvider.
-func NewOllama(baseURL string) *OllamaProvider {
+// OllamaOption configures an OllamaProvider at construction time.
+type OllamaOption func(*OllamaProvider)
+
+// WithOllamaTimeout sets the underlying http.Client timeout. A zero
+// duration disables the client-side timeout entirely so the request
+// context is the only deadline that fires — appropriate for slow
+// local models or callers that already wrap each Chat call with
+// context.WithTimeout.
+func WithOllamaTimeout(d time.Duration) OllamaOption {
+	return func(p *OllamaProvider) {
+		p.client.Timeout = d
+	}
+}
+
+// WithOllamaHTTPClient replaces the http.Client outright. Use this
+// when you need to inject custom transport, timeouts or middleware
+// (proxies, instrumentation, retries) that the simple WithOllamaTimeout
+// option cannot express.
+func WithOllamaHTTPClient(c *http.Client) OllamaOption {
+	return func(p *OllamaProvider) {
+		if c != nil {
+			p.client = c
+		}
+	}
+}
+
+// NewOllama creates a new OllamaProvider pointed at baseURL (defaults
+// to http://localhost:11434 when empty). The http.Client timeout is
+// resolved in the following order: explicit WithOllamaTimeout option
+// > KAIROS_OLLAMA_TIMEOUT environment variable > defaultOllamaTimeout.
+func NewOllama(baseURL string, opts ...OllamaOption) *OllamaProvider {
 	if baseURL == "" {
 		baseURL = "http://localhost:11434"
 	}
-	return &OllamaProvider{
+	p := &OllamaProvider{
 		baseURL: baseURL,
-		client:  &http.Client{Timeout: 120 * time.Second},
+		client:  &http.Client{Timeout: ollamaTimeoutFromEnv()},
 	}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p
+}
+
+// ollamaTimeoutFromEnv reads KAIROS_OLLAMA_TIMEOUT and parses it as a
+// Go duration. Falls back to defaultOllamaTimeout on any error so a
+// typo in the env var doesn't lock callers out of all Ollama traffic.
+func ollamaTimeoutFromEnv() time.Duration {
+	raw := os.Getenv(envOllamaTimeout)
+	if raw == "" {
+		return defaultOllamaTimeout
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return defaultOllamaTimeout
+	}
+	return d
 }
 
 type ollamaRequest struct {
